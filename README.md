@@ -30,18 +30,6 @@ Thanks for your patience — progress is ongoing!
 
 
 
-### Temporary: Download Latest Build from GitHub Actions (Nightly-ish Builds)
-
-While official release binaries are pending:
-
-1. Visit the **[Actions tab](https://github.com/tesselstudio/TesselBox-game/actions)**.
-2. Find the most recent **successful** workflow run (green checkmark, e.g. "Build Executables" or similar).
-3. Scroll to the bottom → **Artifacts** section.
-4. Download the zip for your OS (e.g. `tesselbox-windows-exe`, `tesselbox-linux-appimage`, `tesselbox-macos-app`).
-5. Unzip and run the executable.
-
-This gives you the freshest compiled version directly from recent commits.
-
 
 
 
