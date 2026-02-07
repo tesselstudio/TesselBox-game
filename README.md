@@ -1,5 +1,7 @@
 # TesselBox
 
+[![Open Source Helpers](https://www.codetriage.com/tesselstudio/tesselbox-game/badges/users.svg)](https://www.codetriage.com/tesselstudio/tesselbox-game)
+
 A 2D sandbox adventure game inspired by *Terraria*, but built on a **hexagonal grid**.
 
 Explore worlds, mine resources, build structures, craft items, fight enemies, and survive — all in beautiful hex tiles.
