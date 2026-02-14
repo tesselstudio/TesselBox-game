@@ -6,9 +6,7 @@ This plan addresses critical security issues, implements missing core functional
 
 ### 1.2 done
 
-### 1.3 Add CSRF Protection to OAuth
-**Problem:** OAuth state parameter is hardcoded to "state"
-**Solution:** Generate and validate cryptographically secure state tokens
+### 1.3 done
 ## Phase 2: Core Game Systems (Week 1-2)
 ### 2.1 Complete Save/Load System
 **Current State:** Storage code exists but player state not persisted
