@@ -2,20 +2,10 @@
 ## Overview
 This plan addresses critical security issues, implements missing core functionality, and adds new features to the TesselBox hexagonal voxel game.
 ## Phase 1: Critical Security & Startup Fixes (Immediate Priority)
-### 1.1 Fix OAuth log.Fatal() Issue
-**Location:** `pkg/auth/oauth.go` lines 69-91
-**Problem:** Using `log.Fatal()` crashes the app when OAuth credentials are missing
-**Solution:**
-* Create `AuthServiceConfig` with optional providers
-* Return errors instead of calling `log.Fatal()`
-* Support graceful fallback to guest mode
-* Add `NewAuthServiceSafe()` constructor that returns errors
-### 1.2 Create Unified Startup System
-**New File:** `startup.go`
-* Proper initialization order
-* Error handling with recovery
-* Graceful shutdown
-* Configuration validation
+### 1.1 done
+
+### 1.2 done
+
 ### 1.3 Add CSRF Protection to OAuth
 **Problem:** OAuth state parameter is hardcoded to "state"
 **Solution:** Generate and validate cryptographically secure state tokens
@@ -89,8 +79,6 @@ This plan addresses critical security issues, implements missing core functional
 * Pathfinding (A* algorithm)
 * Spawn system based on biome
 ## Implementation Order (Priority)
-1. **CRITICAL:** Fix OAuth error handling (Phase 1.1) ✓
-2. **CRITICAL:** Create startup system (Phase 1.2)
 3. **HIGH:** Complete save/load (Phase 2.1)
 4. **HIGH:** Complete inventory integration (Phase 2.2)
 5. **HIGH:** Implement crafting UI (Phase 2.3)
