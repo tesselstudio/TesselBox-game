@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"tesselbox/pkg/blocks"
+	"tesselbox/pkg/hexagon"
 	"tesselbox/pkg/menu"
 	"tesselbox/pkg/player"
 	"tesselbox/pkg/world"
@@ -52,6 +53,7 @@ type Game struct {
 	inMenu          bool
 	mainMenu        *menu.Menu
 	lastUpdateTime  time.Time
+	whiteImage      *ebiten.Image // Reusable image for drawing
 }
 
 // Particle represents a simple particle effect
@@ -65,6 +67,10 @@ type Particle struct {
 
 // NewGame creates a new game instance (no auth anymore)
 func NewGame() *Game {
+	// Create a white image for drawing hexagons
+	whiteImage := ebiten.NewImage(1, 1)
+	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
+
 	game := &Game{
 		ScreenWidth:    ScreenWidth,
 		ScreenHeight:   ScreenHeight,
@@ -78,6 +84,7 @@ func NewGame() *Game {
 		inMenu:         true,
 		mainMenu:       menu.NewMenu(),
 		lastUpdateTime: time.Now(),
+		whiteImage:     whiteImage,
 	}
 
 	return game
@@ -119,6 +126,23 @@ func (g *Game) Update() error {
 		}
 
 		g.Player.Update(deltaTime)
+
+		// Apply collision detection with hexagonal tiles
+		nearbyHexagons := g.World.GetNearbyHexagons(g.Player.X, g.Player.Y, 300)
+		g.Player.UpdateWithCollision(deltaTime, func(minX, minY, maxX, maxY float64) bool {
+			for _, hex := range nearbyHexagons {
+				def := blocks.BlockDefinitions[getBlockKeyFromType(hex.BlockType)]
+				if def == nil || !def.Solid {
+					continue
+				}
+
+				// Check collision with hexagon using point-in-hexagon test
+				if g.checkRectHexCollision(minX, minY, maxX, maxY, hex) {
+					return true
+				}
+			}
+			return false
+		})
 
 		// Update Camera to follow player
 		g.CameraX = g.Player.X - float64(g.ScreenWidth)/2
@@ -228,15 +252,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	visibleHexagons := g.World.GetVisibleBlocks(g.CameraX+float64(g.ScreenWidth)/2, g.CameraY+float64(g.ScreenHeight)/2)
 	for _, hex := range visibleHexagons {
-		drawX := hex.X - g.CameraX
-		drawY := hex.Y - g.CameraY
-		ebitenutil.DrawRect(screen, drawX-20, drawY-20, 40, 40, hex.Color)
+		if hex.BlockType == blocks.AIR {
+			continue
+		}
+		g.drawHexagon(screen, hex)
 	}
 
 	if g.Player != nil {
+		// Draw square player
 		pX := g.Player.X - g.CameraX
 		pY := g.Player.Y - g.CameraY
-		ebitenutil.DrawRect(screen, pX-20, pY-40, 40, 80, Red)
+		ebitenutil.DrawRect(screen, pX, pY, g.Player.Width, g.Player.Height, Red)
 	}
 
 	for _, p := range g.Particles {
@@ -278,6 +304,154 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// drawHexagon draws a hexagonal tile
+func (g *Game) drawHexagon(screen *ebiten.Image, hex *world.Hexagon) {
+	// Calculate screen position
+	screenX := hex.X - g.CameraX
+	screenY := hex.Y - g.CameraY
+
+	// Check if hexagon is on screen
+	if screenX < -100 || screenX > float64(g.ScreenWidth)+100 ||
+		screenY < -100 || screenY > float64(g.ScreenHeight)+100 {
+		return
+	}
+
+	// Get hexagon corners
+	corners := hexagon.GetHexCorners(screenX, screenY, world.HexSize)
+
+	// Get block color
+	def := blocks.BlockDefinitions[getBlockKeyFromType(hex.BlockType)]
+	if def == nil {
+		return
+	}
+
+	// Create polygon vertices
+	vertices := make([]ebiten.Vertex, len(corners))
+	for i, corner := range corners {
+		r, g, b, a := def.Color.RGBA()
+		vertices[i] = ebiten.Vertex{
+			DstX:   float32(corner[0]),
+			DstY:   float32(corner[1]),
+			ColorR: float32(r) / 65535.0,
+			ColorG: float32(g) / 65535.0,
+			ColorB: float32(b) / 65535.0,
+			ColorA: float32(a) / 65535.0,
+		}
+	}
+
+	// Apply damage darkening
+	if hex.Health < hex.MaxHealth {
+		damageRatio := hex.Health / hex.MaxHealth
+		for i := range vertices {
+			vertices[i].ColorR *= float32(damageRatio)
+			vertices[i].ColorG *= float32(damageRatio)
+			vertices[i].ColorB *= float32(damageRatio)
+		}
+	}
+
+	// Draw filled hexagon using triangles
+	indices := []uint16{0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5}
+	screen.DrawTriangles(vertices, indices, g.whiteImage, nil)
+
+	// Hexagon outline can be added later if needed
+	// For now, the filled hexagon is sufficient
+}
+
+// checkRectHexCollision checks if a rectangle collides with a hexagon
+func (g *Game) checkRectHexCollision(minX, minY, maxX, maxY float64, hex *world.Hexagon) bool {
+	// Quick bounding box check first
+	hexRadius := hex.Size
+	hexMinX := hex.X - hexRadius
+	hexMaxX := hex.X + hexRadius
+	hexMinY := hex.Y - hexRadius
+	hexMaxY := hex.Y + hexRadius
+
+	if maxX < hexMinX || minX > hexMaxX || maxY < hexMinY || minY > hexMaxY {
+		return false
+	}
+
+	// Check if any corner of the rectangle is inside the hexagon
+	corners := [][2]float64{
+		{minX, minY}, {maxX, minY}, {maxX, maxY}, {minX, maxY},
+	}
+
+	for _, corner := range corners {
+		if g.pointInHexagon(corner[0], corner[1], hex) {
+			return true
+		}
+	}
+
+	// Check if any hexagon corner is inside the rectangle
+	for _, hexCorner := range hex.Corners {
+		if hexCorner[0] >= minX && hexCorner[0] <= maxX &&
+			hexCorner[1] >= minY && hexCorner[1] <= maxY {
+			return true
+		}
+	}
+
+	// Check if rectangle edges intersect with hexagon edges
+	rectEdges := [][4]float64{
+		{minX, minY, maxX, minY}, // top
+		{maxX, minY, maxX, maxY}, // right
+		{maxX, maxY, minX, maxY}, // bottom
+		{minX, maxY, minX, minY}, // left
+	}
+
+	for _, edge := range rectEdges {
+		for i := 0; i < len(hex.Corners); i++ {
+			next := (i + 1) % len(hex.Corners)
+			if g.lineIntersect(edge[0], edge[1], edge[2], edge[3],
+				hex.Corners[i][0], hex.Corners[i][1],
+				hex.Corners[next][0], hex.Corners[next][1]) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// pointInHexagon checks if a point is inside a hexagon
+func (g *Game) pointInHexagon(x, y float64, hex *world.Hexagon) bool {
+	dx := x - hex.X
+	dy := y - hex.Y
+	distanceSq := dx*dx + dy*dy
+	radiusSq := hex.Size * hex.Size
+
+	// Quick circle check first
+	if distanceSq > radiusSq {
+		return false
+	}
+
+	// More precise hexagon check using ray casting
+	inside := false
+	j := len(hex.Corners) - 1
+	for i := 0; i < len(hex.Corners); i++ {
+		xi, yi := hex.Corners[i][0], hex.Corners[i][1]
+		xj, yj := hex.Corners[j][0], hex.Corners[j][1]
+
+		if ((yi > y) != (yj > y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi) {
+			inside = !inside
+		}
+		j = i
+	}
+
+	return inside
+}
+
+// lineIntersect checks if two line segments intersect
+func (g *Game) lineIntersect(x1, y1, x2, y2, x3, y3, x4, y4 float64) bool {
+	denom := (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
+	if denom == 0 {
+		return false
+	}
+
+	t := ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / denom
+	u := -((x1-x2)*(y1-y3) - (y1-y2)*(x1-x3)) / denom
+
+	return t >= 0 && t <= 1 && u >= 0 && u <= 1
 }
 
 // getBlockKeyFromType converts a BlockType to its string key

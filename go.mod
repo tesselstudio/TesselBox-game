@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.6.3
+	golang.org/x/oauth2 v0.8.0
 )
 
 require (

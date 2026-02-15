@@ -1,21 +1,21 @@
 package player
 
 import (
-	"time"
 	"tesselbox/pkg/world"
+	"time"
 )
 
 const (
 	// Physics constants
-	Gravity       = 0.5
-	PlayerSpeed   = 300.0 // Speed in pixels per second (framerate independent)
-	JumpForce     = -400.0 // Jump force in pixels per second
-	Friction      = 0.85
-	TerminalVelX  = 300.0
-	TerminalVelY  = 1200.0 // Increased for faster falling
-	MiningRange   = 150.0
-	PlayerWidth   = 40.0
-	PlayerHeight  = 80.0
+	Gravity      = 0.5
+	PlayerSpeed  = 300.0  // Speed in pixels per second (framerate independent)
+	JumpForce    = -400.0 // Jump force in pixels per second
+	Friction     = 0.85
+	TerminalVelX = 300.0
+	TerminalVelY = 1200.0 // Increased for faster falling
+	MiningRange  = 150.0
+	PlayerWidth  = 40.0
+	PlayerHeight = 40.0 // Square player
 )
 
 // Player represents a player in the game
@@ -23,26 +23,26 @@ type Player struct {
 	X, Y          float64
 	VX, VY        float64
 	Width, Height float64
-	
+
 	// Movement state
-	MovingLeft   bool
-	MovingRight  bool
-	Jumping      bool
-	OnGround     bool
-	
+	MovingLeft  bool
+	MovingRight bool
+	Jumping     bool
+	OnGround    bool
+
 	// Mining state
-	Mining       bool
-	MiningTarget *world.Hexagon
-	MiningProgress float64
+	Mining          bool
+	MiningTarget    *world.Hexagon
+	MiningProgress  float64
 	MiningStartTime time.Time
-	
+
 	// Inventory (reference to inventory)
 	SelectedSlot int
-	
+
 	// Health and stats
-	Health       float64
-	MaxHealth    float64
-	
+	Health    float64
+	MaxHealth float64
+
 	// Time tracking for delta time
 	LastUpdateTime time.Time
 }
@@ -50,15 +50,15 @@ type Player struct {
 // NewPlayer creates a new player at the specified position
 func NewPlayer(x, y float64) *Player {
 	return &Player{
-		X:          x,
-		Y:          y,
-		VX:         0,
-		VY:         0,
-		Width:      PlayerWidth,
-		Height:     PlayerHeight,
-		Health:     100.0,
-		MaxHealth:  100.0,
-		SelectedSlot: 0,
+		X:              x,
+		Y:              y,
+		VX:             0,
+		VY:             0,
+		Width:          PlayerWidth,
+		Height:         PlayerHeight,
+		Health:         100.0,
+		MaxHealth:      100.0,
+		SelectedSlot:   0,
 		LastUpdateTime: time.Now(),
 	}
 }
@@ -73,7 +73,7 @@ func (p *Player) Update(deltaTime float64) {
 	if deltaTime < 0.001 {
 		deltaTime = 0.001
 	}
-	
+
 	// Apply horizontal movement with acceleration
 	if p.MovingLeft {
 		p.VX -= PlayerSpeed * deltaTime * 10 // Quick acceleration
@@ -83,36 +83,36 @@ func (p *Player) Update(deltaTime float64) {
 		// Apply friction for smooth stopping
 		p.VX *= Friction
 	}
-	
+
 	// Clamp horizontal velocity
 	if p.VX > TerminalVelX {
 		p.VX = TerminalVelX
 	} else if p.VX < -TerminalVelX {
 		p.VX = -TerminalVelX
 	}
-	
+
 	// Stop very small movements to prevent jitter
 	if !p.MovingLeft && !p.MovingRight && p.VX > -0.1 && p.VX < 0.1 {
 		p.VX = 0
 	}
-	
+
 	// Apply gravity (framerate independent)
 	p.VY += Gravity * deltaTime * 60 // Scale gravity for 60 FPS reference
-	
+
 	// Clamp vertical velocity (increased for faster falling)
 	if p.VY > TerminalVelY {
 		p.VY = TerminalVelY
 	}
-	
+
 	// Jump with delta time
 	if p.Jumping && p.OnGround {
 		p.VY = JumpForce
 		p.OnGround = false
 	}
-	
+
 	// Reset jumping flag
 	p.Jumping = false
-	
+
 	// Update mining progress
 	if p.Mining && p.MiningTarget != nil {
 		if p.MiningStartTime.IsZero() {
@@ -142,26 +142,26 @@ func (p *Player) UpdateWithCollision(deltaTime float64, checkCollision func(floa
 	if deltaTime < 0.001 {
 		deltaTime = 0.001
 	}
-	
+
 	// Update position with delta time
 	p.X += p.VX * deltaTime
 	p.Y += p.VY * deltaTime
-	
+
 	// Get player bounds
 	minX, minY, maxX, maxY := p.GetBounds()
-	
+
 	// Check vertical collision (ground detection) - increased height for better ground detection
 	bottomLeftCollision := checkCollision(minX, maxY, maxX, maxY+10)
 	bottomRightCollision := checkCollision(minX+p.Width/2, maxY, maxX, maxY+10)
-	
+
 	if bottomLeftCollision || bottomRightCollision {
 		// We hit the ground - snap to it
 		p.VY = 0
 		p.OnGround = true
-		
+
 		// Find the exact ground position by checking from current position upward
 		groundY := p.Y
-		for checkY := p.Y + p.Height; checkY > p.Y - 10; checkY-- {
+		for checkY := p.Y + p.Height; checkY > p.Y-10; checkY-- {
 			if !checkCollision(minX, checkY, maxX, checkY+1) {
 				groundY = checkY - p.Height
 				break
@@ -172,7 +172,7 @@ func (p *Player) UpdateWithCollision(deltaTime float64, checkCollision func(floa
 		// No ground below - player is falling
 		p.OnGround = false
 	}
-	
+
 	// Check horizontal collision (walls)
 	if p.VX < 0 { // Moving left
 		leftCollision := checkCollision(minX-1, minY+5, minX, maxY-5)
@@ -187,7 +187,7 @@ func (p *Player) UpdateWithCollision(deltaTime float64, checkCollision func(floa
 			p.VX = 0
 		}
 	}
-	
+
 	// Check ceiling collision (head bump)
 	if p.VY < 0 { // Moving upward
 		ceilingLeftCollision := checkCollision(minX, minY-1, minX+p.Width/2, minY)
