@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "save_time": "2026-02-16T09:11:59.712918831Z",
+  "world_name": "test_saves",
+  "player_name": "test_player",
+  "seed": 1771233119712827861,
+  "player_x": 100,
+  "player_y": 200,
+  "player_vx": 0,
+  "player_vy": 0,
+  "player_health": 75.5,
+  "player_max_health": 100,
+  "selected_slot": 3,
+  "inventory_slots": [
+    {
+      "type": 1,
+      "quantity": 5,
+      "durability": -1
+    },
+    {
+      "type": 3,
+      "quantity": 3,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    }
+  ],
+  "camera_x": 50.5,
+  "camera_y": 100.5,
+  "in_menu": false,
+  "in_game": true,
+  "in_crafting": false
+}

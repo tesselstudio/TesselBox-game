@@ -49,7 +49,7 @@ type Game struct {
 	MiningProgress  float64
 	MiningStartTime time.Time
 	renderDistance  int
-	Particles       []*Particle
+	Particles       *ParticlePool
 	inMenu          bool
 	mainMenu        *menu.Menu
 	lastUpdateTime  time.Time
@@ -63,6 +63,80 @@ type Particle struct {
 	Life    int
 	MaxLife int
 	Color   color.Color
+	Active  bool // Whether this particle is currently in use
+}
+
+// ParticlePool manages a pool of reusable particles
+type ParticlePool struct {
+	particles    []*Particle
+	maxParticles int
+	nextIndex    int
+}
+
+// NewParticlePool creates a new particle pool with pre-allocated particles
+func NewParticlePool(maxParticles int) *ParticlePool {
+	pool := &ParticlePool{
+		particles:    make([]*Particle, maxParticles),
+		maxParticles: maxParticles,
+		nextIndex:    0,
+	}
+
+	// Pre-allocate all particles
+	for i := 0; i < maxParticles; i++ {
+		pool.particles[i] = &Particle{Active: false}
+	}
+
+	return pool
+}
+
+// GetInactiveParticle returns an inactive particle from the pool, or nil if none available
+func (pp *ParticlePool) GetInactiveParticle() *Particle {
+	// Start from nextIndex and wrap around to find an inactive particle
+	startIndex := pp.nextIndex
+	for i := 0; i < pp.maxParticles; i++ {
+		idx := (startIndex + i) % pp.maxParticles
+		if !pp.particles[idx].Active {
+			pp.nextIndex = (idx + 1) % pp.maxParticles
+			return pp.particles[idx]
+		}
+	}
+	return nil // No inactive particles available
+}
+
+// Update updates all active particles in the pool
+func (pp *ParticlePool) Update(deltaTime float64) {
+	for _, p := range pp.particles {
+		if p.Active {
+			p.X += p.VX * deltaTime
+			p.Y += p.VY * deltaTime
+			p.Life--
+			if p.Life <= 0 {
+				p.Active = false
+			}
+		}
+	}
+}
+
+// GetActiveParticles returns a slice of all active particles
+func (pp *ParticlePool) GetActiveParticles() []*Particle {
+	active := make([]*Particle, 0, pp.maxParticles)
+	for _, p := range pp.particles {
+		if p.Active {
+			active = append(active, p)
+		}
+	}
+	return active
+}
+
+// GetActiveCount returns the number of currently active particles
+func (pp *ParticlePool) GetActiveCount() int {
+	count := 0
+	for _, p := range pp.particles {
+		if p.Active {
+			count++
+		}
+	}
+	return count
 }
 
 // NewGame creates a new game instance (no auth anymore)
@@ -80,7 +154,7 @@ func NewGame() *Game {
 		Mining:         false,
 		MiningProgress: 0,
 		renderDistance: DefaultRenderDistance,
-		Particles:      []*Particle{},
+		Particles:      NewParticlePool(1000), // Pre-allocate 1000 particles
 		inMenu:         true,
 		mainMenu:       menu.NewMenu(),
 		lastUpdateTime: time.Now(),
@@ -184,15 +258,7 @@ func (g *Game) Update() error {
 	}
 
 	// Update Particles
-	for i := len(g.Particles) - 1; i >= 0; i-- {
-		p := g.Particles[i]
-		p.X += p.VX * deltaTime
-		p.Y += p.VY * deltaTime
-		p.Life--
-		if p.Life <= 0 {
-			g.Particles = append(g.Particles[:i], g.Particles[i+1:]...)
-		}
-	}
+	g.Particles.Update(deltaTime)
 
 	return nil
 }
@@ -226,15 +292,19 @@ func (g *Game) spawnPlayer() {
 
 func (g *Game) createExplosion(x, y float64, c color.Color) {
 	for i := 0; i < 10; i++ {
-		g.Particles = append(g.Particles, &Particle{
-			X:       x,
-			Y:       y,
-			VX:      (rand.Float64() - 0.5) * 400,
-			VY:      (rand.Float64() - 0.5) * 400,
-			Life:    60,
-			MaxLife: 60,
-			Color:   c,
-		})
+		particle := g.Particles.GetInactiveParticle()
+		if particle == nil {
+			break // No available particles in pool
+		}
+
+		particle.X = x
+		particle.Y = y
+		particle.VX = (rand.Float64() - 0.5) * 400
+		particle.VY = (rand.Float64() - 0.5) * 400
+		particle.Life = 60
+		particle.MaxLife = 60
+		particle.Color = c
+		particle.Active = true
 	}
 }
 
@@ -265,7 +335,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		ebitenutil.DrawRect(screen, pX, pY, g.Player.Width, g.Player.Height, Red)
 	}
 
-	for _, p := range g.Particles {
+	for _, p := range g.Particles.GetActiveParticles() {
 		drawX := p.X - g.CameraX
 		drawY := p.Y - g.CameraY
 		ebitenutil.DrawRect(screen, drawX-1, drawY-1, 2, 2, p.Color)

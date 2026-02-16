@@ -1,6 +1,7 @@
 package player
 
 import (
+	"math"
 	"tesselbox/pkg/world"
 	"time"
 )
@@ -8,8 +9,8 @@ import (
 const (
 	// Physics constants
 	Gravity      = 0.5
-	PlayerSpeed  = 300.0  // Speed in pixels per second (framerate independent)
-	JumpForce    = -400.0 // Jump force in pixels per second
+	PlayerSpeed  = 300.0 // Speed in pixels per second (framerate independent)
+	JumpForce    = -8.0  // Jump force in pixels per second
 	Friction     = 0.85
 	TerminalVelX = 300.0
 	TerminalVelY = 1200.0 // Increased for faster falling
@@ -43,6 +44,17 @@ type Player struct {
 	Health    float64
 	MaxHealth float64
 
+	// Combat state
+	Attacking      bool
+	AttackProgress float64
+	AttackCooldown float64
+	LastAttackTime time.Time
+
+	// Combat stats
+	AttackDamage float64
+	AttackRange  float64
+	AttackSpeed  float64 // Attacks per second
+
 	// Time tracking for delta time
 	LastUpdateTime time.Time
 }
@@ -60,6 +72,11 @@ func NewPlayer(x, y float64) *Player {
 		MaxHealth:      100.0,
 		SelectedSlot:   0,
 		LastUpdateTime: time.Now(),
+
+		// Combat stats
+		AttackDamage: 10.0,
+		AttackRange:  80.0,
+		AttackSpeed:  1.0, // 1 attack per second
 	}
 }
 
@@ -97,7 +114,7 @@ func (p *Player) Update(deltaTime float64) {
 	}
 
 	// Apply gravity (framerate independent)
-	p.VY += Gravity * deltaTime * 60 // Scale gravity for 60 FPS reference
+	p.VY += Gravity * deltaTime * 60 * 60 // Proper scaling for consistent gravity
 
 	// Clamp vertical velocity (increased for faster falling)
 	if p.VY > TerminalVelY {
@@ -106,7 +123,7 @@ func (p *Player) Update(deltaTime float64) {
 
 	// Jump with delta time
 	if p.Jumping && p.OnGround {
-		p.VY = JumpForce
+		p.VY = JumpForce * 60 // Scale jump force to match gravity scaling
 		p.OnGround = false
 	}
 
@@ -125,10 +142,23 @@ func (p *Player) Update(deltaTime float64) {
 			p.Mining = false
 			p.MiningStartTime = time.Time{}
 		}
-	} else {
-		p.MiningProgress = 0
-		p.Mining = false
-		p.MiningStartTime = time.Time{}
+	}
+
+	// Update attack cooldown
+	if p.AttackCooldown > 0 {
+		p.AttackCooldown -= deltaTime
+		if p.AttackCooldown < 0 {
+			p.AttackCooldown = 0
+		}
+	}
+
+	// Update attack animation progress
+	if p.Attacking {
+		p.AttackProgress += deltaTime * p.AttackSpeed * 2 // Animation speed
+		if p.AttackProgress >= 1.0 {
+			p.Attacking = false
+			p.AttackProgress = 0
+		}
 	}
 }
 
@@ -276,10 +306,50 @@ func (p *Player) GetMaxHealth() float64 {
 }
 
 // TakeDamage reduces the player's health
-func (p *Player) TakeDamage(amount float64) {
+func (p *Player) TakeDamage(amount float64, fromX, fromY, knockbackForce float64) {
 	p.Health -= amount
 	if p.Health < 0 {
 		p.Health = 0
+	}
+
+	// Apply knockback when taking damage
+	if knockbackForce > 0 {
+		p.ApplyKnockback(fromX, fromY, knockbackForce)
+	}
+}
+
+// ApplyKnockback applies knockback force to the player
+func (p *Player) ApplyKnockback(fromX, fromY float64, force float64) {
+	// Calculate direction away from the knockback source
+	dx := p.X + p.Width/2 - fromX
+	dy := p.Y + p.Height/2 - fromY
+
+	// Normalize direction
+	distance := math.Sqrt(dx*dx + dy*dy)
+	if distance > 0 {
+		dx /= distance
+		dy /= distance
+	} else {
+		// Default knockback direction if at same position
+		dx = 1
+		dy = -0.5
+	}
+
+	// Apply knockback velocity
+	p.VX += dx * force
+	p.VY += dy * force * 0.5 // Less vertical knockback
+
+	// Cap knockback velocity
+	maxKnockback := 200.0
+	if p.VX > maxKnockback {
+		p.VX = maxKnockback
+	} else if p.VX < -maxKnockback {
+		p.VX = -maxKnockback
+	}
+	if p.VY > maxKnockback {
+		p.VY = maxKnockback
+	} else if p.VY < -maxKnockback {
+		p.VY = -maxKnockback
 	}
 }
 
@@ -353,4 +423,49 @@ func (p *Player) SetSelectedSlot(slot int) {
 // GetSelectedSlot returns the currently selected inventory slot
 func (p *Player) GetSelectedSlot() int {
 	return p.SelectedSlot
+}
+
+// Attack performs a melee attack if cooldown allows
+func (p *Player) Attack() bool {
+	if p.AttackCooldown > 0 {
+		return false // Still on cooldown
+	}
+
+	p.Attacking = true
+	p.AttackProgress = 0
+	p.AttackCooldown = 1.0 / p.AttackSpeed // Cooldown based on attack speed
+	p.LastAttackTime = time.Now()
+
+	return true
+}
+
+// IsAttackReady returns true if the player can attack
+func (p *Player) IsAttackReady() bool {
+	return p.AttackCooldown <= 0
+}
+
+// GetAttackRange returns the player's attack range
+func (p *Player) GetAttackRange() float64 {
+	return p.AttackRange
+}
+
+// GetAttackDamage returns the player's attack damage
+func (p *Player) GetAttackDamage() float64 {
+	return p.AttackDamage
+}
+
+// DealDamage applies damage to a target (placeholder for future use with creatures)
+func (p *Player) DealDamage(target interface{}, damage float64) {
+	// This will be used when creatures are implemented
+	// For now, it's a placeholder
+}
+
+// GetAttackProgress returns the current attack animation progress (0-1)
+func (p *Player) GetAttackProgress() float64 {
+	return p.AttackProgress
+}
+
+// IsAttacking returns true if the player is currently attacking
+func (p *Player) IsAttacking() bool {
+	return p.Attacking
 }

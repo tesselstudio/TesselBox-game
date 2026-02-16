@@ -19,6 +19,11 @@ const (
 	ChunkUnloadDistance = 10
 )
 
+const (
+	// Spatial hash constants
+	SpatialHashCellSize = 100.0 // Size of each spatial hash cell
+)
+
 // World represents the game world
 type World struct {
 	Chunks    map[[2]int]*Chunk
@@ -26,6 +31,9 @@ type World struct {
 	Organisms []*organisms.Organism
 	Storage   *WorldStorage
 	WorldName string
+
+	// Spatial hash for optimized collision detection
+	spatialHash map[[2]int][]*Hexagon // Cell coordinates -> list of hexagons
 }
 
 // NewWorld creates a new world
@@ -34,11 +42,12 @@ func NewWorld(worldName string) *World {
 	rand.Seed(seed)
 
 	world := &World{
-		Chunks:    make(map[[2]int]*Chunk),
-		Seed:      seed,
-		Organisms: []*organisms.Organism{},
-		Storage:   NewWorldStorage(worldName),
-		WorldName: worldName,
+		Chunks:      make(map[[2]int]*Chunk),
+		Seed:        seed,
+		Organisms:   []*organisms.Organism{},
+		Storage:     NewWorldStorage(worldName),
+		WorldName:   worldName,
+		spatialHash: make(map[[2]int][]*Hexagon),
 	}
 
 	return world
@@ -72,6 +81,50 @@ func (w *World) GetChunkCoords(x, y float64) (int, int) {
 	return chunkX, chunkY
 }
 
+// getSpatialHashKey calculates the spatial hash key for a given position
+func (w *World) getSpatialHashKey(x, y float64) [2]int {
+	cellX := int(math.Floor(x / SpatialHashCellSize))
+	cellY := int(math.Floor(y / SpatialHashCellSize))
+	return [2]int{cellX, cellY}
+}
+
+// addHexagonToSpatialHash adds a hexagon to the spatial hash
+func (w *World) addHexagonToSpatialHash(hex *Hexagon) {
+	key := w.getSpatialHashKey(hex.X, hex.Y)
+	w.spatialHash[key] = append(w.spatialHash[key], hex)
+}
+
+// removeHexagonFromSpatialHash removes a hexagon from the spatial hash
+func (w *World) removeHexagonFromSpatialHash(hex *Hexagon) {
+	key := w.getSpatialHashKey(hex.X, hex.Y)
+	hexagons := w.spatialHash[key]
+
+	// Find and remove the hexagon from the slice
+	for i, h := range hexagons {
+		if h == hex {
+			// Remove element at index i
+			w.spatialHash[key] = append(hexagons[:i], hexagons[i+1:]...)
+			break
+		}
+	}
+
+	// Clean up empty cells
+	if len(w.spatialHash[key]) == 0 {
+		delete(w.spatialHash, key)
+	}
+}
+
+// rebuildSpatialHash rebuilds the entire spatial hash from all chunks
+func (w *World) rebuildSpatialHash() {
+	w.spatialHash = make(map[[2]int][]*Hexagon)
+
+	for _, chunk := range w.Chunks {
+		for _, hex := range chunk.Hexagons {
+			w.addHexagonToSpatialHash(hex)
+		}
+	}
+}
+
 // GetChunk returns the chunk at the given chunk coordinates
 func (w *World) GetChunk(chunkX, chunkY int) *Chunk {
 	key := [2]int{chunkX, chunkY}
@@ -92,6 +145,11 @@ func (w *World) GetChunk(chunkX, chunkY int) *Chunk {
 		}
 
 		w.Chunks[key] = chunk
+
+		// Add all hexagons from this chunk to the spatial hash
+		for _, hex := range chunk.Hexagons {
+			w.addHexagonToSpatialHash(hex)
+		}
 	}
 	chunk.LastAccessed = time.Now()
 	return chunk
@@ -235,21 +293,35 @@ func (w *World) generateChunk(chunk *Chunk) {
 	chunk.Modified = false
 }
 
-// GetNearbyHexagons returns hexagons within a radius of the given position
+// GetNearbyHexagons returns hexagons within a radius of the given position (optimized with spatial hash)
 func (w *World) GetNearbyHexagons(x, y, radius float64) []*Hexagon {
-	chunkX, chunkY := w.GetChunkCoords(x, y)
 	hexagons := []*Hexagon{}
 
-	// Check chunks around the position
-	chunkRadius := int(math.Ceil(radius / GetChunkWidth()))
-	for dx := -chunkRadius; dx <= chunkRadius; dx++ {
-		for dy := -chunkRadius; dy <= chunkRadius; dy++ {
-			chunk := w.GetChunk(chunkX+dx, chunkY+dy)
-			for _, hexagon := range chunk.Hexagons {
-				hx := hexagon.X - x
-				hy := hexagon.Y - y
-				if hx*hx+hy*hy <= radius*radius {
-					hexagons = append(hexagons, hexagon)
+	// Calculate the range of spatial hash cells to check
+	minX := x - radius
+	maxX := x + radius
+	minY := y - radius
+	maxY := y + radius
+
+	minCellX := int(math.Floor(minX / SpatialHashCellSize))
+	maxCellX := int(math.Floor(maxX / SpatialHashCellSize))
+	minCellY := int(math.Floor(minY / SpatialHashCellSize))
+	maxCellY := int(math.Floor(maxY / SpatialHashCellSize))
+
+	radiusSq := radius * radius
+
+	// Check all relevant spatial hash cells
+	for cellX := minCellX; cellX <= maxCellX; cellX++ {
+		for cellY := minCellY; cellY <= maxCellY; cellY++ {
+			key := [2]int{cellX, cellY}
+			cellHexagons := w.spatialHash[key]
+
+			// Check each hexagon in this cell
+			for _, hex := range cellHexagons {
+				hx := hex.X - x
+				hy := hex.Y - y
+				if hx*hx+hy*hy <= radiusSq {
+					hexagons = append(hexagons, hex)
 				}
 			}
 		}
@@ -273,12 +345,26 @@ func (w *World) AddHexagonAt(x, y float64, blockType blocks.BlockType) {
 	chunkX, chunkY := w.GetChunkCoords(centerX, centerY)
 	chunk := w.GetChunk(chunkX, chunkY)
 	chunk.AddHexagon(centerX, centerY, hexagon)
+
+	// Add to spatial hash
+	w.addHexagonToSpatialHash(hexagon)
 }
 
 // RemoveHexagonAt removes the hexagon at the given world position
 func (w *World) RemoveHexagonAt(x, y float64) bool {
 	chunkX, chunkY := w.GetChunkCoords(x, y)
 	chunk := w.GetChunk(chunkX, chunkY)
+
+	// Get the hexagon before removing it
+	hexagon := chunk.GetHexagon(x, y)
+	if hexagon == nil {
+		return false
+	}
+
+	// Remove from spatial hash first
+	w.removeHexagonFromSpatialHash(hexagon)
+
+	// Then remove from chunk
 	return chunk.RemoveHexagon(x, y)
 }
 
@@ -297,7 +383,25 @@ func (w *World) UnloadDistantChunks(playerX, playerY float64) {
 		}
 	}
 
+	// Save and unload distant chunks
 	for _, key := range toDelete {
+		chunk := w.Chunks[key]
+
+		// Save modified chunks before unloading
+		if chunk.Modified {
+			err := w.Storage.SaveChunk(chunk)
+			if err != nil {
+				// Log error but continue - don't prevent unloading due to save failure
+				fmt.Printf("Warning: Failed to save chunk %d,%d before unloading: %v\n", key[0], key[1], err)
+			}
+		}
+
+		// Remove all hexagons from this chunk from the spatial hash
+		for _, hex := range chunk.Hexagons {
+			w.removeHexagonFromSpatialHash(hex)
+		}
+
+		// Remove chunk from memory
 		delete(w.Chunks, key)
 	}
 }
