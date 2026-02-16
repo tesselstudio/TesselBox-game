@@ -59,7 +59,7 @@
 | **[Igbo](readme/igbo.md)** | 🇳🇬 | ✅ Complete |
 | **[Zulu](readme/zulu.md)** | 🇿🇦 | ✅ Complete |
 
-### 🏴󠁧󠁢󠁥󠁮󠁧󠁿 **Additional Languages**
+###  **Additional Languages**
 | Language | Link | Status |
 |----------|------|--------|
 | **[Ελληνικά](readme/greek.md)** | 🇬🇷 | ✅ Complete |
@@ -121,7 +121,7 @@
 
 ## 🎯 **Language Selector Buttons**
 
-| 🌍 **European** | 🌏 **Asian** | 🌍 **African** | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 **Other** |
+| 🌍 **European** | 🌏 **Asian** | 🌍 **African** |  **Other** |
 |----------------|--------------|----------------|----------------|
 | [🇬🇧 English](readme/english.md) | [🇨🇳 中文](readme/chinese.md) | [🇹🇿 Swahili](readme/swahili.md) | [🇬🇷 Ελληνικά](readme/greek.md) |
 | [🇩🇪 Deutsch](readme/german.md) | [🇯🇵 日本語](readme/japanese.md) | [🇿🇦 Afrikaans](readme/afrikaans.md) |  |
