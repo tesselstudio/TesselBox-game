@@ -108,7 +108,7 @@ TesselBox/
 
 ## Leseni
 
-**Leseni ya MIT** - Angalia faili ya [LICENSE](LICENSE) kwa maelezo.
+**Leseni ya CC BY-NC-SA 4.0** - Angalia faili ya [LICENSE](LICENSE) kwa maelezo.
 
 ## Shukrani
 

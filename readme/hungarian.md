@@ -108,7 +108,7 @@ TesselBox/
 
 ## Licenc
 
-**MIT Licenc** - Lásd a [LICENSE](LICENSE) fájlt a részletekért.
+**CC BY-NC-SA 4.0 Licenc** - Lásd a [LICENSE](LICENSE) fájlt a részletekért.
 
 ## Köszönet
 

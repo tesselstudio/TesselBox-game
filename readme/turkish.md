@@ -120,7 +120,7 @@ TesselBox/
 
 ## Lisans
 
-**MIT Lisansı** - Ayrıntılar için [LICENSE](LICENSE) dosyasına bak.
+**CC BY-NC-SA 4.0 Lisansı** - Ayrıntılar için [LICENSE](LICENSE) dosyasına bakın.
 
 ## Teşekkürler
 

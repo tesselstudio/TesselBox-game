@@ -120,7 +120,7 @@ TesselBox/
 
 ## Lizenz
 
-**MIT-Lizenz** - Siehe [LICENSE](LICENSE)-Datei für Details.
+**CC BY-NC-SA 4.0 Lizenz** - Siehe [LICENSE](LICENSE)-Datei für Details.
 
 ## Danksagungen
 

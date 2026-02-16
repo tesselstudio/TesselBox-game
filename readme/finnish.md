@@ -108,7 +108,7 @@ TesselBox/
 
 ## Lisenssi
 
-**MIT-lisenssi** - Katso [LICENSE](LICENSE) tiedosto yksityiskohdista.
+**CC BY-NC-SA 4.0 Lisenssi** - Katso [LICENSE](LICENSE) tiedosto yksityiskohdista.
 
 ## Kiitokset
 

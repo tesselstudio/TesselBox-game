@@ -108,7 +108,7 @@ TesselBox/
 
 ## Licens
 
-**MIT Licens** - Se [LICENSE](LICENSE) filen for detaljer.
+**CC BY-NC-SA 4.0 Licens** - Se [LICENSE](LICENSE) filen for detaljer.
 
 ## Tak
 

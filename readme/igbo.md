@@ -108,7 +108,7 @@ TesselBox/
 
 ## Ikike
 
-**Ikike MIT** - Lee faịlụ [LICENSE](LICENSE) maka nkọwa.
+**Ikike CC BY-NC-SA 4.0** - Lee faịlụ [LICENSE](LICENSE) maka nkọwa.
 
 ## Ekele
 

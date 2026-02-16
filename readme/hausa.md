@@ -108,7 +108,7 @@ TesselBox/
 
 ## Lasisi
 
-**Lasisin MIT** - Duba fayil [LICENSE](LICENSE) don cikakkun bayanai.
+**Lasisin CC BY-NC-SA 4.0** - Duba fayil [LICENSE](LICENSE) don cikakkun bayanai.
 
 ## Godiya
 

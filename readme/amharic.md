@@ -102,7 +102,7 @@ TesselBox/
 
 ## ፈቃድ
 
-**የMIT ፈቃድ** - ዝርዝሮች ለማየት [LICENSE](LICENSE) ፋይል ይመልክ።
+**የCC BY-NC-SA 4.0 ፈቃድ** - ዝርዝሮች ለማየት [LICENSE](LICENSE) ፋይል ይመልክ።
 
 ## ምስጋና
 

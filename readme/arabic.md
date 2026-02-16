@@ -120,7 +120,7 @@ TesselBox/
 
 ## الترخيص
 
-**ترخيص MIT** - راجع ملف [LICENSE](LICENSE) للتفاصيل.
+**ترخيص CC BY-NC-SA 4.0** - راجع ملف [LICENSE](LICENSE) للتفاصيل.
 
 ## الشكر
 

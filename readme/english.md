@@ -120,7 +120,7 @@ TesselBox/
 
 ## License
 
-**MIT License** - See [LICENSE](LICENSE) file for details.
+**CC BY-NC-SA 4.0 License** - See [LICENSE](LICENSE) file for details.
 
 ## Credits
 

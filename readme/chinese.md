@@ -120,7 +120,7 @@ TesselBox/
 
 ## 许可证
 
-**MIT 许可证** - 查看 [LICENSE](LICENSE) 文件了解详情。
+**CC BY-NC-SA 4.0 许可证** - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 致谢
 

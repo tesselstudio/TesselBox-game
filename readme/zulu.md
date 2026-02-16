@@ -108,7 +108,7 @@ TesselBox/
 
 ## Ilayisense
 
-**Ilayisense ye-MIT** - Buka ifayela [LICENSE](LICENSE) lemininingwane.
+**Ilayisense ye-CC BY-NC-SA 4.0** - Buka ifayela [LICENSE](LICENSE) lemininingwane.
 
 ## Ukubonga
 

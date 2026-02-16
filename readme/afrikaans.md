@@ -120,7 +120,7 @@ TesselBox/
 
 ## Lisensie
 
-**MIT Lisensie** - Sien [LICENSE](LICENSE) lêer vir besonderhede.
+**CC BY-NC-SA 4.0 Lisensie** - Sien [LICENSE](LICENSE) lêer vir besonderhede.
 
 ## Erkennings
 

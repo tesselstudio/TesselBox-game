@@ -108,7 +108,7 @@ TesselBox/
 
 ## Iwe-aṣẹ
 
-**Iwe-aṣẹ MIT** - Wo faili [LICENSE](LICENSE) fun awọn alaye.
+**Àṣẹ CC BY-NC-SA 4.0** - Wo faili [LICENSE](LICENSE) fun awọn alaye.
 
 ## Idupẹ
 
