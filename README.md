@@ -57,7 +57,7 @@
 | **[Igbo](readme/igbo.md)** | 🇳🇬 | ✅ Complete |
 | **[Zulu](readme/zulu.md)** | 🇿🇦 | ✅ Complete |
 
-### 🏴󠁧󠁢󠁥󠁮󠁧󠁿 **Additional Languages**
+###  **Additional Languages**
 | Language | Link | Status |
 |----------|------|--------|
 | **[Ελληνικά](readme/greek.md)** | 🇬🇷 | ✅ Complete |
