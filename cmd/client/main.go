@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"time"
 
-	"tesselbox/pkg/auth"
 	"tesselbox/pkg/blocks"
 	"tesselbox/pkg/crafting"
 	"tesselbox/pkg/gametime"
@@ -79,7 +78,6 @@ type Game struct {
 	craftingSystem *crafting.CraftingSystem
 	craftingUI     *crafting.CraftingUI
 	menu           *menu.Menu
-	authService    *auth.AuthService
 
 	// Save system
 	saveManager *save.SaveManager
@@ -135,19 +133,6 @@ func NewGame() *Game {
 	// Initialize menu
 	g.menu = menu.NewMenu()
 
-	// Initialize OAuth (optional - will work without credentials)
-	authConfig, err := auth.LoadConfigFromFile("config/oauth_config.json")
-	if err != nil {
-		log.Printf("Could not load OAuth config: %v. Running without authentication.", err)
-	} else {
-		authServiceConfig := &auth.AuthServiceConfig{OAuth: authConfig}
-		g.authService, err = auth.NewAuthServiceSafe(authServiceConfig)
-		if err != nil {
-			log.Printf("Could not create auth service: %v. Running without authentication.", err)
-			g.authService = nil // Ensure auth service is nil if it fails to create
-		}
-	}
-
 	// Set default hotbar items
 	defaultItems := items.DefaultHotbarItems()
 	for i, item := range defaultItems {
@@ -158,9 +143,6 @@ func NewGame() *Game {
 
 	// Initialize save system
 	playerName := "player"
-	if g.authService != nil && g.authService.GetCurrentUser() != nil {
-		playerName = g.authService.GetCurrentUser().ID
-	}
 	g.saveManager = save.NewSaveManager("default", playerName)
 
 	// Initialize auto-saver with 5-minute interval
@@ -261,38 +243,6 @@ func (g *Game) Update() error {
 // handleMenuAction handles menu actions
 func (g *Game) handleMenuAction(action menu.MenuAction) {
 	switch action {
-	case menu.ActionLoginGoogle:
-		if g.authService == nil {
-			log.Println("Auth service not available")
-			return
-		}
-		// Start OAuth server and open browser for Google login
-		if err := g.authService.StartServer(); err != nil {
-			log.Printf("Warning: Failed to start OAuth server: %v", err)
-		}
-		authURL := g.authService.GetAuthURL(auth.ProviderGoogle)
-		if authURL != "" {
-			if err := openURL(authURL); err != nil {
-				log.Printf("Warning: Failed to open browser: %v", err)
-			}
-		}
-
-	case menu.ActionLoginGitHub:
-		if g.authService == nil {
-			log.Println("Auth service not available")
-			return
-		}
-		// Start OAuth server and open browser for GitHub login
-		if err := g.authService.StartServer(); err != nil {
-			log.Printf("Warning: Failed to start OAuth server: %v", err)
-		}
-		authURL := g.authService.GetAuthURL(auth.ProviderGitHub)
-		if authURL != "" {
-			if err := openURL(authURL); err != nil {
-				log.Printf("Warning: Failed to open browser: %v", err)
-			}
-		}
-
 	case menu.ActionStartGame:
 		g.inMenu = false
 		g.inGame = true
@@ -302,24 +252,6 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 	case menu.ActionOpenSettings:
 		g.menu.SetSettingsMenu()
 
-	case menu.ActionOpenLogin:
-		g.menu.SetLoginMenu()
-		if g.authService != nil {
-			// Start OAuth server when login menu is opened
-			if err := g.authService.StartServer(); err != nil {
-				log.Printf("Warning: Failed to start OAuth server: %v", err)
-			}
-			g.authService.Logout() // Clear any previous session
-		}
-
-	case menu.ActionLogout:
-		if g.authService != nil {
-			g.authService.Logout()
-		}
-		g.menu.SetMainMenu() // Return to main menu
-		g.inGame = false
-		g.inMenu = true
-
 	case menu.ActionBack:
 		if g.menu.CurrentMenu == menu.MenuSettings {
 			g.menu.SetMainMenu()
@@ -328,10 +260,6 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 		}
 
 	case menu.ActionExit:
-		// Stop the OAuth server before exiting
-		if g.authService != nil {
-			g.authService.StopServer()
-		}
 		os.Exit(0)
 		return
 	}
@@ -359,6 +287,11 @@ func (g *Game) handleGameInput() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyE) || inpututil.IsKeyJustPressed(ebiten.KeyC) {
 		g.inCrafting = true
 		g.craftingUI.Toggle()
+	}
+
+	// Interact with crafting stations
+	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
+		g.interactWithStation()
 	}
 
 	// Drop item (Q key)
@@ -442,6 +375,46 @@ func (g *Game) dropItem() {
 		log.Printf("Dropped %v", selectedItem.Type)
 		// TODO: Implement actual item dropping in world (create item entity)
 	}
+}
+
+// interactWithStation checks for nearby crafting stations and opens the crafting UI
+func (g *Game) interactWithStation() {
+	playerX, playerY := g.player.GetCenter()
+	interactionRange := 100.0 // pixels
+
+	// Check nearby hexagons for crafting stations
+	nearbyHexagons := g.world.GetNearbyHexagons(playerX, playerY, interactionRange)
+
+	for _, hex := range nearbyHexagons {
+		if hex.BlockType == blocks.AIR {
+			continue
+		}
+
+		blockKey := getBlockKeyFromType(hex.BlockType)
+
+		var station crafting.CraftingStation
+		switch blockKey {
+		case "workbench":
+			station = crafting.STATION_WORKBENCH
+		case "furnace":
+			station = crafting.STATION_FURNACE
+		case "anvil":
+			station = crafting.STATION_ANVIL
+		default:
+			continue
+		}
+
+		// Found a station, set it and open UI
+		g.craftingUI.SetStation(station)
+		g.inCrafting = true
+		g.craftingUI.Toggle()
+		return // Only interact with the first found station
+	}
+
+	// No station found, open general crafting
+	g.craftingUI.SetStation(crafting.STATION_NONE)
+	g.inCrafting = true
+	g.craftingUI.Toggle()
 }
 
 // startMining starts mining the block under the mouse cursor

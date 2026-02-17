@@ -26,6 +26,9 @@ type CraftingUI struct {
 	// Quantity selector
 	craftQuantity int
 
+	// Current crafting station
+	currentStation CraftingStation
+
 	// Animation
 	animationProgress float64
 }
@@ -38,6 +41,7 @@ func NewCraftingUI(craftingSystem *CraftingSystem, inventory *items.Inventory) *
 		Open:              false,
 		SelectedRecipe:    -1,
 		craftQuantity:     1,
+		currentStation:    STATION_NONE,
 		animationProgress: 0.0,
 	}
 }
@@ -46,13 +50,31 @@ func NewCraftingUI(craftingSystem *CraftingSystem, inventory *items.Inventory) *
 func (ui *CraftingUI) Toggle() {
 	ui.Open = !ui.Open
 	if ui.Open {
-		ui.visibleRecipes = ui.craftingSystem.GetAvailableRecipes(ui.inventory)
+		ui.visibleRecipes = ui.craftingSystem.GetAvailableRecipes(ui.inventory, ui.currentStation)
 		if len(ui.visibleRecipes) > 0 {
 			ui.SelectedRecipe = 0
 		} else {
 			ui.SelectedRecipe = -1
 		}
 	}
+}
+
+// SetStation sets the current crafting station and refreshes available recipes
+func (ui *CraftingUI) SetStation(station CraftingStation) {
+	ui.currentStation = station
+	if ui.Open {
+		ui.visibleRecipes = ui.craftingSystem.GetAvailableRecipes(ui.inventory, ui.currentStation)
+		if len(ui.visibleRecipes) == 0 {
+			ui.SelectedRecipe = -1
+		} else if ui.SelectedRecipe >= len(ui.visibleRecipes) {
+			ui.SelectedRecipe = len(ui.visibleRecipes) - 1
+		}
+	}
+}
+
+// GetCurrentStation returns the current crafting station
+func (ui *CraftingUI) GetCurrentStation() CraftingStation {
+	return ui.currentStation
 }
 
 // Update handles input updates for the crafting UI
@@ -62,7 +84,7 @@ func (ui *CraftingUI) Update() error {
 	}
 
 	// Refresh available recipes
-	ui.visibleRecipes = ui.craftingSystem.GetAvailableRecipes(ui.inventory)
+	ui.visibleRecipes = ui.craftingSystem.GetAvailableRecipes(ui.inventory, ui.currentStation)
 
 	// Keyboard navigation
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
@@ -101,7 +123,7 @@ func (ui *CraftingUI) Update() error {
 		if ui.SelectedRecipe >= 0 && ui.SelectedRecipe < len(ui.visibleRecipes) {
 			recipe := ui.visibleRecipes[ui.SelectedRecipe]
 			for i := 0; i < ui.craftQuantity; i++ {
-				if err := ui.craftingSystem.Craft(recipe.ID, ui.inventory); err != nil {
+				if err := ui.craftingSystem.Craft(recipe.ID, ui.inventory, ui.currentStation); err != nil {
 					break // Stop if crafting fails (e.g., inventory full)
 				}
 			}
@@ -146,7 +168,7 @@ func (ui *CraftingUI) handleClick(mx, my int) {
 			my >= craftButtonY && my <= craftButtonY+craftButtonHeight {
 			recipe := ui.visibleRecipes[ui.SelectedRecipe]
 			for i := 0; i < ui.craftQuantity; i++ {
-				if err := ui.craftingSystem.Craft(recipe.ID, ui.inventory); err != nil {
+				if err := ui.craftingSystem.Craft(recipe.ID, ui.inventory, ui.currentStation); err != nil {
 					break
 				}
 			}
@@ -272,7 +294,7 @@ func (ui *CraftingUI) drawRecipeDetails(screen *ebiten.Image) {
 	craftButtonHeight := 60
 
 	// Check if can craft
-	canCraft := ui.craftingSystem.CanCraft(recipe, ui.inventory)
+	canCraft := ui.craftingSystem.CanCraft(recipe, ui.inventory, ui.currentStation)
 	buttonColor := color.RGBA{100, 200, 100, 255}
 	if !canCraft {
 		buttonColor = color.RGBA{150, 150, 150, 255}

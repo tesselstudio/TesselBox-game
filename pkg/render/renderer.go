@@ -4,12 +4,16 @@ package render
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"math/rand"
 	"os"
 	"time"
 
 	"tesselbox/pkg/blocks"
+	"tesselbox/pkg/creatures"
+	"tesselbox/pkg/gametime"
 	"tesselbox/pkg/hexagon"
+	"tesselbox/pkg/items"
 	"tesselbox/pkg/menu"
 	"tesselbox/pkg/player"
 	"tesselbox/pkg/world"
@@ -54,6 +58,7 @@ type Game struct {
 	mainMenu        *menu.Menu
 	lastUpdateTime  time.Time
 	whiteImage      *ebiten.Image // Reusable image for drawing
+	dayNightCycle   *gametime.DayNightCycle
 }
 
 // Particle represents a simple particle effect
@@ -159,6 +164,7 @@ func NewGame() *Game {
 		mainMenu:       menu.NewMenu(),
 		lastUpdateTime: time.Now(),
 		whiteImage:     whiteImage,
+		dayNightCycle:  gametime.NewDayNightCycle(600.0), // 10 minutes day/night cycle
 	}
 
 	return game
@@ -260,6 +266,70 @@ func (g *Game) Update() error {
 	// Update Particles
 	g.Particles.Update(deltaTime)
 
+	// Update creatures if we have a world and player
+	if g.World != nil && g.Player != nil {
+		playerX, playerY := g.Player.GetCenter()
+
+		// Spawn creatures periodically
+		g.World.SpawnCreatures(g.dayNightCycle, playerX, playerY)
+
+		// Update all creatures with AI
+		g.World.UpdateCreatures(playerX, playerY, deltaTime)
+
+		// Handle creature attacks on player
+		for _, creature := range g.World.Creatures {
+			if creature.IsAlive() {
+				creature.AttackPlayer(playerX, playerY, func(damage, fromX, fromY, knockback float64) {
+					if g.Player != nil {
+						g.Player.TakeDamage(damage, fromX, fromY, knockback)
+					}
+				})
+			}
+		}
+
+		// Handle player attacks on creatures
+		if g.Player.IsAttacking() {
+			attackRange := g.Player.GetAttackRange()
+			nearbyCreatures := g.World.GetCreaturesInArea(playerX, playerY, attackRange)
+			for _, creature := range nearbyCreatures {
+				if creature.IsAlive() {
+					// Check if creature is in attack direction (simplified)
+					dx := creature.X - playerX
+					dy := creature.Y - playerY
+					distance := math.Sqrt(dx*dx + dy*dy)
+					if distance <= attackRange {
+						damage := g.Player.GetAttackDamage()
+						g.Player.DealDamage(creature, damage)
+
+						// Create hit effect
+						g.createExplosion(creature.X, creature.Y, Red)
+						break // Only hit one creature per attack
+					}
+				}
+			}
+		}
+
+		// Remove dead creatures and handle loot
+		for _, creature := range g.World.Creatures {
+			if !creature.IsAlive() {
+				// Drop loot
+				loot := creature.GetLootDrops()
+				for _, item := range loot {
+					// Add to player's inventory (simplified - just add to inventory)
+					if g.Player != nil {
+						// For now, just print what was dropped
+						// In a full implementation, this would add to inventory or drop on ground
+						fmt.Printf("Creature dropped: %s x%d\n", items.ItemNameByID(item.Type), item.Quantity)
+					}
+				}
+
+				// Create death particles
+				g.createExplosion(creature.X, creature.Y, color.RGBA{128, 128, 128, 255})
+			}
+		}
+		g.World.RemoveDeadCreatures()
+	}
+
 	return nil
 }
 
@@ -333,6 +403,51 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		pX := g.Player.X - g.CameraX
 		pY := g.Player.Y - g.CameraY
 		ebitenutil.DrawRect(screen, pX, pY, g.Player.Width, g.Player.Height, Red)
+	}
+
+	// Draw creatures
+	if g.World != nil {
+		for _, creature := range g.World.Creatures {
+			cX := creature.X - g.CameraX
+			cY := creature.Y - g.CameraY
+
+			// Skip if off-screen
+			if cX < -50 || cX > float64(g.ScreenWidth)+50 ||
+				cY < -50 || cY > float64(g.ScreenHeight)+50 {
+				continue
+			}
+
+			// Choose color based on creature type
+			var creatureColor color.RGBA
+			switch creature.Type {
+			case creatures.SLIME:
+				creatureColor = color.RGBA{0, 255, 0, 255} // Green
+			case creatures.SPIDER:
+				creatureColor = color.RGBA{0, 0, 0, 255} // Black
+			case creatures.ZOMBIE:
+				creatureColor = color.RGBA{0, 100, 0, 255} // Dark green
+			default:
+				creatureColor = color.RGBA{128, 128, 128, 255} // Gray
+			}
+
+			// Draw creature as a circle (approximated with rectangle for simplicity)
+			size := 20.0
+			ebitenutil.DrawRect(screen, cX-size/2, cY-size/2, size, size, creatureColor)
+
+			// Draw health bar above creature if damaged
+			if creature.Health < creature.MaxHealth {
+				barWidth := size
+				barHeight := 4.0
+				barX := cX - barWidth/2
+				barY := cY - size/2 - 8
+
+				// Background (red)
+				ebitenutil.DrawRect(screen, barX, barY, barWidth, barHeight, color.RGBA{255, 0, 0, 255})
+				// Health (green)
+				healthWidth := barWidth * (creature.Health / creature.MaxHealth)
+				ebitenutil.DrawRect(screen, barX, barY, healthWidth, barHeight, color.RGBA{0, 255, 0, 255})
+			}
+		}
 	}
 
 	for _, p := range g.Particles.GetActiveParticles() {

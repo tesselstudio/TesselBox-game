@@ -8,6 +8,8 @@ import (
 
 	"tesselbox/pkg/biomes"
 	"tesselbox/pkg/blocks"
+	"tesselbox/pkg/creatures"
+	"tesselbox/pkg/gametime"
 	"tesselbox/pkg/hexagon"
 	"tesselbox/pkg/organisms"
 )
@@ -29,6 +31,7 @@ type World struct {
 	Chunks    map[[2]int]*Chunk
 	Seed      int64
 	Organisms []*organisms.Organism
+	Creatures []*creatures.Creature
 	Storage   *WorldStorage
 	WorldName string
 
@@ -45,6 +48,7 @@ func NewWorld(worldName string) *World {
 		Chunks:      make(map[[2]int]*Chunk),
 		Seed:        seed,
 		Organisms:   []*organisms.Organism{},
+		Creatures:   []*creatures.Creature{},
 		Storage:     NewWorldStorage(worldName),
 		WorldName:   worldName,
 		spatialHash: make(map[[2]int][]*Hexagon),
@@ -525,12 +529,97 @@ func (w *World) AutoSave(interval time.Duration, stopChan <-chan struct{}) {
 	}
 }
 
-// RemoveOrganism removes an organism from the world
-func (w *World) RemoveOrganism(x, y float64) {
-	for i, org := range w.Organisms {
-		if org.X == x && org.Y == y {
-			w.Organisms = append(w.Organisms[:i], w.Organisms[i+1:]...)
-			return
+// SpawnCreatures spawns creatures in the world based on time of day and location
+func (w *World) SpawnCreatures(dayNightCycle *gametime.DayNightCycle, playerX, playerY float64) {
+	// Only spawn at night or dusk for hostile creatures
+	timeOfDay := dayNightCycle.GetCurrentTimeOfDay()
+	isNightTime := timeOfDay == gametime.Dusk || timeOfDay == gametime.Night || timeOfDay == gametime.Midnight
+
+	// Limit total creatures to prevent overcrowding
+	maxCreatures := 20
+	if len(w.Creatures) >= maxCreatures {
+		return
+	}
+
+	// Spawn area around player
+	spawnRadius := 200.0
+	spawnAttempts := 5
+
+	for i := 0; i < spawnAttempts && len(w.Creatures) < maxCreatures; i++ {
+		// Random position around player
+		angle := rand.Float64() * 2 * math.Pi
+		distance := rand.Float64() * spawnRadius
+		spawnX := playerX + math.Cos(angle)*distance
+		spawnY := playerY + math.Sin(angle)*distance
+
+		// Check if position is valid (not in solid blocks)
+		hex := w.GetHexagonAt(spawnX, spawnY)
+		if hex == nil || hex.BlockType != blocks.AIR {
+			continue // Can't spawn in solid blocks
+		}
+
+		// Determine creature type based on biome and time
+		var creatureType creatures.CreatureType
+		if isNightTime {
+			// Night spawns
+			switch rand.Intn(3) {
+			case 0:
+				creatureType = creatures.SLIME
+			case 1:
+				creatureType = creatures.SPIDER
+			case 2:
+				creatureType = creatures.ZOMBIE
+			}
+		} else {
+			// Day spawns - only passive or less aggressive creatures
+			// For now, only spawn at night
+			continue
+		}
+
+		// Create and add creature
+		// Convert pixel coordinates to hex coordinates
+		q, r := hexagon.PixelToHex(hex.X, hex.Y, HexSize)
+		hexagonCoords := hexagon.HexRound(q, r)
+		creatureHex := hexagon.AxialToHex(hexagonCoords.Q, hexagonCoords.R)
+		creature := creatures.NewCreature(creatureType, spawnX, spawnY, creatureHex)
+		w.Creatures = append(w.Creatures, creature)
+	}
+}
+
+// UpdateCreatures updates all creatures in the world
+func (w *World) UpdateCreatures(playerX, playerY float64, deltaTime float64) {
+	// Create isBlocked function for creatures
+	isBlocked := func(x, y float64) bool {
+		hex := w.GetHexagonAt(x, y)
+		return hex != nil && hex.BlockType != blocks.AIR
+	}
+
+	for _, creature := range w.Creatures {
+		creature.Update(playerX, playerY, deltaTime, isBlocked)
+	}
+}
+
+// RemoveDeadCreatures removes creatures that have died
+func (w *World) RemoveDeadCreatures() {
+	var aliveCreatures []*creatures.Creature
+	for _, creature := range w.Creatures {
+		if creature.IsAlive() {
+			aliveCreatures = append(aliveCreatures, creature)
 		}
 	}
+	w.Creatures = aliveCreatures
+}
+
+// GetCreaturesInArea returns creatures within a certain radius of a point
+func (w *World) GetCreaturesInArea(centerX, centerY, radius float64) []*creatures.Creature {
+	var nearbyCreatures []*creatures.Creature
+	for _, creature := range w.Creatures {
+		dx := creature.X - centerX
+		dy := creature.Y - centerY
+		distance := math.Sqrt(dx*dx + dy*dy)
+		if distance <= radius {
+			nearbyCreatures = append(nearbyCreatures, creature)
+		}
+	}
+	return nearbyCreatures
 }

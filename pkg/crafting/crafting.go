@@ -7,27 +7,38 @@ import (
 	"tesselbox/pkg/items"
 )
 
+// CraftingStation represents different crafting stations
+type CraftingStation int
+
+const (
+	STATION_NONE CraftingStation = iota
+	STATION_WORKBENCH
+	STATION_FURNACE
+	STATION_ANVIL
+)
+
 // RecipeInput represents an input item requirement
 type RecipeInput struct {
-	ItemType  items.ItemType `json:"item_type"`
-	Quantity  int            `json:"quantity"`
+	ItemType items.ItemType `json:"item_type"`
+	Quantity int            `json:"quantity"`
 }
 
 // RecipeOutput represents an output item
 type RecipeOutput struct {
-	ItemType  items.ItemType `json:"item_type"`
-	Quantity  int            `json:"quantity"`
+	ItemType items.ItemType `json:"item_type"`
+	Quantity int            `json:"quantity"`
 }
 
 // Recipe represents a crafting recipe
 type Recipe struct {
-	ID           string          `json:"id"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	Inputs       []RecipeInput   `json:"inputs"`
-	Outputs      []RecipeOutput  `json:"outputs"`
-	CraftingTime float64         `json:"crafting_time"` // in seconds, 0 = instant
-	RequiredTool items.ItemType  `json:"required_tool"` // NONE if no tool required
+	ID              string          `json:"id"`
+	Name            string          `json:"name"`
+	Description     string          `json:"description"`
+	Inputs          []RecipeInput   `json:"inputs"`
+	Outputs         []RecipeOutput  `json:"outputs"`
+	CraftingTime    float64         `json:"crafting_time"`    // in seconds, 0 = instant
+	RequiredTool    items.ItemType  `json:"required_tool"`    // NONE if no tool required
+	RequiredStation CraftingStation `json:"required_station"` // STATION_NONE if no station required
 }
 
 // CraftingSystem manages the crafting functionality
@@ -48,20 +59,20 @@ func (cs *CraftingSystem) LoadRecipes(filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read recipes file: %w", err)
 	}
-	
+
 	var recipes []Recipe
 	if err := json.Unmarshal(data, &recipes); err != nil {
 		return fmt.Errorf("failed to parse recipes JSON: %w", err)
 	}
-	
+
 	// Clear existing recipes
 	cs.recipes = make(map[string]*Recipe)
-	
+
 	// Load recipes
 	for i := range recipes {
 		cs.recipes[recipes[i].ID] = &recipes[i]
 	}
-	
+
 	return nil
 }
 
@@ -80,8 +91,13 @@ func (cs *CraftingSystem) GetAllRecipes() []*Recipe {
 	return recipes
 }
 
-// CanCraft checks if the player can craft a recipe
-func (cs *CraftingSystem) CanCraft(recipe *Recipe, inventory *items.Inventory) bool {
+// CanCraft checks if the player can craft a recipe at the given station
+func (cs *CraftingSystem) CanCraft(recipe *Recipe, inventory *items.Inventory, station CraftingStation) bool {
+	// Check if required station matches
+	if recipe.RequiredStation != STATION_NONE && recipe.RequiredStation != station {
+		return false
+	}
+
 	// Check if required tool is in selected slot
 	if recipe.RequiredTool != items.NONE {
 		selectedItem := inventory.GetSelectedItem()
@@ -89,21 +105,21 @@ func (cs *CraftingSystem) CanCraft(recipe *Recipe, inventory *items.Inventory) b
 			return false
 		}
 	}
-	
+
 	// Check if player has all required materials
 	for _, input := range recipe.Inputs {
 		if !inventory.HasItem(input.ItemType, input.Quantity) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
-// GetMissingMaterials returns the materials needed to craft a recipe
-func (cs *CraftingSystem) GetMissingMaterials(recipe *Recipe, inventory *items.Inventory) []RecipeInput {
+// GetMissingMaterials returns the materials needed to craft a recipe at the given station
+func (cs *CraftingSystem) GetMissingMaterials(recipe *Recipe, inventory *items.Inventory, station CraftingStation) []RecipeInput {
 	missing := []RecipeInput{}
-	
+
 	// Count available items
 	available := make(map[items.ItemType]int)
 	for _, slot := range inventory.Slots {
@@ -111,7 +127,7 @@ func (cs *CraftingSystem) GetMissingMaterials(recipe *Recipe, inventory *items.I
 			available[slot.Type] += slot.Quantity
 		}
 	}
-	
+
 	// Check each input
 	for _, input := range recipe.Inputs {
 		if available[input.ItemType] < input.Quantity {
@@ -121,34 +137,34 @@ func (cs *CraftingSystem) GetMissingMaterials(recipe *Recipe, inventory *items.I
 			})
 		}
 	}
-	
+
 	return missing
 }
 
-// Craft attempts to craft a recipe
-func (cs *CraftingSystem) Craft(recipeID string, inventory *items.Inventory) error {
+// Craft attempts to craft a recipe at the given station
+func (cs *CraftingSystem) Craft(recipeID string, inventory *items.Inventory, station CraftingStation) error {
 	recipe, exists := cs.GetRecipe(recipeID)
 	if !exists {
 		return fmt.Errorf("recipe not found: %s", recipeID)
 	}
-	
+
 	// Check if crafting is possible
-	if !cs.CanCraft(recipe, inventory) {
-		return fmt.Errorf("cannot craft %s: missing materials or tools", recipe.Name)
+	if !cs.CanCraft(recipe, inventory, station) {
+		return fmt.Errorf("cannot craft %s: missing materials, tools, or station", recipe.Name)
 	}
-	
+
 	// Remove input materials
 	for _, input := range recipe.Inputs {
 		if !inventory.RemoveItemType(input.ItemType, input.Quantity) {
 			return fmt.Errorf("failed to remove input materials")
 		}
 	}
-	
+
 	// Use tool durability if applicable
 	if recipe.RequiredTool != items.NONE {
 		inventory.UseItem()
 	}
-	
+
 	// Add output items
 	for _, output := range recipe.Outputs {
 		if !inventory.AddItem(output.ItemType, output.Quantity) {
@@ -157,20 +173,20 @@ func (cs *CraftingSystem) Craft(recipeID string, inventory *items.Inventory) err
 			return fmt.Errorf("inventory full")
 		}
 	}
-	
+
 	return nil
 }
 
-// GetAvailableRecipes returns recipes that can be crafted with current inventory
-func (cs *CraftingSystem) GetAvailableRecipes(inventory *items.Inventory) []*Recipe {
+// GetAvailableRecipes returns recipes that can be crafted with current inventory at the given station
+func (cs *CraftingSystem) GetAvailableRecipes(inventory *items.Inventory, station CraftingStation) []*Recipe {
 	available := []*Recipe{}
-	
+
 	for _, recipe := range cs.recipes {
-		if cs.CanCraft(recipe, inventory) {
+		if cs.CanCraft(recipe, inventory, station) {
 			available = append(available, recipe)
 		}
 	}
-	
+
 	return available
 }
 

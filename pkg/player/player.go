@@ -2,6 +2,9 @@ package player
 
 import (
 	"math"
+	"tesselbox/pkg/creatures"
+	"tesselbox/pkg/items"
+	"tesselbox/pkg/status"
 	"tesselbox/pkg/world"
 	"time"
 )
@@ -55,6 +58,21 @@ type Player struct {
 	AttackRange  float64
 	AttackSpeed  float64 // Attacks per second
 
+	// Equipment
+	Weapon     *items.Item
+	Helmet     *items.Item
+	Chestplate *items.Item
+	Leggings   *items.Item
+	Boots      *items.Item
+
+	// Status effects
+	StatusManager *status.StatusManager
+
+	// Leveling system
+	Level      int
+	Experience int
+	ExpToNext  int
+
 	// Time tracking for delta time
 	LastUpdateTime time.Time
 }
@@ -77,6 +95,14 @@ func NewPlayer(x, y float64) *Player {
 		AttackDamage: 10.0,
 		AttackRange:  80.0,
 		AttackSpeed:  1.0, // 1 attack per second
+
+		// Status effects
+		StatusManager: status.NewStatusManager(),
+
+		// Leveling system
+		Level:      1,
+		Experience: 0,
+		ExpToNext:  100, // Experience needed for level 2
 	}
 }
 
@@ -305,9 +331,114 @@ func (p *Player) GetMaxHealth() float64 {
 	return p.MaxHealth
 }
 
-// TakeDamage reduces the player's health
+// GetDefense returns the player's total defense from armor
+func (p *Player) GetDefense() float64 {
+	defense := 0.0
+
+	armorPieces := []*items.Item{p.Helmet, p.Chestplate, p.Leggings, p.Boots}
+	for _, armor := range armorPieces {
+		if armor != nil {
+			props := items.GetItemProperties(armor.Type)
+			if props != nil && props.IsArmor {
+				defense += props.ArmorDefense
+			}
+		}
+	}
+
+	return defense
+}
+
+// EquipItem equips an item to the appropriate slot
+func (p *Player) EquipItem(item *items.Item) bool {
+	if item == nil {
+		return false
+	}
+
+	props := items.GetItemProperties(item.Type)
+	if props == nil {
+		return false
+	}
+
+	if props.IsWeapon {
+		// Unequip current weapon first
+		if p.Weapon != nil {
+			p.UnequipWeapon()
+		}
+		p.Weapon = item
+		return true
+	}
+
+	if props.IsArmor {
+		switch props.ArmorType {
+		case "helmet":
+			if p.Helmet != nil {
+				p.UnequipArmor("helmet")
+			}
+			p.Helmet = item
+			return true
+		case "chestplate":
+			if p.Chestplate != nil {
+				p.UnequipArmor("chestplate")
+			}
+			p.Chestplate = item
+			return true
+		case "leggings":
+			if p.Leggings != nil {
+				p.UnequipArmor("leggings")
+			}
+			p.Leggings = item
+			return true
+		case "boots":
+			if p.Boots != nil {
+				p.UnequipArmor("boots")
+			}
+			p.Boots = item
+			return true
+		}
+	}
+
+	return false
+}
+
+// UnequipWeapon removes the equipped weapon
+func (p *Player) UnequipWeapon() *items.Item {
+	weapon := p.Weapon
+	p.Weapon = nil
+	return weapon
+}
+
+// UnequipArmor removes equipped armor of the specified type
+func (p *Player) UnequipArmor(armorType string) *items.Item {
+	switch armorType {
+	case "helmet":
+		armor := p.Helmet
+		p.Helmet = nil
+		return armor
+	case "chestplate":
+		armor := p.Chestplate
+		p.Chestplate = nil
+		return armor
+	case "leggings":
+		armor := p.Leggings
+		p.Leggings = nil
+		return armor
+	case "boots":
+		armor := p.Boots
+		p.Boots = nil
+		return armor
+	}
+	return nil
+}
+
+// TakeDamage reduces the player's health, considering armor defense
 func (p *Player) TakeDamage(amount float64, fromX, fromY, knockbackForce float64) {
-	p.Health -= amount
+	defense := p.GetDefense()
+	actualDamage := amount - defense
+	if actualDamage < 1 {
+		actualDamage = 1 // Minimum damage
+	}
+
+	p.Health -= actualDamage
 	if p.Health < 0 {
 		p.Health = 0
 	}
@@ -433,7 +564,17 @@ func (p *Player) Attack() bool {
 
 	p.Attacking = true
 	p.AttackProgress = 0
-	p.AttackCooldown = 1.0 / p.AttackSpeed // Cooldown based on attack speed
+
+	// Use weapon speed if equipped, otherwise base speed
+	attackSpeed := p.AttackSpeed
+	if p.Weapon != nil {
+		props := items.GetItemProperties(p.Weapon.Type)
+		if props != nil && props.IsWeapon {
+			attackSpeed = props.WeaponSpeed
+		}
+	}
+
+	p.AttackCooldown = 1.0 / attackSpeed // Cooldown based on attack speed
 	p.LastAttackTime = time.Now()
 
 	return true
@@ -444,20 +585,54 @@ func (p *Player) IsAttackReady() bool {
 	return p.AttackCooldown <= 0
 }
 
-// GetAttackRange returns the player's attack range
-func (p *Player) GetAttackRange() float64 {
-	return p.AttackRange
+// GetAttackSpeed returns the player's attack speed (attacks per second)
+func (p *Player) GetAttackSpeed() float64 {
+	speed := p.AttackSpeed
+
+	// Use weapon speed if equipped
+	if p.Weapon != nil {
+		props := items.GetItemProperties(p.Weapon.Type)
+		if props != nil && props.IsWeapon {
+			speed = props.WeaponSpeed
+		}
+	}
+
+	return speed
 }
 
 // GetAttackDamage returns the player's attack damage
 func (p *Player) GetAttackDamage() float64 {
-	return p.AttackDamage
+	damage := p.AttackDamage // Base damage
+
+	// Add weapon damage if equipped
+	if p.Weapon != nil {
+		props := items.GetItemProperties(p.Weapon.Type)
+		if props != nil && props.IsWeapon {
+			damage = props.WeaponDamage
+		}
+	}
+
+	// Apply status effect multipliers
+	if p.StatusManager != nil {
+		damage *= p.StatusManager.GetDamageMultiplier()
+	}
+
+	return damage
 }
 
-// DealDamage applies damage to a target (placeholder for future use with creatures)
+// DealDamage applies damage to a target
 func (p *Player) DealDamage(target interface{}, damage float64) {
-	// This will be used when creatures are implemented
-	// For now, it's a placeholder
+	switch t := target.(type) {
+	case *creatures.Creature:
+		// Damage a creature
+		t.TakeDamage(damage)
+		// Apply knockback from player to creature
+		knockbackForce := 100.0
+		playerCenterX, playerCenterY := p.GetCenter()
+		t.ApplyKnockback(playerCenterX, playerCenterY, knockbackForce)
+	default:
+		// Placeholder for other damageable objects
+	}
 }
 
 // GetAttackProgress returns the current attack animation progress (0-1)
@@ -468,4 +643,164 @@ func (p *Player) GetAttackProgress() float64 {
 // IsAttacking returns true if the player is currently attacking
 func (p *Player) IsAttacking() bool {
 	return p.Attacking
+}
+
+// UpdateCombat updates combat-related state (called from main Update)
+func (p *Player) UpdateCombat(deltaTime float64) {
+	// Update combat cooldown
+	if p.AttackCooldown > 0 {
+		p.AttackCooldown -= deltaTime
+		if p.AttackCooldown < 0 {
+			p.AttackCooldown = 0
+		}
+	}
+
+	// Update attack animation progress
+	if p.Attacking {
+		attackSpeed := p.GetAttackSpeed()
+		p.AttackProgress += deltaTime * attackSpeed
+		if p.AttackProgress >= 1.0 {
+			p.Attacking = false
+			p.AttackProgress = 0
+		}
+	}
+
+	// Update status effects
+	if p.StatusManager != nil {
+		p.StatusManager.Update()
+		p.StatusManager.ApplyPeriodicEffects(&p.Health, p.MaxHealth)
+	}
+}
+
+// AreaAttack performs an area attack damaging multiple creatures
+func (p *Player) AreaAttack(radius float64) bool {
+	if p.AttackCooldown > 0 {
+		return false // Still on cooldown
+	}
+
+	// This would need access to the world to get nearby creatures
+	// For now, just set up the attack - the caller will handle the damage
+
+	p.Attacking = true
+	p.AttackProgress = 0
+	p.AttackCooldown = 2.0 // Longer cooldown for area attack
+
+	return true
+}
+
+// ApplyStatusEffect applies a status effect to a target
+func (p *Player) ApplyStatusEffect(target interface{}, effectType status.StatusEffectType, duration time.Duration, strength float64) {
+	// This would need the target's status manager
+	// For creatures, we'd need to add StatusManager to creatures too
+}
+
+// SelfBuff applies a buff to the player
+func (p *Player) SelfBuff(buffType status.StatusEffectType, duration time.Duration, strength float64) bool {
+	if p.StatusManager == nil {
+		return false
+	}
+
+	p.StatusManager.ApplyEffect(buffType, duration, strength)
+	return true
+}
+
+// WeaponSpecial performs a weapon-specific special ability
+func (p *Player) WeaponSpecial() bool {
+	if p.Weapon == nil || p.AttackCooldown > 0 {
+		return false
+	}
+
+	props := items.GetItemProperties(p.Weapon.Type)
+	if props == nil || !props.IsWeapon {
+		return false
+	}
+
+	// Different abilities based on weapon type
+	switch props.WeaponType {
+	case "melee":
+		// Power attack - extra damage
+		return p.PowerAttack()
+	case "ranged":
+		// Multi-shot
+		return p.MultiShot()
+	case "magic":
+		// Magic blast
+		return p.MagicBlast()
+	}
+
+	return false
+}
+
+// PowerAttack performs a powerful melee attack
+func (p *Player) PowerAttack() bool {
+	p.Attacking = true
+	p.AttackProgress = 0
+	p.AttackCooldown = 3.0 // Long cooldown
+	return true
+}
+
+// MultiShot performs multiple ranged attacks
+func (p *Player) MultiShot() bool {
+	p.Attacking = true
+	p.AttackProgress = 0
+	p.AttackCooldown = 2.5 // Medium cooldown
+	return true
+}
+
+// MagicBlast performs a magical area attack
+func (p *Player) MagicBlast() bool {
+	p.Attacking = true
+	p.AttackProgress = 0
+	p.AttackCooldown = 4.0 // Very long cooldown
+	return true
+}
+
+// GainExperience adds experience points and handles leveling
+func (p *Player) GainExperience(amount int) {
+	p.Experience += amount
+
+	// Check for level up
+	for p.Experience >= p.ExpToNext {
+		p.LevelUp()
+	}
+}
+
+// LevelUp increases the player's level and stats
+func (p *Player) LevelUp() {
+	p.Level++
+	p.Experience -= p.ExpToNext
+
+	// Increase experience needed for next level (exponential growth)
+	p.ExpToNext = int(float64(p.ExpToNext) * 1.5)
+
+	// Increase base stats
+	p.MaxHealth += 10.0
+	p.Health = p.MaxHealth // Full heal on level up
+	p.AttackDamage += 2.0
+	p.AttackSpeed += 0.1
+
+	// Cap attack speed at reasonable maximum
+	if p.AttackSpeed > 3.0 {
+		p.AttackSpeed = 3.0
+	}
+}
+
+// GetLevel returns the player's current level
+func (p *Player) GetLevel() int {
+	return p.Level
+}
+
+// GetExperience returns the player's current experience
+func (p *Player) GetExperience() int {
+	return p.Experience
+}
+
+// GetExpToNext returns experience needed for next level
+func (p *Player) GetExpToNext() int {
+	return p.ExpToNext
+}
+
+// GetAttackRange returns the player's attack range
+func (p *Player) GetAttackRange() float64 {
+	return p.AttackRange
 }
