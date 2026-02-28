@@ -31,7 +31,7 @@ For new features:
 
 
 
-## YOU CAn NOW USE OUR DEVELOPER HELPER SOFTWARE!!
+## YOU CAN NOW USE OUR DEVELOPER HELPER SOFTWARE!!
 
 
 [helper](https://github.com/tesselstudio/Tesselbox-helper)
