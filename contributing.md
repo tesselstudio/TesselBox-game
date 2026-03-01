@@ -31,12 +31,6 @@ For new features:
 
 
 
-## YOU CAN NOW USE OUR DEVELOPER HELPER SOFTWARE!!
-
-
-[helper](https://github.com/tesselstudio/Tesselbox-helper)
-
-
 
 ## Code Review Process
 1. All pull requests require at least one review
