@@ -4,67 +4,6 @@
 
 ## 🌍 **Language Selection - Click Any Language Below**
 
-### 🎯 **Quick Language Jump**
-| Language | Link | Native Name |
-|----------|------|-------------|
-| **[English](readme/english.md)** | 🇺🇸 | English |
-| **[中文](readme/chinese.md)** | 🇨🇳 | 中文 (Simplified) |
-| **[Español](readme/spanish.md)** | 🇪🇸 | Español |
-| **[Français](readme/french.md)** | 🇫🇷 | Français |
-| **[Deutsch](readme/german.md)** | 🇩🇪 | Deutsch |
-| **[日本語](readme/japanese.md)** | 🇯🇵 | 日本語 |
-| **[Русский](readme/russian.md)** | 🇷🇺 | Русский |
-| **[العربية](readme/arabic.md)** | 🇸🇦 | العربية |
-| **[हिन्दी](readme/hindi.md)** | 🇮🇳 | हिन्दी |
-| **[Português](readme/portuguese.md)** | 🇧🇷 | Português |
-
-### 🌏 **European Languages**
-| Language | Link | Status |
-|----------|------|--------|
-| **[English](readme/english.md)** | 🇬🇧 | ✅ Complete |
-| **[Deutsch](readme/german.md)** | 🇩🇪 | ✅ Complete |
-| **[Français](readme/french.md)** | 🇫🇷 | ✅ Complete |
-| **[Español](readme/spanish.md)** | 🇪🇸 | ✅ Complete |
-| **[Italiano](readme/italian.md)** | 🇮🇹 | ✅ Complete |
-| **[Português](readme/portuguese.md)** | 🇵🇹 | ✅ Complete |
-| **[Русский](readme/russian.md)** | 🇷🇺 | ✅ Complete |
-| **[Polski](readme/polish.md)** | 🇵🇱 | ✅ Complete |
-| **[Nederlands](readme/dutch.md)** | 🇳🇱 | ✅ Complete |
-| **[Svenska](readme/swedish.md)** | 🇸🇪 | ✅ Complete |
-| **[Dansk](readme/danish.md)** | 🇩🇰 | ✅ Complete |
-| **[Norsk](readme/norwegian.md)** | 🇳🇴 | ✅ Complete |
-| **[Suomi](readme/finnish.md)** | 🇫🇮 | ✅ Complete |
-| **[Čeština](readme/czech.md)** | 🇨🇿 | ✅ Complete |
-| **[Magyar](readme/hungarian.md)** | 🇭🇺 | ✅ Complete |
-
-### 🌏 **Asian Languages**
-| Language | Link | Status |
-|----------|------|--------|
-| **[中文](readme/chinese.md)** | 🇨🇳 | ✅ Complete |
-| **[日本語](readme/japanese.md)** | 🇯🇵 | ✅ Complete |
-| **[한국어](readme/korean.md)** | 🇰🇷 | ✅ Complete |
-| **[हिन्दी](readme/hindi.md)** | 🇮🇳 | ✅ Complete |
-| **[العربية](readme/arabic.md)** | 🇸🇦 | ✅ Complete |
-| **[বাংলা](readme/bengali.md)** | 🇧🇩 | ✅ Complete |
-| **[Türkçe](readme/turkish.md)** | 🇹🇷 | ✅ Complete |
-
-### 🌍 **African Languages**
-| Language | Link | Status |
-|----------|------|--------|
-| **[Kiswahili](readme/swahili.md)** | 🇹🇿 | ✅ Complete |
-| **[Afrikaans](readme/afrikaans.md)** | 🇿🇦 | ✅ Complete |
-| **[አማርኛ](readme/amharic.md)** | 🇪🇹 | ✅ Complete |
-| **[Yorùbá](readme/yoruba.md)** | 🇳🇬 | ✅ Complete |
-| **[Hausa](readme/hausa.md)** | 🇳🇬 | ✅ Complete |
-| **[Igbo](readme/igbo.md)** | 🇳🇬 | ✅ Complete |
-| **[Zulu](readme/zulu.md)** | 🇿🇦 | ✅ Complete |
-
-###  **Additional Languages**
-| Language | Link | Status |
-|----------|------|--------|
-| **[Ελληνικά](readme/greek.md)** | 🇬🇷 | ✅ Complete |
-
----
 
 ## 🔗 **Direct Language Links**
 
