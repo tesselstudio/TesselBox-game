@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "save_time": "2026-03-08T19:20:33.17053421Z",
+  "world_name": "test_autosave",
+  "player_name": "autosave_player",
+  "seed": 1772997633018790174,
+  "player_x": 0,
+  "player_y": 0,
+  "player_vx": 0,
+  "player_vy": 0,
+  "selected_slot": 0,
+  "inventory_slots": [
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    }
+  ],
+  "camera_x": 0,
+  "camera_y": 0,
+  "in_menu": false,
+  "in_game": true,
+  "in_crafting": false
+}
