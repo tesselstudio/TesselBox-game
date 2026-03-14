@@ -47,41 +47,6 @@ go run cmd/main.go
 
 ---
 
-## 📚 **Complete Language Index**
-
-### **A-Z Language Links:**
-- **[Afrikaans](readme/afrikaans.md)** 🇿🇦
-- **[አማርኛ](readme/amharic.md)** 🇪🇹
-- **[العربية](readme/arabic.md)** 🇸🇦
-- **[বাংলা](readme/bengali.md)** 🇧🇩
-- **[Čeština](readme/czech.md)** 🇨🇿
-- **[Dansk](readme/danish.md)** 🇩🇰
-- **[Deutsch](readme/german.md)** 🇩🇪
-- **[English](readme/english.md)** 🇬🇧
-- **[Ελληνικά](readme/greek.md)** 🇬🇷
-- **[Español](readme/spanish.md)** 🇪🇸
-- **[Suomi](readme/finnish.md)** 🇫🇮
-- **[Français](readme/french.md)** 🇫🇷
-- **[Hausa](readme/hausa.md)** 🇳🇬
-- **[हिन्दी](readme/hindi.md)** 🇮🇳
-- **[Magyar](readme/hungarian.md)** 🇭🇺
-- **[Igbo](readme/igbo.md)** 🇳🇬
-- **[Italiano](readme/italian.md)** 🇮🇹
-- **[日本語](readme/japanese.md)** 🇯🇵
-- **[한국어](readme/korean.md)** 🇰🇷
-- **[Kiswahili](readme/swahili.md)** 🇹🇿
-- **[Nederlands](readme/dutch.md)** 🇳🇱
-- **[Norsk](readme/norwegian.md)** 🇳🇴
-- **[Polski](readme/polish.md)** 🇵🇱
-- **[Português](readme/portuguese.md)** 🇧🇷
-- **[Русский](readme/russian.md)** 🇷🇺
-- **[Svenska](readme/swedish.md)** 🇸🇪
-- **[Türkçe](readme/turkish.md)** 🇹🇷
-- **[Yorùbá](readme/yoruba.md)** 🇳🇬
-- **[Zulu](readme/zulu.md)** 🇿🇦
-- **[中文](readme/chinese.md)** 🇨🇳
-- **[繁體中文（香港）](readme/traditional_chinese_hk.md)** 🇭🇰
-- **[繁體中文（台灣）](readme/traditional_chinese_tw.md)** 🇹🇼
 
 
 ## License
