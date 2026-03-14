@@ -661,6 +661,72 @@ func (w *World) RemoveDeadCreatures() {
 	w.Creatures = aliveCreatures
 }
 
+// FindSpawnPosition finds a suitable spawn position near the given coordinates
+func (w *World) FindSpawnPosition(centerX, centerY float64) (float64, float64) {
+	// Search radius for finding suitable spawn
+	searchRadius := 500.0
+	stepSize := 50.0
+	
+	// Check in a spiral pattern around the center
+	for radius := 0.0; radius <= searchRadius; radius += stepSize {
+		if radius == 0 {
+			// Check center position first
+			if spawnX, spawnY := w.checkPositionForSpawn(centerX, centerY); spawnX != 0 || spawnY != 0 {
+				return spawnX, spawnY
+			}
+		} else {
+			// Check positions in a circle at this radius
+			steps := int(2 * math.Pi * radius / stepSize)
+			for i := 0; i < steps; i++ {
+				angle := float64(i) / float64(steps) * 2 * math.Pi
+				checkX := centerX + math.Cos(angle)*radius
+				checkY := centerY + math.Sin(angle)*radius
+				
+				if spawnX, spawnY := w.checkPositionForSpawn(checkX, checkY); spawnX != 0 || spawnY != 0 {
+					return spawnX, spawnY
+				}
+			}
+		}
+	}
+	
+	// Fallback: generate terrain at center position and return guaranteed safe spawn
+	w.GetChunksInRange(centerX, centerY)
+	
+	// Find ground level at center position
+	var groundY float64 = centerY + 400 // Start searching from typical terrain height
+	for checkY := centerY + 300; checkY <= centerY + 600; checkY += 10.0 {
+		hex := w.GetHexagonAt(centerX, checkY)
+		if hex != nil && hex.BlockType != blocks.AIR {
+			groundY = checkY
+			break
+		}
+	}
+	
+	return centerX, groundY - 50 // Spawn 50 pixels above ground
+}
+
+// checkPositionForSpawn checks if a position is suitable for spawning
+func (w *World) checkPositionForSpawn(x, y float64) (float64, float64) {
+	// Ensure chunks are loaded around this position
+	w.GetChunksInRange(x, y)
+	
+	// Check for solid ground below this position
+	// Look for a solid block within a reasonable distance below (based on world generation heights)
+	maxGroundCheck := 600.0 // Up to ocean depth
+	minGroundCheck := 300.0 // Start around typical terrain height
+	
+	for checkY := y + minGroundCheck; checkY <= y + maxGroundCheck; checkY += 10.0 {
+		hex := w.GetHexagonAt(x, checkY)
+		if hex != nil && hex.BlockType != blocks.AIR {
+			// Found solid ground, spawn 50 pixels above it
+			return x, checkY - 50
+		}
+	}
+	
+	// No suitable ground found
+	return 0, 0
+}
+
 // GetCreaturesInArea returns creatures within a certain radius of a point
 func (w *World) GetCreaturesInArea(centerX, centerY, radius float64) []*creatures.Creature {
 	var nearbyCreatures []*creatures.Creature

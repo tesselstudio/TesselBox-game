@@ -53,17 +53,18 @@ func (c *Chunk) GetWorldPosition() (float64, float64) {
 
 // GetHexagon returns the hexagon at the given world coordinates
 func (c *Chunk) GetHexagon(x, y float64) *Hexagon {
+	// Use PixelToHexCenter to get accurate hexagon coordinates
+	centerX, centerY, _, _ := PixelToHexCenter(x, y)
+
 	worldX, worldY := c.GetWorldPosition()
 
-	// Calculate local row
-	localRow := int((y - worldY) / HexVSpacing)
-
-	// Calculate local column with proper offset for interlocking
-	localCol := int((x - worldX - HexWidth/2) / HexWidth)
+	// Calculate local row and column from center coordinates
+	localRow := int((centerY - worldY) / HexVSpacing)
+	localCol := int((centerX - worldX - HexWidth/2) / HexWidth)
 	if localRow%2 == 0 {
-		localCol = int((x - worldX - HexWidth/2) / HexWidth)
+		localCol = int((centerX - worldX - HexWidth/2) / HexWidth)
 	} else {
-		localCol = int((x - worldX) / HexWidth)
+		localCol = int((centerX - worldX) / HexWidth)
 	}
 
 	key := [2]int{localCol, localRow}

@@ -10,7 +10,9 @@
 ### **Navigate by Clicking:**
 - **[🇺🇸 English](readme/english.md)** - Complete documentation
 - **[🇨🇳 中文](readme/chinese.md)** - 完整文档
-- **[🇪🇸 Español](readme/spanish.md)** - Documentación completa
+- **[�🇰 繁體中文（香港）](readme/traditional_chinese_hk.md)** - 繁體中文（香港）
+- **[🇹🇼 繁體中文（台灣）](readme/traditional_chinese_tw.md)** - 繁體中文（台灣）
+- **[�🇸 Español](readme/spanish.md)** - Documentación completa
 - **[🇫🇷 Français](readme/french.md)** - Documentation complète
 - **[🇩🇪 Deutsch](readme/german.md)** - Vollständige Dokumentation
 - **[🇯🇵 日本語](readme/japanese.md)** - 完全なドキュメント
@@ -44,6 +46,8 @@
 ## ⚡ **One-Click Navigation**
 
 ### **Choose Your Language:**
+- **繁體中文（香港）**: [📖 閱讀](readme/traditional_chinese_hk.md)
+- **繁體中文（台灣）**: [📖 閱讀](readme/traditional_chinese_tw.md)
 - **English**: [📖 Read Now](readme/english.md)
 - **中文**: [📖 阅读](readme/chinese.md)
 - **Español**: [📖 Leer](readme/spanish.md)
@@ -69,8 +73,8 @@
 | [🇮🇹 Italiano](readme/italian.md) | [🇸🇦 العربية](readme/arabic.md) | [🇳🇬 Hausa](readme/hausa.md) |  |
 | [🇵🇹 Português](readme/portuguese.md) | [🇧🇩 বাংলা](readme/bengali.md) | [🇳🇬 Igbo](readme/igbo.md) |  |
 | [🇷🇺 Русский](readme/russian.md) | [🇹🇷 Türkçe](readme/turkish.md) | [🇿🇦 Zulu](readme/zulu.md) |  |
-| [🇵🇱 Polski](readme/polish.md) |  |  |  |
-| [🇳🇱 Nederlands](readme/dutch.md) |  |  |  |
+| [🇵🇱 Polski](readme/polish.md) | [🇭🇰 繁體中文（香港）](readme/traditional_chinese_hk.md) |  |  |
+| [🇳🇱 Nederlands](readme/dutch.md) | [🇹🇼 繁體中文（台灣）](readme/traditional_chinese_tw.md) |  |  |
 | [🇸🇪 Svenska](readme/swedish.md) |  |  |  |
 | [🇩🇰 Dansk](readme/danish.md) |  |  |  |
 | [🇳🇴 Norsk](readme/norwegian.md) |  |  |  |
@@ -113,6 +117,8 @@
 - **[Yorùbá](readme/yoruba.md)** 🇳🇬
 - **[Zulu](readme/zulu.md)** 🇿🇦
 - **[中文](readme/chinese.md)** 🇨🇳
+- **[繁體中文（香港）](readme/traditional_chinese_hk.md)** 🇭🇰
+- **[繁體中文（台灣）](readme/traditional_chinese_tw.md)** 🇹🇼
 
 
 ## License

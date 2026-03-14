@@ -18,6 +18,10 @@ Explore worlds, mine resources, build structures, craft items, fight enemies, an
 - **Day/Night Cycle** - Dynamic lighting and time progression
 - **Weather Effects** - Rain, snow, and storm systems
 - **Save/Load System** - Persistent world state with auto-save
+- **Creative Mode** - Unlimited resources and instant building
+- **Flying Mode** - Press F to toggle flying in creative mode
+- **Command System** - In-game chat commands for various functions
+- **Menu System** - Start menu and block library interface
 
 ### 🎮 **Controls**
 - **WASD / Arrow Keys**: Movement
@@ -31,6 +35,24 @@ Explore worlds, mine resources, build structures, craft items, fight enemies, an
 - **F5**: Manual save
 - **F9**: Manual load
 - **ESC**: Menu / Close menus
+- **B**: Open block library (creative mode)
+- **F**: Toggle flying mode
+- **/**: Open command mode
+
+## Command System
+
+### Available Commands
+- **/help** - Display all available commands
+- **/give [item_name] [quantity]** - Give items to inventory
+- **/creative** - Switch to creative mode
+- **/survival** - Switch to survival mode
+- **/tp [x] [y]** - Teleport to coordinates
+
+### Creative Mode Features
+- Unlimited resources
+- Block library (press B to open)
+- Instant block destruction
+- Flying movement
 
 ## Installation & Setup
 

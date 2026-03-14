@@ -126,7 +126,7 @@ func NewGame() *Game {
 
 	g := &Game{
 		world:         world.NewWorld("default"), // Default world name
-		player:        player.NewPlayer(0, 0),
+		player:        player.NewPlayer(0, 0), // Temporary position, will be updated
 		inventory:     items.NewInventory(32),
 		selectedBlock: "dirt", // Default to dirt in creative mode
 		CreativeMode:  true,   // Enable creative mode by default
@@ -135,6 +135,10 @@ func NewGame() *Game {
 		lastTime:      time.Now(),
 		whiteImage:    whiteImage,
 	}
+
+	// Find a suitable spawn position and set player position
+	spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
+	g.player.SetPosition(spawnX, spawnY)
 
 	// Initialize crafting system
 	g.craftingSystem = crafting.NewCraftingSystem()
@@ -220,6 +224,10 @@ func (g *Game) Update() error {
 		// Update weather system
 		g.weatherSystem.Update(deltaTime, ScreenWidth, ScreenHeight)
 
+		// Generate chunks around player first to ensure terrain exists for collision
+		centerX, centerY := g.player.GetCenter()
+		g.world.GetChunksInRange(centerX, centerY)
+
 		// Apply collision-aware position update
 		nearbyHexagons := g.world.GetNearbyHexagons(g.player.X, g.player.Y, 300)
 		g.player.UpdateWithCollision(deltaTime, func(minX, minY, maxX, maxY float64) bool {
@@ -242,12 +250,9 @@ func (g *Game) Update() error {
 		})
 
 		// Update camera to follow player
-		centerX, centerY := g.player.GetCenter()
+		centerX, centerY = g.player.GetCenter()
 		g.cameraX = centerX - ScreenWidth/2
 		g.cameraY = centerY - ScreenHeight/2
-
-		// Generate chunks around player
-		g.world.GetChunksInRange(centerX, centerY)
 
 		// Unload distant chunks to manage memory
 		g.world.UnloadDistantChunks(centerX, centerY)
@@ -261,7 +266,10 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 	case menu.ActionStartGame:
 		g.inMenu = false
 		g.inGame = true
-		g.player.SetPosition(0, 0)
+		
+		// Find a suitable spawn position and set player position
+		spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
+		g.player.SetPosition(spawnX, spawnY)
 		g.player.SetVelocity(0, 0)
 
 	case menu.ActionBack:
