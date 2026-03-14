@@ -3,7 +3,6 @@
 
 # ⬢ TesselBox-game
 
-# ⬢ TesselBox-game
 
 ![TesselBox Gameplay](https://github.com/tesselstudio/TesselBox-game/raw/main/gameplay.mp4)
 
