@@ -23,65 +23,7 @@ cd TesselBox-game
 go run cmd/main.go
 ```
 
-## 🌍 **Language Selection - Click Any Language Below**
 
-
-## 🔗 **Direct Language Links**
-
-### **Navigate by Clicking:**
-- **[🇺🇸 English](readme/english.md)** - Complete documentation
-- **[🇨🇳 中文](readme/chinese.md)** - 完整文档
-- **[🇭🇰 繁體中文（香港）](readme/traditional_chinese_hk.md)** - 繁體中文（香港）
-- **[🇹🇼 繁體中文（台灣）](readme/traditional_chinese_tw.md)** - 繁體中文（台灣）
-- **[🇪🇸 Español](readme/spanish.md)** - Documentación completa
-- **[🇫🇷 Français](readme/french.md)** - Documentation complète
-- **[🇩🇪 Deutsch](readme/german.md)** - Vollständige Dokumentation
-- **[🇯🇵 日本語](readme/japanese.md)** - 完全なドキュメント
-- **[🇷🇺 Русский](readme/russian.md)** - Полная документация
-- **[🇧🇷 Português](readme/portuguese.md)** - Documentação completa
-- **[🇸🇦 العربية](readme/arabic.md)** - الوثائق الكاملة
-- **[🇮🇳 हिन्दी](readme/hindi.md)** - पूर्ण दस्तावेज़
-- **[🇮🇹 Italiano](readme/italian.md)** - Documentazione completa
-- **[🇳🇱 Nederlands](readme/dutch.md)** - Volledige documentatie
-- **[🇰🇷 한국어](readme/korean.md)** - 완전한 문서
-- **[🇹🇷 Türkçe](readme/turkish.md)** - Tam dokümantasyon
-- **[🇵🇱 Polski](readme/polish.md)** - Pełna dokumentacja
-- **[🇸🇪 Svenska](readme/swedish.md)** - Fullständig dokumentation
-- **[🇨🇿 Čeština](readme/czech.md)** - Úplná dokumentace
-- **[🇬🇷 Ελληνικά](readme/greek.md)** - Πλήρης τεκμηρίωση
-- **[🇧🇩 বাংলা](readme/bengali.md)** - সম্পূর্ণ ডকুমেন্টেশন
-- **[🇹🇿 Kiswahili](readme/swahili.md)** - Hati kamili
-- **[🇿🇦 Afrikaans](readme/afrikaans.md)** - Volledige dokumentasie
-- **[🇪🇹 አማርኛ](readme/amharic.md)** - ሙሉ ሰነዶች
-- **[🇳🇬 Yorùbá](readme/yoruba.md)** - Àwọn àkọsílẹ̀ tí ó pẹ̀
-- **[🇳🇬 Hausa](readme/hausa.md)** - Cikakken takardu
-- **[🇳🇬 Igbo](readme/igbo.md)** - Akwụkwọ zuru oke
-- **[🇿🇦 Zulu](readme/zulu.md)** - Imibhalo egcwele
-- **[🇩🇰 Dansk](readme/danish.md)** - Fuldstændig dokumentation
-- **[🇭🇺 Magyar](readme/hungarian.md)** - Teljes dokumentáció
-- **[🇫🇮 Suomi](readme/finnish.md)** - Täydellinen dokumentaatio
-- **[🇳🇴 Norsk](readme/norwegian.md)** - Fullstendig dokumentasjon
-
----
-
-## ⚡ **One-Click Navigation**
-
-### **Choose Your Language:**
-- **繁體中文（香港）**: [📖 閱讀](readme/traditional_chinese_hk.md)
-- **繁體中文（台灣）**: [📖 閱讀](readme/traditional_chinese_tw.md)
-- **English**: [📖 Read Now](readme/english.md)
-- **中文**: [📖 阅读](readme/chinese.md)
-- **Español**: [📖 Leer](readme/spanish.md)
-- **Français**: [📖 Lire](readme/french.md)
-- **Deutsch**: [📖 Lesen](readme/german.md)
-- **日本語**: [📖 読む](readme/japanese.md)
-- **Русский**: [📖 Читать](readme/russian.md)
-- **العربية**: [📖 اقرأ](readme/arabic.md)
-- **हिन्दी**: [📖 पढ़ें](readme/hindi.md)
-- **Português**: [📖 Ler](readme/portuguese.md)
-
-
----
 
 ## 🎯 **Language Selector Buttons**
 
