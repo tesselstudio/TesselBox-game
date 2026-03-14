@@ -2,7 +2,9 @@
 
 
 <p align="center">
-  <video src="https://github.com/tesselstudio/TesselBox-game/raw/main/gameplay.mp4" width="100%" style="max-width: 800px;" autoplay loop muted playsinline></video>
+  <video src="https://raw.githubusercontent.com/tesselstudio/TesselBox-game/main/gameplay.mp4" width="100%" style="max-width: 800px;" autoplay loop muted playsinline>
+    Your browser does not support the video tag.
+  </video>
 </p>
 
 # ⬢ TesselBox-game
