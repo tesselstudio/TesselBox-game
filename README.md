@@ -10,9 +10,9 @@
 ### **Navigate by Clicking:**
 - **[🇺🇸 English](readme/english.md)** - Complete documentation
 - **[🇨🇳 中文](readme/chinese.md)** - 完整文档
-- **[�🇰 繁體中文（香港）](readme/traditional_chinese_hk.md)** - 繁體中文（香港）
+- **[🇭🇰 繁體中文（香港）](readme/traditional_chinese_hk.md)** - 繁體中文（香港）
 - **[🇹🇼 繁體中文（台灣）](readme/traditional_chinese_tw.md)** - 繁體中文（台灣）
-- **[�🇸 Español](readme/spanish.md)** - Documentación completa
+- **[🇪🇸 Español](readme/spanish.md)** - Documentación completa
 - **[🇫🇷 Français](readme/french.md)** - Documentation complète
 - **[🇩🇪 Deutsch](readme/german.md)** - Vollständige Dokumentation
 - **[🇯🇵 日本語](readme/japanese.md)** - 完全なドキュメント
