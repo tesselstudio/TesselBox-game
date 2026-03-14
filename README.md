@@ -1,13 +1,12 @@
 # TesselBox - Multi-Language README 
 
 
+# ⬢ TesselBox-game
+
 <p align="center">
-  <video src="https://raw.githubusercontent.com/tesselstudio/TesselBox-game/main/gameplay.mp4" width="100%" style="max-width: 800px;" autoplay loop muted playsinline>
-    Your browser does not support the video tag.
+  <video src="https://github.com/tesselstudio/TesselBox-game/raw/main/gameplay.mp4" width="100%" style="max-width: 800px;" autoplay loop muted playsinline>
   </video>
 </p>
-
-# ⬢ TesselBox-game
 
 > **A procedural hexagon-based sandbox adventure.** TesselBox-game is an open-source engine built in Go that explores unique hexagonal world-building, mining, and procedural generation.
 
