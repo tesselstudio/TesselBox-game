@@ -23,7 +23,7 @@ cd TesselBox-game
 go run cmd/main.go
 ```
 
-[![Go](https://img.shields.io/badge/Go-1.?-00ADD8?logo=go&logoColor=white)](https://go.dev)
+
 [![Ebitengine](https://img.shields.io/badge/Made%20with-Ebitengine-FF6B6B?logoColor=white)](https://ebitengine.org)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-blue.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 ![GitHub stars](https://img.shields.io/github/stars/tesselstudio/TesselBox-game?style=social)
