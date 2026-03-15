@@ -7,37 +7,48 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false  # ← Key: don't cancel others if one fails
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
 
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.23'
+        go-version: '1.23'  # or 'stable' / match your go.mod
 
-    - name: Install Linux deps
+    - name: Install deps (Linux)
       if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev
-
-    - name: Debug paths
       run: |
-        ls -la
-        ls cmd/ || echo "No cmd dir"
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev pkg-config
+
+    - name: Install deps (macOS)  # ← Add this! Critical for Ebiten/cgo on macOS
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install pkg-config glfw3 libpng jpeg libogg libvorbis freetype harfbuzz
+
+    - name: Debug info
+      run: |
         go version
         go env
+        ls -la
+        ls cmd/ || echo "cmd dir missing"
+        pkg-config --modversion glfw3 || echo "glfw3 pkg-config failed"
 
     - name: Build
       run: |
-        go build -v -o TesselBox-$$   {{ runner.os }} cmd/main.go || go build -v -o TesselBox-   $${{ runner.os }} main.go  # fallback if no cmd/
-        ls -la TesselBox* || echo "No binary produced!"
+        go build -v -o TesselBox-$$   {{ runner.os }} cmd/main.go || go build -v -o TesselBox-   $${{ runner.os }} main.go
+        ls -la TesselBox* || echo "Build produced no binary!"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: binaries-${{ runner.os }}
-        path: TesselBox-*   # catches .exe, no extension, etc.
+        name: TesselBox-${{ runner.os }}
+        path: TesselBox-*
         if-no-files-found: warn
