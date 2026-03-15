@@ -29,17 +29,18 @@ jobs:
       run: brew install pkg-config glfw3 || true
 
     - name: Debug basics
-      shell: bash {0}  # Force bash on all runners (GitHub provides it)
+      shell: bash {0}  # Force bash everywhere
       run: |
         echo "OS: ${{ runner.os }}"
         go version
-        ls -la . || dir  # fallback for Windows
-        ls -la cmd/ || dir cmd || echo "cmd dir check failed"
+        ls -la . || dir
+        ls -la cmd/ || dir cmd || echo "cmd missing"
 
     - name: Build
+      shell: bash {0}  # ← Key fix: Force bash for consistent env var syntax
       run: |
-        CGO_ENABLED=1 go build -v -o TesselBox-$$   {{ runner.os }}   $${{ runner.os == 'Windows' && '.exe' || '' }} cmd/main.go || echo "Build failed"
-        ls -la TesselBox* || dir TesselBox* || echo "No binary"
+        CGO_ENABLED=1 go build -v -o TesselBox-${{ runner.os }}${{ runner.os == 'Windows' && '.exe' || '' }} cmd/main.go || echo "Build failed - check logs"
+        ls -la TesselBox* || dir TesselBox* || echo "No binary produced"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
