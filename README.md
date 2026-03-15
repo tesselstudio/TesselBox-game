@@ -56,7 +56,6 @@ go run cmd/main.go
 ---
 
 
-
 ## License
 
 **CC BY-NC-SA 4.0 License** - See [LICENSE](LICENSE) file for details.
@@ -65,7 +64,21 @@ go run cmd/main.go
 - Original Game: Inspired by Terraria
 - Engine: Built with Ebiten (Go)
 - Translations: Community volunteers
-- Icons: Open source assets
+
+-all contributors:
+![GitHub contributors](https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)
+
+** top contributors **
+
+<a href="https://github.com/tesselstudio/TesselBox-game/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=tesselstudio/TesselBox-game" />
+</a>
+
+
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors)
+
+
+
 
 
 
