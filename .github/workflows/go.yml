@@ -7,46 +7,52 @@ on:
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false  # ← Key: don't cancel others if one fails
+      fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-
-    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
 
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.23'  # or 'stable' / match your go.mod
+        go-version: '1.23'
 
-    - name: Install deps (Linux)
+    # Linux deps (most common failure point for Ebiten)
+    - name: Install Linux deps
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev pkg-config
+        sudo apt-get update -y
+        sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev pkg-config libwayland-dev libxkbcommon-dev libxrandr-dev libxcursor-dev libxi-dev
 
-    - name: Install deps (macOS)  # ← Add this! Critical for Ebiten/cgo on macOS
+    # macOS deps via brew
+    - name: Install macOS deps
       if: runner.os == 'macOS'
       run: |
-        brew update
-        brew install pkg-config glfw3 libpng jpeg libogg libvorbis freetype harfbuzz
+        brew update || true
+        brew install pkg-config glfw3 || true   # glfw3 is key for Ebiten
 
-    - name: Debug info
+    # Simple debug (safe on all OS)
+    - name: Debug environment
       run: |
+        echo "Runner OS: ${{ runner.os }}"
         go version
-        go env
-        ls -la
-        ls cmd/ || echo "cmd dir missing"
-        pkg-config --modversion glfw3 || echo "glfw3 pkg-config failed"
+        go env | grep CGO
+        ls -la cmd/
+        echo "Current dir contents:"
+        ls -la .
 
-    - name: Build
+    # Build with verbose + static linking attempt
+    - name: Build binary
       run: |
-        go build -v -o TesselBox-$$   {{ runner.os }} cmd/main.go || go build -v -o TesselBox-   $${{ runner.os }} main.go
-        ls -la TesselBox* || echo "Build produced no binary!"
+        set -e  # fail on any error
+        CGO_ENABLED=1 go build -v -x -o TesselBox-${{ runner.os }}${{ runner.os == 'Windows' && '.exe' || '' }} cmd/main.go
+        ls -la TesselBox* || echo "Binary not found after build!"
 
-    - name: Upload artifacts
+    - name: Upload artifacts if built
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: TesselBox-${{ runner.os }}
