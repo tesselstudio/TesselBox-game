@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]  # Order: easiest first
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
     - uses: actions/checkout@v4
@@ -22,32 +22,28 @@ jobs:
 
     - name: Install deps Linux
       if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update || true
-        sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev pkg-config libxrandr-dev libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev || true
+      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev pkg-config || true
 
     - name: Install deps macOS
       if: runner.os == 'macOS'
-      run: |
-        brew update || true
-        brew install pkg-config glfw3 || true
+      run: brew install pkg-config glfw3 || true
 
     - name: Debug basics
+      shell: bash {0}  # Force bash on all runners (GitHub provides it)
       run: |
         echo "OS: ${{ runner.os }}"
         go version
-        ls -la .
-        ls -la cmd/ || echo "cmd/ not found"
+        ls -la . || dir  # fallback for Windows
+        ls -la cmd/ || dir cmd || echo "cmd dir check failed"
 
     - name: Build
       run: |
-        echo "Starting build for ${{ runner.os }}"
-        CGO_ENABLED=1 go build -v -o TesselBox-${{ runner.os }}${{ runner.os == 'Windows' && '.exe' || '' }} cmd/main.go || echo "Build failed but continuing"
-        ls -la TesselBox* || echo "No binary created"
+        CGO_ENABLED=1 go build -v -o TesselBox-$$   {{ runner.os }}   $${{ runner.os == 'Windows' && '.exe' || '' }} cmd/main.go || echo "Build failed"
+        ls -la TesselBox* || dir TesselBox* || echo "No binary"
 
-    - name: Upload if exists
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
-      if: always()  # Upload even on failure
+      if: always()
       with:
         name: TesselBox-${{ runner.os }}
         path: TesselBox-*
