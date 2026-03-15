@@ -72,14 +72,4 @@ go run cmd/main.go
 
 <a href="https://github.com/tesselstudio/TesselBox-game/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=tesselstudio/TesselBox-game" />
-</a>
 
-
-[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors)
-
-
-
-
-
-
-*More languages being added regularly - contributions welcome!*
