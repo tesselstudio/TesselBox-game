@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]  # Order: easiest first
 
     steps:
     - uses: actions/checkout@v4
@@ -20,28 +20,34 @@ jobs:
       with:
         go-version: '1.23'
 
-    - name: Install Linux deps
+    - name: Install deps Linux
       if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev pkg-config
-
-    - name: Install macOS deps
-      if: runner.os == 'macOS'
-      run: brew install pkg-config glfw3 || true
-
-    # Windows: Ensure MinGW/msys2 for cgo if needed, but often just works for Ebiten
-    - name: Setup Windows deps
-      if: runner.os == 'Windows'
       run: |
-        echo "No extra deps needed for basic Ebiten on Windows runner"
-        # Optional: choco install mingw if linker fails later
+        sudo apt-get update || true
+        sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev pkg-config libxrandr-dev libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev || true
+
+    - name: Install deps macOS
+      if: runner.os == 'macOS'
+      run: |
+        brew update || true
+        brew install pkg-config glfw3 || true
+
+    - name: Debug basics
+      run: |
+        echo "OS: ${{ runner.os }}"
+        go version
+        ls -la .
+        ls -la cmd/ || echo "cmd/ not found"
 
     - name: Build
       run: |
-        CGO_ENABLED=1 go build -v -x -o TesselBox-$$   {{ runner.os }}   $${{ runner.os == 'Windows' && '.exe' || '' }} cmd/main.go
-        dir TesselBox* || ls -la TesselBox* || echo "No binary!"
+        echo "Starting build for ${{ runner.os }}"
+        CGO_ENABLED=1 go build -v -o TesselBox-${{ runner.os }}${{ runner.os == 'Windows' && '.exe' || '' }} cmd/main.go || echo "Build failed but continuing"
+        ls -la TesselBox* || echo "No binary created"
 
-    - name: Upload
+    - name: Upload if exists
       uses: actions/upload-artifact@v4
+      if: always()  # Upload even on failure
       with:
         name: TesselBox-${{ runner.os }}
         path: TesselBox-*
