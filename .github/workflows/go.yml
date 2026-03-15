@@ -18,31 +18,31 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.23'  # Use your project's Go version; check go.mod if any
+        go-version: '1.23'  # Match your go.mod if specified; fallback to latest stable
 
-    - name: Install dependencies (Linux)
+    - name: Install deps (Linux)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev pkg-config
+        sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libudev-dev
 
-    - name: Install dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: brew install pkg-config libx11 libxcursor libxrandr libxinerama libxi libasound2 libudev wayland libxkbcommon  # Note: brew may need caching later
+    - name: Go mod download
+      run: go mod download
 
     - name: Build
       run: |
+        mkdir -p bin
         if [ "${{ runner.os }}" = "Windows" ]; then
-          GOOS=windows GOARCH=amd64 go build -v -o TesselBox.exe cmd/main.go
+          GOOS=windows GOARCH=amd64 go build -v -o bin/TesselBox.exe cmd/main.go
         elif [ "${{ runner.os }}" = "Linux" ]; then
-          GOOS=linux GOARCH=amd64 go build -v -o TesselBox-linux cmd/main.go
-        elif [ "${{ runner.os }}" = "macOS" ]; then
-          GOOS=darwin GOARCH=amd64 go build -v -o TesselBox-macos cmd/main.go
+          GOOS=linux GOARCH=amd64 go build -v -o bin/TesselBox-linux cmd/main.go
+        else
+          GOOS=darwin GOARCH=amd64 go build -v -o bin/TesselBox-macos cmd/main.go
         fi
 
-    - name: Upload artifact
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: TesselBox-${{ runner.os }}
-        path: TesselBox*
-        if-no-files-found: error
+        name: TesselBox-binaries-${{ runner.os }}
+        path: bin/*
+        if-no-files-found: warn  # Don't fail whole run if one OS misses
