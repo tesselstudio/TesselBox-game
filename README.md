@@ -65,10 +65,11 @@ go run cmd/main.go
 - Engine: Built with Ebiten (Go)
 - Translations: Community volunteers
 
--all contributors:
+## all contributors:
+
 ![GitHub contributors](https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)
 
-** top contributors **
+## top contributors
 
 <a href="https://github.com/tesselstudio/TesselBox-game/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=tesselstudio/TesselBox-game" />
