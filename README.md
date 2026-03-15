@@ -33,7 +33,9 @@ go run cmd/main.go
 ```
 
 
+### Star History
 
+[![Star History Chart](https://api.star-history.com/svg?repos=tesselstudio/TesselBox-game&type=Date)](https://star-history.com/#tesselstudio/TesselBox-game&Date)
 
 ## 🎯 **Language Selector Buttons**
 
