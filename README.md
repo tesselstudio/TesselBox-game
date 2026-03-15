@@ -1,8 +1,5 @@
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=&weight=300&size=30&duration=3000&pause=500&color=19554D&background=FFFFFF&center=true&vCenter=true&random=true&width=550&height=63&lines=TesselBox+-+Hexagonal+Sandbox)](https://git.io/typing-svg)
 
-# ⬢ TesselBox-game
-
-
 ![TesselBox Gameplay](gameplay.gif)
  
 > **A procedural hexagon-based sandbox adventure.** TesselBox-game is an open-source engine built in Go that explores unique hexagonal world-building, mining, and procedural generation.
