@@ -29,9 +29,9 @@ go run cmd/main.go
 ```
 
 
-### Star History
+## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=tesselstudio/TesselBox-game&type=Date)](https://star-history.com/#tesselstudio/TesselBox-game&Date)
+[![Star History Chart](https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&logscale&legend=bottom-right)](https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&logscale=&legend=bottom-right)
 
 ## 🎯 **Language Selector Buttons**
 
