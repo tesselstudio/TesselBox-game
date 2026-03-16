@@ -31,7 +31,15 @@ go run cmd/main.go
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&logscale&legend=bottom-right)](https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&logscale=&legend=bottom-right)
+## Star History
+
+<a href="https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&logscale=&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=dark&logscale&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&logscale&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&logscale&legend=bottom-right" />
+ </picture>
+</a>
 
 ## 🎯 **Language Selector Buttons**
 
