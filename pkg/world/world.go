@@ -2,7 +2,6 @@ package world
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"time"
@@ -390,31 +389,31 @@ func (w *World) GetNearbyHexagons(x, y, radius float64) []*Hexagon {
 func (w *World) GetHexagonAt(x, y float64) *Hexagon {
 	chunkX, chunkY := w.GetChunkCoords(x, y)
 	chunk := w.GetChunk(chunkX, chunkY)
-
+	
 	// First try exact position
 	hex := chunk.GetHexagon(x, y)
 	if hex != nil {
 		return hex
 	}
-
+	
 	// If no exact match, search nearby hexagons within tolerance
 	tolerance := 30.0 // pixels - roughly half hexagon size
 	nearbyHexagons := w.GetNearbyHexagons(x, y, tolerance)
-
+	
 	var closestHex *Hexagon
 	minDistance := math.MaxFloat64
-
+	
 	for _, nearbyHex := range nearbyHexagons {
 		dx := nearbyHex.X - x
 		dy := nearbyHex.Y - y
 		distance := math.Sqrt(dx*dx + dy*dy)
-
+		
 		if distance < minDistance {
 			minDistance = distance
 			closestHex = nearbyHex
 		}
 	}
-
+	
 	return closestHex
 }
 
@@ -425,10 +424,6 @@ func (w *World) AddHexagonAt(x, y float64, blockType blocks.BlockType) {
 
 	chunkX, chunkY := w.GetChunkCoords(x, y)
 	chunk := w.GetChunk(chunkX, chunkY)
-
-	log.Printf("AddHexagonAt: placing at (%.1f,%.1f) -> chunk(%d,%d) -> type=%d",
-		x, y, chunkX, chunkY, blockType)
-
 	chunk.AddHexagon(x, y, hexagon)
 
 	// Add to spatial hash
@@ -696,7 +691,7 @@ func (w *World) FindSpawnPosition(centerX, centerY float64) (float64, float64) {
 	// Search radius for finding suitable spawn
 	searchRadius := 500.0
 	stepSize := 50.0
-
+	
 	// Check in a spiral pattern around the center
 	for radius := 0.0; radius <= searchRadius; radius += stepSize {
 		if radius == 0 {
@@ -711,27 +706,27 @@ func (w *World) FindSpawnPosition(centerX, centerY float64) (float64, float64) {
 				angle := float64(i) / float64(steps) * 2 * math.Pi
 				checkX := centerX + math.Cos(angle)*radius
 				checkY := centerY + math.Sin(angle)*radius
-
+				
 				if spawnX, spawnY := w.checkPositionForSpawn(checkX, checkY); spawnX != 0 || spawnY != 0 {
 					return spawnX, spawnY
 				}
 			}
 		}
 	}
-
+	
 	// Fallback: generate terrain at center position and return guaranteed safe spawn
 	w.GetChunksInRange(centerX, centerY)
-
+	
 	// Find ground level at center position
 	var groundY float64 = centerY + 400 // Start searching from typical terrain height
-	for checkY := centerY + 300; checkY <= centerY+600; checkY += 10.0 {
+	for checkY := centerY + 300; checkY <= centerY + 600; checkY += 10.0 {
 		hex := w.GetHexagonAt(centerX, checkY)
 		if hex != nil && hex.BlockType != blocks.AIR {
 			groundY = checkY
 			break
 		}
 	}
-
+	
 	return centerX, groundY - 50 // Spawn 50 pixels above ground
 }
 
@@ -739,20 +734,20 @@ func (w *World) FindSpawnPosition(centerX, centerY float64) (float64, float64) {
 func (w *World) checkPositionForSpawn(x, y float64) (float64, float64) {
 	// Ensure chunks are loaded around this position
 	w.GetChunksInRange(x, y)
-
+	
 	// Check for solid ground below this position
 	// Look for a solid block within a reasonable distance below (based on world generation heights)
 	maxGroundCheck := 600.0 // Up to ocean depth
 	minGroundCheck := 300.0 // Start around typical terrain height
-
-	for checkY := y + minGroundCheck; checkY <= y+maxGroundCheck; checkY += 10.0 {
+	
+	for checkY := y + minGroundCheck; checkY <= y + maxGroundCheck; checkY += 10.0 {
 		hex := w.GetHexagonAt(x, checkY)
 		if hex != nil && hex.BlockType != blocks.AIR {
 			// Found solid ground, spawn 50 pixels above it
 			return x, checkY - 50
 		}
 	}
-
+	
 	// No suitable ground found
 	return 0, 0
 }
