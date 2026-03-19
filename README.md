@@ -29,17 +29,11 @@ Ready to play? Get TesselBox running in under a minute!
 
 ## 🛠️ Built With
 
--   **Go:** The powerful and efficient language behind TesselBox.
--   **Ebitengine:** A dead simple 2D game engine for Go.
-<img src="https:                                                                                                               
-<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/git/git-original.svg" alt="Git" width="40" height="40"/>
-<img src="https:                                                                                                                           
-<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/vscode/vscode-original.svg" alt="VSCode" width="40" height="40"/>
-<img src="https:                                                                                                                        
-<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/apple/apple-original.svg" alt="macOS" width="40" height="40"/>
-<img src="https:                                                                                                                                
-<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/markdown/markdown-original.svg" alt="Markdown" width="40" height="40"/>
-<img src="https://ebitengine.org/images/logo.png" alt="Ebitengine" width="40" height="40"/>
+<p align="center">
+
+<img src="https://skillicons.dev/icons?i=go,linux,windows,macos,git,github,markdown,vscode">
+
+</p>
 
 ## ⭐ Project Stats
 
