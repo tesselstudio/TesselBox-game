@@ -137,7 +137,8 @@ func NewGame() *Game {
 	}
 
 	// Find a suitable spawn position and set player position
-	spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
+	// Spawn in area where terrain is actually generated (negative coordinates)
+	spawnX, spawnY := g.world.FindSpawnPosition(-2000, -2000)
 	g.player.SetPosition(spawnX, spawnY)
 
 	// Initialize crafting system
@@ -268,7 +269,8 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 		g.inGame = true
 		
 		// Find a suitable spawn position and set player position
-		spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
+		// Spawn in area where terrain is actually generated (negative coordinates)
+		spawnX, spawnY := g.world.FindSpawnPosition(-2000, -2000)
 		g.player.SetPosition(spawnX, spawnY)
 		g.player.SetVelocity(0, 0)
 
@@ -787,22 +789,22 @@ func (g *Game) handleBlockPlacement() {
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
-	// Use the correct world position for placement
-	centerX, centerY, _, _ := world.PixelToHexCenter(mouseWorldX, mouseWorldY)
+	// Use the world position directly for placement
+	placeX, placeY := mouseWorldX, mouseWorldY
 
 	// Placement validation: check if position is valid
-	if !g.canPlaceBlockAt(centerX, centerY) {
+	if !g.canPlaceBlockAt(placeX, placeY) {
 		return // Cannot place block here
 	}
 
 	// Check if player can reach the block placement position
-	if !g.player.CanReach(centerX, centerY) {
+	if !g.player.CanReach(placeX, placeY) {
 		return
 	}
 
 	// Place block at the calculated position
 	blockType := stringToBlockType(blockTypeToPlace)
-	g.world.AddHexagonAt(centerX, centerY, blockType)
+	g.world.AddHexagonAt(placeX, placeY, blockType)
 
 	// Remove item from inventory only if not in creative mode
 	if !g.CreativeMode {
@@ -819,12 +821,12 @@ func (g *Game) canPlaceBlockAt(x, y float64) bool {
 	}
 
 	// Check if player is too close (prevent placing blocks inside player)
-	// playerCenterX, playerCenterY := g.player.GetCenter()
-	// distance := math.Sqrt((x-playerCenterX)*(x-playerCenterX) + (y-playerCenterY)*(y-playerCenterY))
-	// minDistance := g.player.Width + world.HexSize
-	// if distance < minDistance {
-	// 	return false // Too close to player
-	// }
+	playerCenterX, playerCenterY := g.player.GetCenter()
+	distance := math.Sqrt((x-playerCenterX)*(x-playerCenterX) + (y-playerCenterY)*(y-playerCenterY))
+	minDistance := g.player.Width/2 + 10 // Much smaller buffer - just prevent overlap
+	if distance < minDistance {
+		return false // Too close to player
+	}
 
 	return true
 }

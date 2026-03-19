@@ -13,7 +13,7 @@ const (
 	Friction     = 0.85
 	TerminalVelX = 300.0
 	TerminalVelY = 1200.0 // Increased for faster falling
-	MiningRange  = 150.0
+	MiningRange  = 300.0  // Increased mining range for better usability
 	PlayerWidth  = 40.0
 	PlayerHeight = 40.0 // Square player
 )

@@ -385,21 +385,46 @@ func (w *World) GetNearbyHexagons(x, y, radius float64) []*Hexagon {
 	return hexagons
 }
 
-// GetHexagonAt returns the hexagon at the given world position
+// GetHexagonAt returns the hexagon at the given world position with tolerance
 func (w *World) GetHexagonAt(x, y float64) *Hexagon {
 	chunkX, chunkY := w.GetChunkCoords(x, y)
 	chunk := w.GetChunk(chunkX, chunkY)
-	return chunk.GetHexagon(x, y)
+	
+	// First try exact position
+	hex := chunk.GetHexagon(x, y)
+	if hex != nil {
+		return hex
+	}
+	
+	// If no exact match, search nearby hexagons within tolerance
+	tolerance := 30.0 // pixels - roughly half hexagon size
+	nearbyHexagons := w.GetNearbyHexagons(x, y, tolerance)
+	
+	var closestHex *Hexagon
+	minDistance := math.MaxFloat64
+	
+	for _, nearbyHex := range nearbyHexagons {
+		dx := nearbyHex.X - x
+		dy := nearbyHex.Y - y
+		distance := math.Sqrt(dx*dx + dy*dy)
+		
+		if distance < minDistance {
+			minDistance = distance
+			closestHex = nearbyHex
+		}
+	}
+	
+	return closestHex
 }
 
 // AddHexagonAt adds a hexagon at the given world position
 func (w *World) AddHexagonAt(x, y float64, blockType blocks.BlockType) {
-	centerX, centerY, _, _ := PixelToHexCenter(x, y)
-	hexagon := NewHexagon(centerX, centerY, HexSize, blockType)
+	// Use the coordinates directly - don't convert to center
+	hexagon := NewHexagon(x, y, HexSize, blockType)
 
-	chunkX, chunkY := w.GetChunkCoords(centerX, centerY)
+	chunkX, chunkY := w.GetChunkCoords(x, y)
 	chunk := w.GetChunk(chunkX, chunkY)
-	chunk.AddHexagon(centerX, centerY, hexagon)
+	chunk.AddHexagon(x, y, hexagon)
 
 	// Add to spatial hash
 	w.addHexagonToSpatialHash(hexagon)
