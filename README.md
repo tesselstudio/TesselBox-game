@@ -32,7 +32,7 @@ Ready to play? Get TesselBox running in under a minute!
 <p align="center">
 
 <img src="https://skillicons.dev/icons?i=go,linux,windows,git,github,markdown,vscode">
-
+<img src="https://skillicons.dev/icons?i=apple">
 </p>
 
 ## ⭐ Project Stats
