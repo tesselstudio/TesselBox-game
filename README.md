@@ -31,7 +31,7 @@ Ready to play? Get TesselBox running in under a minute!
 
 <p align="center">
 
-<img src="https://skillicons.dev/icons?i=go,linux,windows,macOS,git,github,markdown,vscode">
+<img src="https://skillicons.dev/icons?i=go,linux,windows,macOS,git,github,markdown,vscode,ebitengine">
 
 </p>
 
