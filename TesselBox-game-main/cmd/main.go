@@ -126,7 +126,7 @@ func NewGame() *Game {
 
 	g := &Game{
 		world:         world.NewWorld("default"), // Default world name
-		player:        player.NewPlayer(0, 0),    // Temporary position, will be updated
+		player:        player.NewPlayer(0, 0), // Temporary position, will be updated
 		inventory:     items.NewInventory(32),
 		selectedBlock: "dirt", // Default to dirt in creative mode
 		CreativeMode:  true,   // Enable creative mode by default
@@ -219,9 +219,6 @@ func (g *Game) Update() error {
 		// Update player with delta time (framerate-independent)
 		g.player.Update(deltaTime)
 
-		// Update mining progress
-		g.updateMining(deltaTime)
-
 		// Update day/night cycle
 		g.dayNightCycle.Update()
 
@@ -270,7 +267,7 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 	case menu.ActionStartGame:
 		g.inMenu = false
 		g.inGame = true
-
+		
 		// Find a suitable spawn position and set player position
 		// Spawn in area where terrain is actually generated (negative coordinates)
 		spawnX, spawnY := g.world.FindSpawnPosition(-2000, -2000)
@@ -388,11 +385,6 @@ func (g *Game) handleGameInput() {
 	// Start mining when left mouse button is pressed
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		g.startMining()
-	}
-
-	// Stop mining when left mouse button is released
-	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
-		g.player.StopMining()
 	}
 
 	// Block placement with right click (only when not attacking)
@@ -604,10 +596,9 @@ func (g *Game) startMining() {
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
-	// Find hexagon at mouse position
+	// Find the hexagon at mouse position
 	targetHex := g.world.GetHexagonAt(mouseWorldX, mouseWorldY)
 	if targetHex == nil || targetHex.BlockType == blocks.AIR {
-		log.Printf("Mining failed: No block found at (%.1f,%.1f)", mouseWorldX, mouseWorldY)
 		return
 	}
 
@@ -615,27 +606,16 @@ func (g *Game) startMining() {
 	blockKey := getBlockKeyFromType(targetHex.BlockType)
 	blockDef := blocks.BlockDefinitions[blockKey]
 	if blockDef != nil && blockDef.Hardness <= 0 {
-		log.Printf("Mining failed: Block is unbreakable (%s)", blockKey)
 		return // Cannot mine unbreakable blocks
 	}
 
-	// Check if player can reach
+	// Check if player can reach the block
 	if !g.player.CanReach(targetHex.X, targetHex.Y) {
-		log.Printf("Mining failed: Block out of reach (%.1f,%.1f) distance=%.1f range=%.1f",
-			targetHex.X, targetHex.Y, math.Sqrt(g.player.DistanceTo(targetHex.X, targetHex.Y)), g.player.GetMiningRange())
 		return
 	}
 
-	log.Printf("Mining started: %s at (%.1f,%.1f)", blockKey, targetHex.X, targetHex.Y)
-
-	// Start mining - let's update system handle completion
-	g.player.StartMining(targetHex)
-
-	// In creative mode, instantly destroy the block
-	if g.CreativeMode {
-		g.completeMining(targetHex)
-		g.player.StopMining()
-	}
+	// Instantly destroy the block in creative mode
+	g.completeMining(targetHex)
 }
 
 // updateMining updates mining progress and handles block destruction
@@ -658,7 +638,7 @@ func (g *Game) updateMining(deltaTime float64) {
 		return // Cannot mine unbreakable blocks
 	}
 
-	// Calculate mining speed based on tool and block hardness
+	// Calculate mining speed based on tool and block
 	miningSpeed := g.calculateMiningSpeed(targetHex.BlockType)
 
 	// Update mining progress
@@ -809,23 +789,8 @@ func (g *Game) handleBlockPlacement() {
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
-	// Find the target hexagon at mouse position
-	targetHex := g.world.GetHexagonAt(mouseWorldX, mouseWorldY)
-
-	// Determine placement position based on target
-	var placeX, placeY float64
-
-	if targetHex != nil && targetHex.BlockType != blocks.AIR {
-		// Target is a block - place adjacent to it
-		// Find the nearest empty adjacent hex
-		placeX, placeY = g.findAdjacentEmptyPosition(targetHex.X, targetHex.Y, mouseWorldX, mouseWorldY)
-		if placeX == 0 && placeY == 0 {
-			return // No valid adjacent position found
-		}
-	} else {
-		// Target is empty air - try to place there
-		placeX, placeY = mouseWorldX, mouseWorldY
-	}
+	// Use the world position directly for placement
+	placeX, placeY := mouseWorldX, mouseWorldY
 
 	// Placement validation: check if position is valid
 	if !g.canPlaceBlockAt(placeX, placeY) {
@@ -847,61 +812,11 @@ func (g *Game) handleBlockPlacement() {
 	}
 }
 
-// findAdjacentEmptyPosition finds the nearest empty hexagon adjacent to the given position
-func (g *Game) findAdjacentEmptyPosition(blockX, blockY, mouseX, mouseY float64) (float64, float64) {
-	// Get all adjacent hexagon positions
-	adjacentPositions := []struct {
-		q, r int
-	}{
-		{1, 0}, {1, -1}, {0, -1}, {-1, 0}, {-1, 1}, {0, 1}, // Hexagonal neighbors
-	}
-
-	// Convert target block position to hex coordinates
-	q, r := hexagon.PixelToHex(blockX, blockY, world.HexSize)
-	targetHex := hexagon.HexRound(q, r)
-
-	// Find the closest adjacent position to the mouse
-	var bestX, bestY float64
-	minDistance := math.MaxFloat64
-
-	for _, adj := range adjacentPositions {
-		// Calculate adjacent hex coordinates
-		adjHex := hexagon.Hexagon{
-			Q: targetHex.Q + adj.q,
-			R: targetHex.R + adj.r,
-		}
-
-		// Convert to world coordinates
-		adjX, adjY := hexagon.HexToPixel(adjHex, world.HexSize)
-
-		// Check if position is empty and valid for placement
-		if g.canPlaceBlockAt(adjX, adjY) {
-			// Calculate distance to mouse position
-			dx := adjX - mouseX
-			dy := adjY - mouseY
-			distance := math.Sqrt(dx*dx + dy*dy)
-
-			if distance < minDistance {
-				minDistance = distance
-				bestX = adjX
-				bestY = adjY
-			}
-		}
-	}
-
-	if minDistance == math.MaxFloat64 {
-		return 0, 0 // No valid position found
-	}
-
-	return bestX, bestY
-}
-
 // canPlaceBlockAt checks if a block can be placed at the given position
 func (g *Game) canPlaceBlockAt(x, y float64) bool {
 	// Check if there's already a block at this position
 	existingHex := g.world.GetHexagonAt(x, y)
 	if existingHex != nil {
-		log.Printf("Cannot place: Block already exists at (%.1f,%.1f)", x, y)
 		return false // Cannot place on existing block
 	}
 
@@ -910,11 +825,9 @@ func (g *Game) canPlaceBlockAt(x, y float64) bool {
 	distance := math.Sqrt((x-playerCenterX)*(x-playerCenterX) + (y-playerCenterY)*(y-playerCenterY))
 	minDistance := g.player.Width/2 + 10 // Much smaller buffer - just prevent overlap
 	if distance < minDistance {
-		log.Printf("Cannot place: Too close to player (%.1f < %.1f)", distance, minDistance)
 		return false // Too close to player
 	}
 
-	log.Printf("Position validation passed at (%.1f,%.1f)", x, y)
 	return true
 }
 
