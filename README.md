@@ -70,6 +70,5 @@ A big thank you to everyone who has contributed to TesselBox!
 
 ## 📜 License
 
-This project is licensed under the CC BY-NC-SA 4.0 License.
+This project is licensed under the MIT License.
 
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-blue.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
