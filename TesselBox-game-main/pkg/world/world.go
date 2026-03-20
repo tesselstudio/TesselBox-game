@@ -743,7 +743,13 @@ func (w *World) FindSpawnPosition(centerX, centerY float64) (float64, float64) {
 		}
 	}
 	
-	return centerX, groundY - 50 // Spawn 50 pixels above ground
+	// Snap spawn position to hexagonal grid center to prevent sinking
+	spawnX, spawnY, _, _ := PixelToHexCenter(centerX, groundY - 50)
+	
+	// Ensure spawn height is safe - spawn higher above ground
+	spawnY = groundY - 80 // Spawn 80 pixels above ground for safety
+	
+	return spawnX, spawnY
 }
 
 // checkPositionForSpawn checks if a position is suitable for spawning
@@ -759,8 +765,9 @@ func (w *World) checkPositionForSpawn(x, y float64) (float64, float64) {
 	for checkY := y + minGroundCheck; checkY <= y + maxGroundCheck; checkY += 10.0 {
 		hex := w.GetHexagonAt(x, checkY)
 		if hex != nil && hex.BlockType != blocks.AIR {
-			// Found solid ground, spawn 50 pixels above it
-			return x, checkY - 50
+			// Found solid ground, snap to hexagonal grid and spawn 80 pixels above it
+			spawnX, spawnY, _, _ := PixelToHexCenter(x, checkY - 80)
+			return spawnX, spawnY
 		}
 	}
 	
