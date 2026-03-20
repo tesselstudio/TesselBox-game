@@ -1,37 +1,52 @@
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=&weight=300&size=30&duration=3000&pause=500&color=19554D&background=FFFFFF&center=true&vCenter=true&random=true&width=550&height=63&lines=TesselBox+-+Hexagonal+Sandbox)](https://git.io/typing-svg)
+# TesselBox: Hexagonal Sandbox Adventure
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=&weight=300&size=30&duration=3000&pause=500&color=19554D&background=FFFFFF&center=true&vCenter=true&random=true&width=550&height=63&lines=TesselBox+-+Hexagonal+Sandbox;A+procedural+world+awaits!;Mine,+build,+explore!)](https://git.io/typing-svg)
+
+Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes.
 
 ![TesselBox Gameplay](gameplay.gif)
- 
-> **A procedural hexagon-based sandbox adventure.** TesselBox-game is an open-source engine built in Go that explores unique hexagonal world-building, mining, and procedural generation.
 
+## 🚀 Quick Start
 
----
+Ready to play? Get TesselBox running in under a minute!
 
-[![Ebitengine](https://img.shields.io/badge/Made%20with-Ebitengine-FF6B6B?logoColor=white)](https://ebitengine.org)
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-blue.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/tesselstudio/TesselBox-game.git
+    cd TesselBox-game
+    ```
+2.  **Run the game:**
+    ```bash
+    go run cmd/main.go
+    ```
+
+## ✨ Features
+
+-   **Hexagonal World-Building:** Craft unique structures in a distinct hexagonal grid.
+-   **Procedural Generation:** Discover new and exciting terrains with every play.
+-   **Mining & Exploration:** Unearth resources and uncover the secrets of the world.
+-   **Open Source:** Join our community and contribute to the evolution of TesselBox!
+
+## 🛠️ Built With
+
+<p align="center">
+
+<img src="https://skillicons.dev/icons?i=go,linux,windows,git,github,markdown,vscode">
+<img src="https://skillicons.dev/icons?i=apple">
+</p>
+
+## ⭐ Project Stats
+
+Stay updated with our progress and community engagement:
+
 ![GitHub stars](https://img.shields.io/github/stars/tesselstudio/TesselBox-game?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/tesselstudio/TesselBox-game?style=social)
 ![GitHub last commit](https://img.shields.io/github/last-commit/tesselstudio/TesselBox-game)
 ![GitHub repo size](https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)
-![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/tesselstudio/TesselBox-game)
 
+## 📈 Star History
 
-### 🚀 Quick Start
-Get the game running locally in 30 seconds:
-
-```bash
-# Clone the repo
-git clone [https://github.com/tesselstudio/TesselBox-game.git](https://github.com/tesselstudio/TesselBox-game.git)
-cd TesselBox-game
-
-# Run the game
-go run cmd/main.go
-```
-
-
-
-
-## Star History
+Track the growth of TesselBox's community over time:
 
 <a href="https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&logscale=&legend=bottom-right">
  <picture>
@@ -41,44 +56,20 @@ go run cmd/main.go
  </picture>
 </a>
 
-## 🎯 **Language Selector Buttons**
+## 🤝 Contributing
 
-| 🌍 **European** | 🌏 **Asian** | 🌍 **African** |  **Other** |
-|----------------|--------------|----------------|----------------|
-| [🇬🇧 English](readme/english.md) | [🇨🇳 中文](readme/chinese.md) | [🇹🇿 Swahili](readme/swahili.md) | [🇬🇷 Ελληνικά](readme/greek.md) |
-| [🇩🇪 Deutsch](readme/german.md) | [🇯🇵 日本語](readme/japanese.md) | [🇿🇦 Afrikaans](readme/afrikaans.md) |  |
-| [🇫🇷 Français](readme/french.md) | [🇰🇷 한국어](readme/korean.md) | [🇪🇹 አማርኛ](readme/amharic.md) |  |
-| [🇪🇸 Español](readme/spanish.md) | [🇮🇳 हिन्दी](readme/hindi.md) | [🇳🇬 Yorùbá](readme/yoruba.md) |  |
-| [🇮🇹 Italiano](readme/italian.md) | [🇸🇦 العربية](readme/arabic.md) | [🇳🇬 Hausa](readme/hausa.md) |  |
-| [🇵🇹 Português](readme/portuguese.md) | [🇧🇩 বাংলা](readme/bengali.md) | [🇳🇬 Igbo](readme/igbo.md) |  |
-| [🇷🇺 Русский](readme/russian.md) | [🇹🇷 Türkçe](readme/turkish.md) | [🇿🇦 Zulu](readme/zulu.md) |  |
-| [🇵🇱 Polski](readme/polish.md) | [🇭🇰 繁體中文（香港）](readme/traditional_chinese_hk.md) |  |  |
-| [🇳🇱 Nederlands](readme/dutch.md) | [🇹🇼 繁體中文（台灣）](readme/traditional_chinese_tw.md) |  |  |
-| [🇸🇪 Svenska](readme/swedish.md) |  |  |  |
-| [🇩🇰 Dansk](readme/danish.md) |  |  |  |
-| [🇳🇴 Norsk](readme/norwegian.md) |  |  |  |
-| [🇫🇮 Suomi](readme/finnish.md) |  |  |  |
-| [🇨🇿 Čeština](readme/czech.md) |  |  |  |
-| [🇭🇺 Magyar](readme/hungarian.md) |  |  |  |
+We welcome all contributions! Whether you're a developer, designer, or tester, your input helps us grow.
 
----
+## 👥 Contributors
 
-
-## License
-
-**CC BY-NC-SA 4.0 License** - See [LICENSE](LICENSE) file for details.
-
-## Credits
-- Original Game: Inspired by Terraria
-- Engine: Built with Ebiten (Go)
-- Translations: Community volunteers
-
-## all contributors:
-
-![GitHub contributors](https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)
-
-## top contributors
+A big thank you to everyone who has contributed to TesselBox!
 
 <a href="https://github.com/tesselstudio/TesselBox-game/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=tesselstudio/TesselBox-game" />
+  <img src="https://contrib.rocks/image?repo=tesselstudio/TesselBox-game" alt="All Contributors" />
+</a>
 
+## 📜 License
+
+This project is licensed under the CC BY-NC-SA 4.0 License.
+
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-blue.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
