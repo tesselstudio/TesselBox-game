@@ -1,4 +1,5 @@
 # TesselBox: Hexagonal Sandbox Adventure 
+
 [![Typing SVG](https://readme-typing-svg.demolab.com/?lines=Experience+TesselBox,+a+captivating+open-source+game+engine+built+in+Go.;Dive+into+a+procedural+hexagonal+world,+where+you+can+mine,+build,+and+explore+endless+landscapes.)](https://git.io/typing-svg)
 [![GitHub stars](https://img.shields.io/github/stars/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/network/members)
@@ -6,7 +7,10 @@
 [![GitHub repo size](https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/size)
 [![GitHub contributors](https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/graphs/contributors)
 
-Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes.
+Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes👇🏻👇🏻👇🏻👇🏻👇🏻👇🏻
+<a href="https://github.com/tesselstudio/TesselBox-game/archive/refs/heads/main.zip">
+  <button>Download ZIP</button>
+</a>
 
 ![TesselBox Gameplay](gameplay.gif)
 
