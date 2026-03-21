@@ -54,14 +54,13 @@ TesselBox is built with modern technologies to deliver a robust and engaging gam
 -   **VS Code**: Recommended development environment.
 
 ## ⭐ Project Stats
+ Star History
 
-Stay updated with our progress and community engagement:
-
-<a href="https://star-history.com/#tesselstudio/TesselBox-game&timeline">
+<a href="https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&legend=bottom-right">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=light" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=top-left" />
  </picture>
 </a>
 
