@@ -50,10 +50,15 @@ TesselBox is built with modern technologies to deliver a robust and engaging gam
 -   **Markdown**: Used for documentation and README formatting.
 -   **VS Code**: Recommended development environment.
 
-## Star History
+## Star History 
 
-[![Star History Chart](https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=bottom-right)](https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&legend=bottom-right)
-
+<a href="https://www.star-history.com/">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=bottom-right" />
+ </picture>
+</a>
 ## 🤝 Contributing
 
 We welcome all contributions! Whether you're a developer, designer, or tester, your input helps us grow. Please see our(CONTRIBUTING.md) for detailed guidelines.
