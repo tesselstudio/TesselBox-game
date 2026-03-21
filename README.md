@@ -7,10 +7,10 @@
 [![GitHub repo size](https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/size)
 [![GitHub contributors](https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/graphs/contributors)
 
-Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes👇🏻👇🏻👇🏻👇🏻👇🏻👇🏻
-<a href="https://github.com/tesselstudio/TesselBox-game/archive/refs/heads/main.zip">
-  <button>Download ZIP</button>
-</a>
+
+[![Download TesselBox](download-button.png)](https://github.com/tesselstudio/TesselBox-game/archive/refs/heads/main.zip)
+
+Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes☝🏼☝🏼☝🏼☝🏼☝🏼
 
 ![TesselBox Gameplay](gameplay.gif)
 
