@@ -56,13 +56,9 @@ TesselBox is built with modern technologies to deliver a robust and engaging gam
 ## ⭐ Project Stats
  Star History
 
-<a href="https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=top-left" />
- </picture>
-</a>
+## Star History
+
+[![Star History Chart](https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=bottom-right)](https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&legend=bottom-right)
 
 ## 🤝 Contributing
 
