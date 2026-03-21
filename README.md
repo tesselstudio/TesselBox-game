@@ -1,14 +1,13 @@
-# TesselBox: Hexagonal Sandbox Adventure
+.io/date/past/1678886400?label=Repo%20Age)](# TesselBox: Hexagonal Sandbox Adventure 
+[![Typing SVG](https://readme-typing-svg.demolab.com/?lines=Experience+TesselBox,+a+captivating+open-source+game+engine+built+in+Go.;Dive+into+a+procedural+hexagonal+world,+where+you+can+mine,+build,+and+explore+endless+landscapes.)](https://git.io/typing-svg)
+[![GitHub stars](https://img.shields.io/github/stars/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/network/members)
+[![GitHub last commit](https://img.shields.io/github/last-commit/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/commits/main)
+[![GitHub repo size](https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/size)
+[![GitHub contributors](https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/graphs/contributors)
+[![Repo Created](https://img.shields.io/badge/dynamic/json?color=blue&label=Repo%20Created&query=created_at&url=https%3A%2F%2Fapi.github.com%2Frepos%2Ftesselstudio%2FTesselBox-game)](https://github.com/tesselstudio/TesselBox-game)
+[![Repo Age](https://img.shields.io/badge/dynamic/json?color=blue&label=Repo%20Age&query=created_at&url=https%3A%2F%2Fapi.github.com%2Frepos%2Ftesselstudio%2FTesselBox-game)](https://github.com/tesselstudio/TesselBox-game)
 
-[!(https://readme-typing-svg.demolab.com/?lines=Experience+TesselBox,+a+captivating+open-source+game+engine+built+in+Go.;Dive+into+a+procedural+hexagonal+world,+where+you+can+mine,+build,+and+explore+endless+landscapes.)](https://git.io/typing-svg)
-[!(https://img.shields.io/github/stars/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/stargazers)
-[!(https://img.shields.io/github/forks/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/network/members)
-[!(https://img.shields.io/github/last-commit/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/commits/main)
-[!(https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/size)
-[!(https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/graphs/contributors)
-[ !(https://img.shields.io/date/1678886400?label=Repo%20Created)](https://github.com/tesselstudio/TesselBox-game)
-
-[ !(https://img.shields.io/date/past/1678886400?label=Repo%20Age)](https://github.com/tesselstudio/TesselBox-game)
 
 Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes.
 
