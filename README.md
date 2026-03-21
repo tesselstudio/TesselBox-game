@@ -11,7 +11,8 @@
 
 Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes.
 
-!(gameplay.gif)
+![TesselBox Gameplay](gameplay.gif)
+
 
 ## 🎮 Gameplay Overview
 
