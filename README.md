@@ -50,9 +50,6 @@ TesselBox is built with modern technologies to deliver a robust and engaging gam
 -   **Markdown**: Used for documentation and README formatting.
 -   **VS Code**: Recommended development environment.
 
-## ⭐ Project Stats
- Star History
-
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=bottom-right)](https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&legend=bottom-right)
