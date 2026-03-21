@@ -59,6 +59,7 @@ TesselBox is built with modern technologies to deliver a robust and engaging gam
    <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=bottom-right" />
  </picture>
 </a>
+
 ## 🤝 Contributing
 
 We welcome all contributions! Whether you're a developer, designer, or tester, your input helps us grow. Please see our(CONTRIBUTING.md) for detailed guidelines.
