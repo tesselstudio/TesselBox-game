@@ -1,14 +1,17 @@
 # TesselBox: Hexagonal Sandbox Adventure
 
-[![Typing SVG](https://contrib.rocks/image?repo=tesselstudio/TesselBox-game)](https://git.io/typing-svg)
-[![GitHub stars](https://img.shields.io/github/stars/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/network/members)
-[![GitHub last commit](https://img.shields.io/github/last-commit/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/commits/main)
-[![GitHub repo size](https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/size)
+[!(https://readme-typing-svg.demolab.com/?lines=Experience+TesselBox,+a+captivating+open-source+game+engine+built+in+Go.;Dive+into+a+procedural+hexagonal+world,+where+you+can+mine,+build,+and+explore+endless+landscapes.)](https://git.io/typing-svg)
+[!(https://img.shields.io/github/stars/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/stargazers)
+[!(https://img.shields.io/github/forks/tesselstudio/TesselBox-game?style=social)](https://github.com/tesselstudio/TesselBox-game/network/members)
+[!(https://img.shields.io/github/last-commit/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/commits/main)
+[!(https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/size)
+[!(https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/graphs/contributors)
+[!(https://img.shields.io/date/1678886400?label=Repo%20Created)](https://github.com/tesselstudio/TesselBox-game)
+[!(https://img.shields.io/date/past/1678886400?label=Repo%20Age)](https://github.com/tesselstudio/TesselBox-game)
 
 Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes.
 
-![TesselBox Gameplay](gameplay.gif)
+!(gameplay.gif)
 
 ## 🎮 Gameplay Overview
 
@@ -53,26 +56,24 @@ TesselBox is built with modern technologies to deliver a robust and engaging gam
 
 Stay updated with our progress and community engagement:
 
-<a href="https://www.star-history.com/?repos=tesselstudio%2FTesselBox-game&type=timeline&logscale=&legend=bottom-right">
+<a href="https://star-history.com/#tesselstudio/TesselBox-game&timeline">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=dark&logscale&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&logscale&legend=bottom-right" />
-   <img alt="Star History Chart" src="" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=light" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline" />
  </picture>
 </a>
 
 ## 🤝 Contributing
 
-We welcome all contributions! Whether you're a developer, designer, or tester, your input helps us grow. Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+We welcome all contributions! Whether you're a developer, designer, or tester, your input helps us grow. Please see our(CONTRIBUTING.md) for detailed guidelines.
 
 ## 👥 Contributors
 
 A big thank you to everyone who has contributed to TesselBox!
 
-<a href="https://github.com/tesselstudio/TesselBox-game/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=tesselstudio/TesselBox-game" alt="All Contributors" />
-</a>
+[!(https://contrib.rocks/image?repo=tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/graphs/contributors)
 
 ## 📜 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+This project is licensed under the MIT License. See the(LICENSE) file for more details.
