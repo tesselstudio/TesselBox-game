@@ -5,9 +5,6 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/commits/main)
 [![GitHub repo size](https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/size)
 [![GitHub contributors](https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/graphs/contributors)
-[![Repo Created](https://img.shields.io/badge/dynamic/json?color=blue&label=Repo%20Created&query=created_at&url=https%3A%2F%2Fapi.github.com%2Frepos%2Ftesselstudio%2FTesselBox-game)](https://github.com/tesselstudio/TesselBox-game)
-[![Repo Age](https://img.shields.io/github/languages/count/tesselstudio/TesselBox-game?label=Repo%20Age&color=blue)](https://github.com/tesselstudio/TesselBox-game)
-
 
 Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes.
 
