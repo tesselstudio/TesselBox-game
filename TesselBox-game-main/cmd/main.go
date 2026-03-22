@@ -792,8 +792,9 @@ func (g *Game) handleBlockPlacement() {
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
-	// Use the world position directly for placement
-	placeX, placeY := mouseWorldX, mouseWorldY
+	// Snap to hexagonal grid center for proper placement
+	centerX, centerY, _, _ := world.PixelToHexCenter(mouseWorldX, mouseWorldY)
+	placeX, placeY := centerX, centerY
 
 	// Placement validation: check if position is valid
 	if !g.canPlaceBlockAt(placeX, placeY) {

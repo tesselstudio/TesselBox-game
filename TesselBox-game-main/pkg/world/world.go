@@ -270,7 +270,7 @@ func (w *World) generateChunk(chunk *Chunk) {
 				}
 			} else {
 				// Deep stone or bedrock at very bottom
-				if depth > 300 {
+				if depth > 800 {
 					blockType = blocks.BEDROCK
 				} else {
 					blockType = blocks.STONE
