@@ -177,10 +177,8 @@ func NewGame() *Game {
 	g.weatherSystem = weather.NewWeatherSystem()
 
 	// Start in menu
-	// g.inMenu = true
-	// g.inGame = false
-	g.inMenu = false
-	g.inGame = true
+	g.inMenu = true
+	g.inGame = false
 
 	return g
 }
@@ -364,6 +362,13 @@ func (g *Game) handleGameInput() {
 
 	// Return to menu
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		g.inGame = false
+		g.inMenu = true
+		g.menu.SetMainMenu()
+	}
+
+	// Quit to menu with Q key
+	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
 		g.inGame = false
 		g.inMenu = true
 		g.menu.SetMainMenu()
@@ -595,27 +600,44 @@ func (g *Game) startMining() {
 	// Convert mouse position to world coordinates
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
+	log.Printf("Mining attempt - Mouse world position: (%.1f, %.1f)", mouseWorldX, mouseWorldY)
 
 	// Find the hexagon at mouse position
 	targetHex := g.world.GetHexagonAt(mouseWorldX, mouseWorldY)
-	if targetHex == nil || targetHex.BlockType == blocks.AIR {
+	if targetHex == nil {
+		log.Printf("Cannot mine: no block found at position")
 		return
 	}
+	if targetHex.BlockType == blocks.AIR {
+		log.Printf("Cannot mine: air block at position")
+		return
+	}
+	log.Printf("Found block: type %v at (%.1f, %.1f)", targetHex.BlockType, targetHex.X, targetHex.Y)
 
 	// Check if block is unbreakable
 	blockKey := getBlockKeyFromType(targetHex.BlockType)
 	blockDef := blocks.BlockDefinitions[blockKey]
 	if blockDef != nil && blockDef.Hardness <= 0 {
+		log.Printf("Cannot mine: unbreakable block %s", blockKey)
 		return // Cannot mine unbreakable blocks
 	}
 
 	// Check if player can reach the block
 	if !g.player.CanReach(targetHex.X, targetHex.Y) {
+		log.Printf("Cannot mine: player cannot reach position (%.1f, %.1f)", targetHex.X, targetHex.Y)
 		return
 	}
 
-	// Instantly destroy the block in creative mode
-	g.completeMining(targetHex)
+	// Start mining - let's update system handle completion
+	g.player.StartMining(targetHex)
+	log.Printf("Mining started for block type %v", targetHex.BlockType)
+
+	// In creative mode, instantly destroy the block
+	if g.CreativeMode {
+		log.Printf("Creative mode: instant mining")
+		g.completeMining(targetHex)
+		g.player.StopMining()
+	}
 }
 
 // updateMining updates mining progress and handles block destruction
@@ -657,10 +679,13 @@ func (g *Game) updateMining(deltaTime float64) {
 func (g *Game) completeMining(targetHex *world.Hexagon) {
 	// Get the block type before removing
 	blockType := targetHex.BlockType
-
-	// Get the exact world position before removing
-	x, y := targetHex.X, targetHex.Y
-	g.world.RemoveHexagonAt(x, y)
+	
+	// Remove hexagon by reference - this is more reliable than coordinates
+	success := g.world.RemoveHexagonByRef(targetHex)
+	if !success {
+		log.Printf("Failed to remove hexagon at (%.1f,%.1f)", targetHex.X, targetHex.Y)
+		return
+	}
 
 	// Use item durability
 	g.inventory.UseItem()
@@ -675,7 +700,7 @@ func (g *Game) completeMining(targetHex *world.Hexagon) {
 	}
 
 	// Trigger gravity fall
-	q, r := hexagon.PixelToHex(x, y, world.HexSize)
+	q, r := hexagon.PixelToHex(targetHex.X, targetHex.Y, world.HexSize)
 	hex := hexagon.HexRound(q, r)
 	g.fallBlocks(hex.Q, hex.R)
 }
@@ -789,8 +814,8 @@ func (g *Game) handleBlockPlacement() {
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
-	// Use the world position directly for placement
-	placeX, placeY := mouseWorldX, mouseWorldY
+	// Snap to world grid (matches world generation exactly)
+	placeX, placeY := g.world.SnapToWorldGrid(mouseWorldX, mouseWorldY)
 
 	// Placement validation: check if position is valid
 	if !g.canPlaceBlockAt(placeX, placeY) {

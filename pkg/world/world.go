@@ -448,6 +448,59 @@ func (w *World) RemoveHexagonAt(x, y float64) bool {
 	return chunk.RemoveHexagon(x, y)
 }
 
+// RemoveHexagonByRef removes a hexagon by reference (more reliable)
+func (w *World) RemoveHexagonByRef(hexagon *Hexagon) bool {
+	if hexagon == nil {
+		return false
+	}
+
+	chunkX, chunkY := w.GetChunkCoords(hexagon.X, hexagon.Y)
+	chunk := w.GetChunk(chunkX, chunkY)
+
+	// Remove from spatial hash first
+	w.removeHexagonFromSpatialHash(hexagon)
+
+	// Then remove from chunk
+	return chunk.RemoveHexagon(hexagon.X, hexagon.Y)
+}
+
+// SnapToWorldGrid converts any world coordinates to the nearest world grid position
+// This function MUST match the exact coordinate calculation used in generateChunk
+func (w *World) SnapToWorldGrid(wx, wy float64) (float64, float64) {
+	// Find which chunk this position is in
+	chunkX, chunkY := w.GetChunkCoords(wx, wy)
+	
+	// Get the chunk first
+	chunk := w.GetChunk(chunkX, chunkY)
+	if chunk == nil {
+		// If chunk doesn't exist, we need to generate it first
+		w.GetChunksInRange(wx, wy)
+		chunk = w.GetChunk(chunkX, chunkY)
+		if chunk == nil {
+			// Still can't get chunk, return original coordinates
+			return wx, wy
+		}
+	}
+	
+	// Get the chunk's world position
+	worldX, worldY := chunk.GetWorldPosition()
+	
+	// Calculate local row and col in the chunk (same as generateChunk)
+	localRow := int((wy - worldY - HexSize) / HexVSpacing)
+	localCol := int((wx - worldX - HexWidth/2) / HexWidth)
+	
+	// Calculate the exact world position for this hexagon (EXACTLY same as generateChunk)
+	var x, y float64
+	if localRow%2 == 0 {
+		x = worldX + float64(localCol)*HexWidth + HexWidth/2
+	} else {
+		x = worldX + float64(localCol)*HexWidth + HexWidth
+	}
+	y = worldY + float64(localRow)*HexVSpacing + HexSize
+	
+	return x, y
+}
+
 // UnloadDistantChunks unloads chunks that are far from the player
 func (w *World) UnloadDistantChunks(playerX, playerY float64) {
 	playerChunkX, playerChunkY := w.GetChunkCoords(playerX, playerY)
