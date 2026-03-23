@@ -765,50 +765,62 @@ func (g *Game) handleMining() {
 	}
 }
 
-// handleBlockPlacement handles block placement
+// handleBlockPlacement handles placing blocks
 func (g *Game) handleBlockPlacement() {
+	// Debug: Log placement attempt
+	log.Printf("Block placement attempt - CreativeMode: %v, SelectedBlock: '%s'", g.CreativeMode, g.selectedBlock)
+
 	var blockTypeToPlace string
 
 	if g.CreativeMode && g.selectedBlock != "" {
 		// Use selected block from library in creative mode
 		blockTypeToPlace = g.selectedBlock
+		log.Printf("Using creative mode block: %s", blockTypeToPlace)
 	} else {
 		// Normal inventory-based placement
 		selectedItem := g.inventory.GetSelectedItem()
 		if selectedItem == nil || selectedItem.Type == items.NONE {
+			log.Printf("No selected item or item is NONE")
 			return
 		}
 
 		// Get item properties
 		props := items.GetItemProperties(selectedItem.Type)
 		if props == nil || !props.IsPlaceable {
+			log.Printf("Item not placeable: %+v", props)
 			return
 		}
 
 		blockTypeToPlace = props.BlockType
+		log.Printf("Using inventory item block: %s", blockTypeToPlace)
 	}
 
 	// Convert mouse position to world coordinates
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
+	log.Printf("Mouse world position: (%.1f, %.1f)", mouseWorldX, mouseWorldY)
 
-	// Snap to hexagonal grid center for proper placement
-	centerX, centerY, _, _ := world.PixelToHexCenter(mouseWorldX, mouseWorldY)
-	placeX, placeY := centerX, centerY
+	// Snap to world grid (matches world generation pattern)
+	placeX, placeY := g.world.SnapToWorldGrid(mouseWorldX, mouseWorldY)
+	log.Printf("Grid-snapped position: (%.1f, %.1f)", placeX, placeY)
 
 	// Placement validation: check if position is valid
 	if !g.canPlaceBlockAt(placeX, placeY) {
+		log.Printf("Placement validation failed at (%.1f, %.1f)", placeX, placeY)
 		return // Cannot place block here
 	}
 
 	// Check if player can reach the block placement position
 	if !g.player.CanReach(placeX, placeY) {
+		log.Printf("Player cannot reach position (%.1f, %.1f)", placeX, placeY)
 		return
 	}
 
 	// Place block at the calculated position
 	blockType := stringToBlockType(blockTypeToPlace)
+	log.Printf("Final block type: %v from string '%s'", blockType, blockTypeToPlace)
 	g.world.AddHexagonAt(placeX, placeY, blockType)
+	log.Printf("Block placed successfully at (%.1f, %.1f)", placeX, placeY)
 
 	// Remove item from inventory only if not in creative mode
 	if !g.CreativeMode {
@@ -821,6 +833,7 @@ func (g *Game) canPlaceBlockAt(x, y float64) bool {
 	// Check if there's already a block at this position
 	existingHex := g.world.GetHexagonAt(x, y)
 	if existingHex != nil {
+		log.Printf("Cannot place: existing block found at (%.1f, %.1f) type: %v", x, y, existingHex.BlockType)
 		return false // Cannot place on existing block
 	}
 
@@ -828,10 +841,13 @@ func (g *Game) canPlaceBlockAt(x, y float64) bool {
 	playerCenterX, playerCenterY := g.player.GetCenter()
 	distance := math.Sqrt((x-playerCenterX)*(x-playerCenterX) + (y-playerCenterY)*(y-playerCenterY))
 	minDistance := g.player.Width/2 + 10 // Much smaller buffer - just prevent overlap
+	log.Printf("Player distance check: distance=%.1f, minDistance=%.1f", distance, minDistance)
 	if distance < minDistance {
+		log.Printf("Cannot place: too close to player at (%.1f, %.1f)", x, y)
 		return false // Too close to player
 	}
 
+	log.Printf("Placement validation passed at (%.1f, %.1f)", x, y)
 	return true
 }
 

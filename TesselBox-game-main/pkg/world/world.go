@@ -430,6 +430,30 @@ func (w *World) AddHexagonAt(x, y float64, blockType blocks.BlockType) {
 	w.addHexagonToSpatialHash(hexagon)
 }
 
+// SnapToWorldGrid converts any world coordinates to the nearest world grid position
+func (w *World) SnapToWorldGrid(wx, wy float64) (float64, float64) {
+	// Find which chunk this position is in
+	chunkX, chunkY := w.GetChunkCoords(wx, wy)
+	
+	// Get the chunk's world position
+	worldX, worldY := float64(chunkX)*GetChunkWidth(), float64(chunkY)*GetChunkHeight()
+	
+	// Calculate local row and col in the chunk
+	localRow := int((wy - worldY - HexSize) / HexVSpacing)
+	localCol := int((wx - worldX - HexWidth/2) / HexWidth)
+	
+	// Calculate the exact world position for this hexagon
+	var x, y float64
+	if localRow%2 == 0 {
+		x = worldX + float64(localCol)*HexWidth + HexWidth/2
+	} else {
+		x = worldX + float64(localCol)*HexWidth + HexWidth
+	}
+	y = worldY + float64(localRow)*HexVSpacing + HexSize
+	
+	return x, y
+}
+
 // RemoveHexagonAt removes the hexagon at the given world position
 func (w *World) RemoveHexagonAt(x, y float64) bool {
 	chunkX, chunkY := w.GetChunkCoords(x, y)
