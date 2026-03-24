@@ -56,14 +56,9 @@ TesselBox is built with modern technologies to deliver a robust and engaging gam
 
 ## Star History 
 
+## Star History
 
-<a href="https://www.star-history.com/?repos=tesselstudio%2F.github%2Ctesselstudio%2FTesselbox-game%2Cjason1015-coder%2Fjason1015-coder&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/.github%2Ctesselstudio/Tesselbox-game%2Cjason1015-coder/jason1015-coder&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/.github%2Ctesselstudio/Tesselbox-game%2Cjason1015-coder/jason1015-coder&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/.github%2Ctesselstudio/Tesselbox-game%2Cjason1015-coder/jason1015-coder&type=date&legend=bottom-right" />
- </picture>
-</a>
+[![Star History Chart](https://api.star-history.com/image?repos=tesselstudio/.github%2Ctesselstudio/Tesselbox-game&type=date&legend=top-left)](https://www.star-history.com/?repos=tesselstudio%2F.github%2Ctesselstudio%2FTesselbox-game&type=date&legend=top-left)
 
 ## 🤝 Contributing
 
