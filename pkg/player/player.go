@@ -13,7 +13,7 @@ const (
 	Friction     = 0.85
 	TerminalVelX = 300.0
 	TerminalVelY = 1200.0 // Increased for faster falling
-	MiningRange  = 300.0  // Increased mining range for better usability
+	MiningRange  = 2000.0  // Increased range for better block placement
 	PlayerWidth  = 40.0
 	PlayerHeight = 40.0 // Square player
 )
@@ -135,20 +135,6 @@ func (p *Player) Update(deltaTime float64) {
 
 	// Reset jumping flag
 	p.Jumping = false
-
-	// Update mining progress
-	if p.Mining && p.MiningTarget != nil {
-		if p.MiningStartTime.IsZero() {
-			p.MiningStartTime = time.Now()
-		}
-		elapsed := time.Since(p.MiningStartTime).Seconds()
-		p.MiningProgress = elapsed * 100.0 // 0-100% over time
-		if p.MiningProgress >= 100.0 {
-			p.MiningProgress = 0
-			p.Mining = false
-			p.MiningStartTime = time.Time{}
-		}
-	}
 }
 
 // UpdateWithCollision updates player position with collision detection
@@ -319,7 +305,9 @@ func (p *Player) DistanceTo(x, y float64) float64 {
 
 // CanReach returns true if the player can reach a point
 func (p *Player) CanReach(x, y float64) bool {
-	return p.DistanceTo(x, y) <= MiningRange*MiningRange
+	squaredDistance := p.DistanceTo(x, y)
+	maxSquaredDistance := MiningRange * MiningRange
+	return squaredDistance <= maxSquaredDistance
 }
 
 // SetSelectedSlot sets the currently selected inventory slot

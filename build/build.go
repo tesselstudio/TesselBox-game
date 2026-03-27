@@ -1,0 +1,112 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+)
+
+// BuildConfig holds build configuration
+type BuildConfig struct {
+	OS       string
+	Arch     string
+	Output   string
+	Release  bool
+	Version  string
+}
+
+func main() {
+	// Parse command line flags
+	config := BuildConfig{}
+	flag.StringVar(&config.OS, "os", runtime.GOOS, "Target operating system")
+	flag.StringVar(&config.Arch, "arch", runtime.GOARCH, "Target architecture")
+	flag.StringVar(&config.Output, "output", "", "Output file path")
+	flag.BoolVar(&config.Release, "release", false, "Release build (optimized)")
+	flag.StringVar(&config.Version, "version", "2.0.0", "Version string")
+	flag.Parse()
+
+	// Set default output if not specified
+	if config.Output == "" {
+		ext := ""
+		if config.OS == "windows" {
+			ext = ".exe"
+		}
+		config.Output = fmt.Sprintf("tesselbox-%s-%s%s", config.OS, config.Arch, ext)
+	}
+
+	fmt.Printf("Building TesselBox v%s for %s/%s\n", config.Version, config.OS, config.Arch)
+	fmt.Printf("Output: %s\n", config.Output)
+
+	// Create output directory
+	outputDir := filepath.Dir(config.Output)
+	if outputDir != "." {
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			log.Fatalf("Failed to create output directory: %v", err)
+		}
+	}
+
+	// Prepare build command
+	args := []string{
+		"build",
+		"-o", config.Output,
+		"-ldflags", fmt.Sprintf("-X main.Version=%s -s -w", config.Version),
+	}
+
+	if config.Release {
+		args = append(args, "-trimpath")
+	}
+
+	// Add source file
+	args = append(args, "./cmd/main.go")
+
+	// Set environment variables
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("GOOS=%s", config.OS))
+	env = append(env, fmt.Sprintf("GOARCH=%s", config.Arch))
+
+	// Execute build
+	cmd := exec.Command("go", args...)
+	cmd.Env = env
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		log.Fatalf("Build failed: %v", err)
+	}
+
+	fmt.Printf("✅ Build completed successfully!\n")
+
+	// Add version info for release builds
+	if config.Release {
+		if err := addReleaseInfo(config); err != nil {
+			fmt.Printf("Warning: Failed to add release info: %v\n", err)
+		}
+	}
+
+	// Show file size
+	if info, err := os.Stat(config.Output); err == nil {
+		size := info.Size()
+		if size < 1024 {
+			fmt.Printf("Size: %d bytes\n", size)
+		} else if size < 1024*1024 {
+			fmt.Printf("Size: %.1f KB\n", float64(size)/1024)
+		} else {
+			fmt.Printf("Size: %.1f MB\n", float64(size)/(1024*1024))
+		}
+	}
+}
+
+func addReleaseInfo(config BuildConfig) error {
+	// This could be extended to add icons, metadata, etc.
+	fmt.Printf("📦 Release build completed for %s/%s\n", config.OS, config.Arch)
+	
+	// For Windows, we could add version info here
+	// For macOS, we could create .app bundles
+	// For Linux, we could add desktop files
+	
+	return nil
+}

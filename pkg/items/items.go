@@ -2,10 +2,11 @@ package items
 
 import (
 	"image/color"
-	"os"
 
 	"gopkg.in/yaml.v3"
+	"tesselbox/assets"
 )
+
 
 // ItemType represents the type of an item
 type ItemType int
@@ -783,7 +784,7 @@ func GetItemProperties(itemType ItemType) *ItemProperties {
 
 // LoadItems loads item definitions from YAML file
 func LoadItems() {
-	if data, err := os.ReadFile("config/items.yaml"); err == nil {
+	if data, err := assets.GetConfigFile("items.yaml"); err == nil {
 		var items map[string]*ItemJSON
 		if err := yaml.Unmarshal(data, &items); err == nil {
 			for id, i := range items {
@@ -820,38 +821,7 @@ func LoadItems() {
 
 // loadMods loads mod item definitions
 func loadMods() {
-	if data, err := os.ReadFile("mods/items.yaml"); err == nil {
-		var items map[string]*ItemJSON
-		if err := yaml.Unmarshal(data, &items); err == nil {
-			for id, i := range items {
-				it, ok := ItemTypeMap[id]
-				if !ok {
-					continue
-				}
-				props := &ItemProperties{
-					ID:           it,
-					Name:         i.Name,
-					IconColor:    color.RGBA{i.IconColor[0], i.IconColor[1], i.IconColor[2], i.IconColor[3]},
-					Description:  i.Description,
-					StackSize:    i.StackSize,
-					Durability:   i.Durability,
-					IsTool:       i.IsTool,
-					ToolPower:    i.ToolPower,
-					IsPlaceable:  i.IsPlaceable,
-					BlockType:    i.BlockType,
-					IsWeapon:     i.IsWeapon,
-					WeaponDamage: i.WeaponDamage,
-					WeaponRange:  i.WeaponRange,
-					WeaponSpeed:  i.WeaponSpeed,
-					WeaponType:   i.WeaponType,
-					IsArmor:      i.IsArmor,
-					ArmorType:    i.ArmorType,
-					ArmorDefense: i.ArmorDefense,
-				}
-				ItemDefinitions[it] = props
-			}
-		}
-	}
+	// Mods are currently disabled in embedded build
 }
 
 // min returns the minimum of two integers

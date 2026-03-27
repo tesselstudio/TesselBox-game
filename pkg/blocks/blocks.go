@@ -3,12 +3,13 @@ package blocks
 import (
 	"image/color"
 	"math/rand"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"gopkg.in/yaml.v3"
+	"tesselbox/assets"
 )
+
 
 // BlockType represents the type of a block
 type BlockType int
@@ -100,13 +101,13 @@ var BlockTypeMap = map[string]BlockType{
 
 // LoadBlocks loads block definitions from YAML files
 func LoadBlocks() {
-	loadBlocksFromFile("config/blocks.yaml")
+	loadBlocksFromEmbedded()
 	loadMods()
 }
 
-// loadBlocksFromFile loads blocks from a specific YAML file
-func loadBlocksFromFile(path string) {
-	data, err := os.ReadFile(path)
+// loadBlocksFromEmbedded loads blocks from embedded YAML data
+func loadBlocksFromEmbedded() {
+	data, err := assets.GetConfigFile("blocks.yaml")
 	if err != nil {
 		// If file doesn't exist, skip
 		return
@@ -166,7 +167,7 @@ func loadBlocksFromFile(path string) {
 
 // loadMods loads mod block definitions
 func loadMods() {
-	loadBlocksFromFile("mods/blocks.yaml")
+	// Mods are currently disabled in embedded build
 }
 
 // generateProceduralTexture creates a texture using a color palette with random pixels

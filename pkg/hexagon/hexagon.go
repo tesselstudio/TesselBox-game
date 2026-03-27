@@ -61,10 +61,10 @@ func HexDistance(a, b Hexagon) int {
 }
 
 // PixelToHex converts pixel coordinates to hexagon coordinates
-// Using axial coordinates: x = size * (3/2 * q), y = size * (sqrt(3)/2 * q + sqrt(3) * r)
+// Using pointy-top hexagons: x = size * sqrt(3) * (q + r/2), y = size * 3/2 * r
 func PixelToHex(x, y, size float64) (float64, float64) {
-	q := (math.Sqrt(3)/3*x + 1.0/3.0*y) / size
-	r := (-math.Sqrt(3)/3*x + 2.0/3.0*y) / size
+	q := (math.Sqrt(3)/3.0*x - 1.0/3.0*y) / size
+	r := (2.0/3.0*y) / size
 	return q, r
 }
 
@@ -94,9 +94,10 @@ func HexRound(q, r float64) Hexagon {
 }
 
 // HexToPixel converts hexagon coordinates to pixel coordinates
+// Using pointy-top hexagons: x = size * sqrt(3) * (q + r/2), y = size * 3/2 * r
 func HexToPixel(hex Hexagon, size float64) (float64, float64) {
-	x := size * (3.0/2.0 * float64(hex.Q))
-	y := size * (math.Sqrt(3)/2.0*float64(hex.Q) + math.Sqrt(3)*float64(hex.R))
+	x := size * math.Sqrt(3) * (float64(hex.Q) + 0.5*float64(hex.R))
+	y := size * 1.5 * float64(hex.R)
 	return x, y
 }
 

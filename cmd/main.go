@@ -98,6 +98,9 @@ type Game struct {
 	// Mouse
 	mouseX, mouseY   int
 	hoveredBlockName string
+	debugCounter     int // For debug logging
+	leftMouseWasPressed  bool
+	rightMouseWasPressed bool
 
 	// Game state flags
 	inMenu       bool
@@ -134,6 +137,8 @@ func NewGame() *Game {
 		cameraY:       0,
 		lastTime:      time.Now(),
 		whiteImage:    whiteImage,
+		leftMouseWasPressed:  false,
+		rightMouseWasPressed: false,
 	}
 
 	// Find a suitable spawn position and set player position
@@ -192,6 +197,27 @@ func (g *Game) Update() error {
 	deltaTime := currentTime.Sub(g.lastTime).Seconds()
 	g.lastTime = currentTime
 
+	// Update debug counter
+	g.debugCounter++
+	if g.debugCounter >= 60 { // Log every second (60 frames)
+		playerX, playerY := g.player.GetCenter()
+		log.Printf("DEBUG: Player at (%.1f, %.1f), Camera at (%.1f, %.1f)", playerX, playerY, g.cameraX, g.cameraY)
+		g.debugCounter = 0
+	}
+
+	// Test basic input detection in main Update
+	if ebiten.IsKeyPressed(ebiten.KeyA) {
+		log.Printf("DEBUG: A key is being held down!")
+	}
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		log.Printf("DEBUG: Left mouse is being held down!")
+	}
+	
+	// Also test the cursor position
+	if g.debugCounter%60 == 0 {
+		log.Printf("DEBUG: Mouse position: (%d, %d)", g.mouseX, g.mouseY)
+	}
+
 	// Handle menu state
 	if g.inMenu {
 		action := g.menu.Update()
@@ -218,6 +244,9 @@ func (g *Game) Update() error {
 
 		// Update player with delta time (framerate-independent)
 		g.player.Update(deltaTime)
+
+		// Update mining progress
+		g.updateMining(deltaTime)
 
 		// Update day/night cycle
 		g.dayNightCycle.Update()
@@ -382,13 +411,35 @@ func (g *Game) handleGameInput() {
 		g.hoveredBlockName = ""
 	}
 
-	// Start mining when left mouse button is pressed
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+	// Mouse input for mining and placement
+	staticLeftPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	staticRightPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
+	
+	// Track previous state to detect "just pressed"
+	if !g.leftMouseWasPressed && staticLeftPressed {
+		// Left mouse just pressed - start mining
+		log.Printf("DEBUG: Left mouse just pressed - starting mining")
 		g.startMining()
 	}
+	if g.leftMouseWasPressed && !staticLeftPressed {
+		// Left mouse just released - stop mining
+		log.Printf("DEBUG: Left mouse just released - stopping mining")
+		g.player.StopMining()
+	}
+	if !g.rightMouseWasPressed && staticRightPressed {
+		// Right mouse just pressed - place block
+		log.Printf("DEBUG: Right mouse just pressed - attempting block placement")
+		g.handleBlockPlacement()
+		log.Printf("DEBUG: handleBlockPlacement returned")
+	}
+	
+	// Update state
+	g.leftMouseWasPressed = staticLeftPressed
+	g.rightMouseWasPressed = staticRightPressed
 
-	// Block placement with right click (only when not attacking)
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+	// Test keyboard input with ebiten system
+	if ebiten.IsKeyPressed(ebiten.KeyT) {
+		log.Printf("DEBUG: T key is pressed - testing block placement")
 		g.handleBlockPlacement()
 	}
 
@@ -592,15 +643,20 @@ func (g *Game) interactWithStation() {
 
 // startMining starts mining the block under the mouse cursor
 func (g *Game) startMining() {
+	log.Printf("DEBUG: startMining called")
 	// Convert mouse position to world coordinates
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
 	// Find the hexagon at mouse position
 	targetHex := g.world.GetHexagonAt(mouseWorldX, mouseWorldY)
+	log.Printf("DEBUG: Looking for block at world (%.1f, %.1f), found: %v", mouseWorldX, mouseWorldY, targetHex != nil)
 	if targetHex == nil || targetHex.BlockType == blocks.AIR {
+		log.Printf("DEBUG: No block found or block is air, returning")
 		return
 	}
+
+	log.Printf("DEBUG: Found block type: %v at (%.1f, %.1f)", targetHex.BlockType, targetHex.X, targetHex.Y)
 
 	// Check if block is unbreakable
 	blockKey := getBlockKeyFromType(targetHex.BlockType)
@@ -614,8 +670,15 @@ func (g *Game) startMining() {
 		return
 	}
 
-	// Instantly destroy the block in creative mode
-	g.completeMining(targetHex)
+	// In creative mode, destroy blocks instantly
+	if g.CreativeMode {
+		log.Printf("DEBUG: Creative mode - calling completeMining instantly")
+		g.completeMining(targetHex)
+		return
+	}
+
+	// Start mining the block (survival mode)
+	g.player.StartMining(targetHex)
 }
 
 // updateMining updates mining progress and handles block destruction
@@ -658,7 +721,7 @@ func (g *Game) completeMining(targetHex *world.Hexagon) {
 	// Get the block type before removing
 	blockType := targetHex.BlockType
 
-	// Get the exact world position before removing
+	// Use the exact hexagon coordinates for removal
 	x, y := targetHex.X, targetHex.Y
 	g.world.RemoveHexagonAt(x, y)
 
@@ -764,11 +827,13 @@ func (g *Game) handleMining() {
 
 // handleBlockPlacement handles block placement
 func (g *Game) handleBlockPlacement() {
+	log.Printf("DEBUG: handleBlockPlacement called - inGame: %v, CreativeMode: %v", g.inGame, g.CreativeMode)
 	var blockTypeToPlace string
 
 	if g.CreativeMode && g.selectedBlock != "" {
 		// Use selected block from library in creative mode
 		blockTypeToPlace = g.selectedBlock
+		log.Printf("DEBUG: Using creative mode block: %s", blockTypeToPlace)
 	} else {
 		// Normal inventory-based placement
 		selectedItem := g.inventory.GetSelectedItem()
@@ -789,8 +854,34 @@ func (g *Game) handleBlockPlacement() {
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
-	// Use the world position directly for placement
-	placeX, placeY := mouseWorldX, mouseWorldY
+	// Find which hexagon the mouse is over using the same system as world generation
+	// Convert world coordinates to local chunk coordinates
+	chunkX, chunkY := g.world.GetChunkCoords(mouseWorldX, mouseWorldY)
+	chunk := g.world.GetChunk(chunkX, chunkY)
+	if chunk == nil {
+		return
+	}
+	
+	// Get chunk world position
+	worldX, worldY := chunk.GetWorldPosition()
+	
+	// Calculate local row/col using the same formula as world generation
+	localRow := int((mouseWorldY - worldY) / world.HexVSpacing)
+	var localCol int
+	if localRow%2 == 0 {
+		localCol = int((mouseWorldX - worldX - world.HexWidth/2) / world.HexWidth)
+	} else {
+		localCol = int((mouseWorldX - worldX - world.HexWidth) / world.HexWidth)
+	}
+	
+	// Convert back to world coordinates using the same formula as world generation
+	var placeX, placeY float64
+	if localRow%2 == 0 {
+		placeX = worldX + float64(localCol)*world.HexWidth + world.HexWidth/2
+	} else {
+		placeX = worldX + float64(localCol)*world.HexWidth + world.HexWidth
+	}
+	placeY = worldY + float64(localRow)*world.HexVSpacing + world.HexSize
 
 	// Placement validation: check if position is valid
 	if !g.canPlaceBlockAt(placeX, placeY) {
@@ -799,7 +890,7 @@ func (g *Game) handleBlockPlacement() {
 
 	// Check if player can reach the block placement position
 	if !g.player.CanReach(placeX, placeY) {
-		return
+		return // Too far from player
 	}
 
 	// Place block at the calculated position
@@ -814,8 +905,30 @@ func (g *Game) handleBlockPlacement() {
 
 // canPlaceBlockAt checks if a block can be placed at the given position
 func (g *Game) canPlaceBlockAt(x, y float64) bool {
-	// Check if there's already a block at this position
-	existingHex := g.world.GetHexagonAt(x, y)
+	// Use the coordinates directly since we're now using snapped hexagon centers
+	centerX, centerY := x, y
+	
+	// Get the chunk directly and check the exact hexagon position
+	chunkX, chunkY := g.world.GetChunkCoords(centerX, centerY)
+	chunk := g.world.GetChunk(chunkX, chunkY)
+	if chunk == nil {
+		return false
+	}
+	
+	// Use the same calculation as chunk.GetHexagon for exact lookup
+	worldX, worldY := chunk.GetWorldPosition()
+	
+	localRow := int((centerY - worldY) / world.HexVSpacing)
+	localCol := int((centerX - worldX - world.HexWidth/2) / world.HexWidth)
+	if localRow%2 == 0 {
+		localCol = int((centerX - worldX - world.HexWidth/2) / world.HexWidth)
+	} else {
+		localCol = int((centerX - worldX) / world.HexWidth)
+	}
+	
+	key := [2]int{localCol, localRow}
+	existingHex := chunk.Hexagons[key]
+	
 	if existingHex != nil {
 		return false // Cannot place on existing block
 	}
@@ -823,7 +936,7 @@ func (g *Game) canPlaceBlockAt(x, y float64) bool {
 	// Check if player is too close (prevent placing blocks inside player)
 	playerCenterX, playerCenterY := g.player.GetCenter()
 	distance := math.Sqrt((x-playerCenterX)*(x-playerCenterX) + (y-playerCenterY)*(y-playerCenterY))
-	minDistance := g.player.Width/2 + 10 // Much smaller buffer - just prevent overlap
+	minDistance := g.player.Width/2 + 2 // Very small buffer - just prevent direct overlap
 	if distance < minDistance {
 		return false // Too close to player
 	}
@@ -907,9 +1020,44 @@ func (g *Game) drawGameScene(screen *ebiten.Image) {
 	// Get visible blocks
 	px, py := g.player.GetCenter()
 	visibleBlocks := g.world.GetVisibleBlocks(px, py)
+	log.Printf("DEBUG: Found %d visible blocks", len(visibleBlocks))
+	
+	// Check what block types are actually in the visible list
+	blockTypeCount := make(map[blocks.BlockType]int)
+	for _, hex := range visibleBlocks {
+		blockTypeCount[hex.BlockType]++
+	}
+	log.Printf("DEBUG: Block types in visible list: %v", blockTypeCount)
+	
+	// Check if our newly placed block is in the visible list
+	newBlockCount := 0
+	for _, hex := range visibleBlocks {
+		if hex.BlockType == blocks.DIRT {
+			newBlockCount++
+		}
+	}
+	log.Printf("DEBUG: Found %d dirt blocks in visible list", newBlockCount)
 
 	// Draw blocks with batching by color for performance
 	g.drawBlocksBatched(screen, visibleBlocks)
+	
+	// Debug: Check if newly placed blocks are being rendered
+	if g.debugCounter%60 == 0 { // Log every second
+		newlyPlacedCount := 0
+		for _, hex := range visibleBlocks {
+			// Check if this is a recently placed block (within last 2 seconds)
+			if hex.BlockType == blocks.DIRT {
+				newlyPlacedCount++
+				// Log position of first few dirt blocks for debugging
+				if newlyPlacedCount <= 3 {
+					log.Printf("DEBUG: Rendering dirt block at (%.1f, %.1f)", hex.X, hex.Y)
+				}
+			}
+		}
+		if newlyPlacedCount > 0 {
+			log.Printf("DEBUG: Rendering %d dirt blocks this frame", newlyPlacedCount)
+		}
+	}
 
 	// Draw player
 	g.drawPlayer(screen)
@@ -927,6 +1075,11 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 		if block.BlockType == blocks.AIR {
 			continue
 		}
+		
+		// Debug: log dirt blocks being processed
+		if block.BlockType == blocks.DIRT {
+			log.Printf("DEBUG: Processing dirt block in batching system at (%.1f, %.1f)", block.X, block.Y)
+		}
 
 		props := blocks.BlockDefinitions[getBlockKeyFromType(block.BlockType)]
 		if props == nil {
@@ -938,7 +1091,15 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 		screenY := block.Y - g.cameraY
 		if screenX < -100 || screenX > ScreenWidth+100 ||
 			screenY < -100 || screenY > ScreenHeight+100 {
+			if block.BlockType == blocks.DIRT {
+				log.Printf("DEBUG: Dirt block off screen: (%.1f, %.1f)", screenX, screenY)
+			}
 			continue
+		}
+		
+		// Debug: log dirt blocks that are on screen
+		if block.BlockType == blocks.DIRT {
+			log.Printf("DEBUG: Dirt block ON SCREEN: (%.1f, %.1f)", screenX, screenY)
 		}
 
 		// Create a key based on color and damage state for grouping
@@ -957,9 +1118,21 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 	}
 
 	// Draw each color group as a batch
-	for _, groupBlocks := range colorGroups {
+	for colorKey, groupBlocks := range colorGroups {
 		if len(groupBlocks) == 0 {
 			continue
+		}
+		
+		// Debug: check if this group contains dirt blocks
+		hasDirt := false
+		for _, block := range groupBlocks {
+			if block.BlockType == blocks.DIRT {
+				hasDirt = true
+				break
+			}
+		}
+		if hasDirt {
+			log.Printf("DEBUG: Drawing dirt group with %d blocks, color key: %s", len(groupBlocks), colorKey)
 		}
 
 		// Get properties from first block in group
@@ -1210,15 +1383,28 @@ func (g *Game) drawBlock(screen *ebiten.Image, block *world.Hexagon) {
 	if block.BlockType == blocks.AIR {
 		return
 	}
+	
+	// Debug: log when drawing dirt blocks
+	if block.BlockType == blocks.DIRT {
+		log.Printf("DEBUG: Drawing dirt block at world (%.1f, %.1f)", block.X, block.Y)
+	}
 
-	props := blocks.BlockDefinitions[getBlockKeyFromType(block.BlockType)]
+	blockKey := getBlockKeyFromType(block.BlockType)
+	props := blocks.BlockDefinitions[blockKey]
 	if props == nil {
+		log.Printf("DEBUG: No block definition for type %v", block.BlockType)
 		return
 	}
 
 	// Calculate screen position
 	screenX := block.X - g.cameraX
 	screenY := block.Y - g.cameraY
+	
+	if block.BlockType == blocks.DIRT {
+		log.Printf("DEBUG: Dirt block screen position: (%.1f, %.1f)", screenX, screenY)
+		log.Printf("DEBUG: Camera position: (%.1f, %.1f)", g.cameraX, g.cameraY)
+		log.Printf("DEBUG: Screen size: %dx%d", ScreenWidth, ScreenHeight)
+	}
 
 	// Check if block is on screen
 	if screenX < -100 || screenX > ScreenWidth+100 ||
@@ -1611,6 +1797,9 @@ func main() {
 	ebiten.SetWindowSize(ScreenWidth, ScreenHeight)
 	ebiten.SetWindowTitle("Tesselbox v2.0 - Hexagon Sandbox")
 	ebiten.SetTPS(FPS)
+	
+	// Enable input
+	ebiten.SetCursorMode(ebiten.CursorModeVisible)
 
 	game := NewGame()
 

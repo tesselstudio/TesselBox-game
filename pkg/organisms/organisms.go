@@ -2,12 +2,13 @@ package organisms
 
 import (
 	"math"
-	"os"
 	"tesselbox/pkg/hexagon"
 	"time"
 
 	"gopkg.in/yaml.v3"
+	"tesselbox/assets"
 )
+
 
 // OrganismType represents the type of organism
 type OrganismType int
@@ -56,7 +57,7 @@ var OrganismTypeMap = map[string]OrganismType{
 
 // LoadOrganisms loads organism definitions from YAML
 func LoadOrganisms() {
-	data, err := os.ReadFile("config/organisms.yaml")
+	data, err := assets.GetConfigFile("organisms.yaml")
 	if err != nil {
 		return
 	}

@@ -71,41 +71,85 @@ func (c *Chunk) GetHexagon(x, y float64) *Hexagon {
 	return c.Hexagons[key]
 }
 
-// AddHexagon adds a hexagon to the chunk
-func (c *Chunk) AddHexagon(x, y float64, hexagon *Hexagon) {
+// GetHexagonDirect gets hexagon using direct coordinates (no PixelToHexCenter)
+func (c *Chunk) GetHexagonDirect(x, y float64) *Hexagon {
+	// Use the coordinates directly
+	centerX, centerY := x, y
 	worldX, worldY := c.GetWorldPosition()
 
-	// Calculate local row
-	localRow := int((y - worldY) / HexVSpacing)
-
-	// Calculate local column with proper offset for interlocking
-	localCol := int((x - worldX - HexWidth/2) / HexWidth)
+	// Calculate local row and column from center coordinates
+	localRow := int((centerY - worldY) / HexVSpacing)
+	localCol := int((centerX - worldX - HexWidth/2) / HexWidth)
 	if localRow%2 == 0 {
-		localCol = int((x - worldX - HexWidth/2) / HexWidth)
+		localCol = int((centerX - worldX - HexWidth/2) / HexWidth)
 	} else {
-		localCol = int((x - worldX) / HexWidth)
+		localCol = int((centerX - worldX) / HexWidth)
+	}
+
+	key := [2]int{localCol, localRow}
+	return c.Hexagons[key]
+}
+
+// AddHexagon adds a hexagon to the chunk
+func (c *Chunk) AddHexagon(x, y float64, hexagon *Hexagon) {
+	// Use the provided coordinates directly instead of applying PixelToHexCenter
+	centerX, centerY := x, y
+	worldX, worldY := c.GetWorldPosition()
+
+	// Calculate local row and column from center coordinates
+	localRow := int((centerY - worldY) / HexVSpacing)
+	localCol := int((centerX - worldX - HexWidth/2) / HexWidth)
+	if localRow%2 == 0 {
+		localCol = int((centerX - worldX - HexWidth/2) / HexWidth)
+	} else {
+		localCol = int((centerX - worldX) / HexWidth)
 	}
 
 	hexagon.ChunkX = c.ChunkX
 	hexagon.ChunkY = c.ChunkY
 	key := [2]int{localCol, localRow}
+	
 	c.Hexagons[key] = hexagon
 	c.Modified = true
 }
 
 // RemoveHexagon removes a hexagon from the chunk
 func (c *Chunk) RemoveHexagon(x, y float64) bool {
+	// Use PixelToHexCenter to get accurate hexagon coordinates (same as GetHexagon)
+	centerX, centerY, _, _ := PixelToHexCenter(x, y)
 	worldX, worldY := c.GetWorldPosition()
 
-	// Calculate local row
-	localRow := int((y - worldY) / HexVSpacing)
-
-	// Calculate local column with proper offset for interlocking
-	localCol := int((x - worldX - HexWidth/2) / HexWidth)
+	// Calculate local row and column from center coordinates
+	localRow := int((centerY - worldY) / HexVSpacing)
+	localCol := int((centerX - worldX - HexWidth/2) / HexWidth)
 	if localRow%2 == 0 {
-		localCol = int((x - worldX - HexWidth/2) / HexWidth)
+		localCol = int((centerX - worldX - HexWidth/2) / HexWidth)
 	} else {
-		localCol = int((x - worldX) / HexWidth)
+		localCol = int((centerX - worldX) / HexWidth)
+	}
+
+	key := [2]int{localCol, localRow}
+	if _, ok := c.Hexagons[key]; ok {
+		delete(c.Hexagons, key)
+		c.Modified = true
+		return true
+	}
+	return false
+}
+
+// RemoveHexagonDirect removes a hexagon using direct coordinates (no PixelToHexCenter)
+func (c *Chunk) RemoveHexagonDirect(x, y float64) bool {
+	// Use the coordinates directly
+	centerX, centerY := x, y
+	worldX, worldY := c.GetWorldPosition()
+
+	// Calculate local row and column from center coordinates
+	localRow := int((centerY - worldY) / HexVSpacing)
+	localCol := int((centerX - worldX - HexWidth/2) / HexWidth)
+	if localRow%2 == 0 {
+		localCol = int((centerX - worldX - HexWidth/2) / HexWidth)
+	} else {
+		localCol = int((centerX - worldX) / HexWidth)
 	}
 
 	key := [2]int{localCol, localRow}

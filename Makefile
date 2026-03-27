@@ -16,9 +16,8 @@ release: clean icons
 	@echo "Building release binaries..."
 	@go run build/build.go -os=windows -arch=amd64 -output=bin/tesselbox-windows-amd64.exe -release
 	@go run build/build.go -os=linux -arch=amd64 -output=bin/tesselbox-linux-amd64 -release
-	@go run build/build.go -os=darwin -arch=amd64 -output=bin/tesselbox-darwin-amd64 -release
-	@go run build/build.go -os=darwin -arch=arm64 -output=bin/tesselbox-darwin-arm64 -release
 	@echo "Release binaries built in bin/"
+	@echo "Note: macOS builds require native compilation on macOS"
 
 # Platform-specific builds
 windows:
@@ -37,7 +36,7 @@ darwin:
 icons:
 	@echo "Generating placeholder icons..."
 	@if command -v convert >/dev/null 2>&1; then \
-		./assets/icons/create_icons.sh; \
+		cd build && ./generate-icons.sh; \
 	else \
 		echo "ImageMagick not found. Install with: brew install imagemagick or apt-get install imagemagick"; \
 	fi

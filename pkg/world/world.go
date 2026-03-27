@@ -435,8 +435,8 @@ func (w *World) RemoveHexagonAt(x, y float64) bool {
 	chunkX, chunkY := w.GetChunkCoords(x, y)
 	chunk := w.GetChunk(chunkX, chunkY)
 
-	// Get the hexagon before removing it
-	hexagon := chunk.GetHexagon(x, y)
+	// Get the hexagon using direct coordinates (same as AddHexagon)
+	hexagon := chunk.GetHexagonDirect(x, y)
 	if hexagon == nil {
 		return false
 	}
@@ -444,8 +444,8 @@ func (w *World) RemoveHexagonAt(x, y float64) bool {
 	// Remove from spatial hash first
 	w.removeHexagonFromSpatialHash(hexagon)
 
-	// Then remove from chunk
-	return chunk.RemoveHexagon(x, y)
+	// Then remove from chunk using direct coordinates
+	return chunk.RemoveHexagonDirect(x, y)
 }
 
 // UnloadDistantChunks unloads chunks that are far from the player

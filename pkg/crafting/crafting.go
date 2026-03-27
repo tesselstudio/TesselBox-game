@@ -2,11 +2,12 @@ package crafting
 
 import (
 	"fmt"
-	"os"
 	"tesselbox/pkg/items"
 
 	"gopkg.in/yaml.v3"
+	"tesselbox/assets"
 )
+
 
 // CraftingStation represents different crafting stations
 type CraftingStation int
@@ -56,7 +57,7 @@ func NewCraftingSystem() *CraftingSystem {
 
 // LoadRecipes loads recipes from a YAML file
 func (cs *CraftingSystem) LoadRecipes(filePath string) error {
-	data, err := os.ReadFile(filePath)
+	data, err := assets.GetConfigFile("crafting_recipes.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to read recipes file: %w", err)
 	}

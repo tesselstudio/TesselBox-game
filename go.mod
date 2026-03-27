@@ -2,7 +2,12 @@ module tesselbox
 
 go 1.21
 
-require github.com/hajimehoshi/ebiten/v2 v2.6.3
+require (
+	github.com/hajimehoshi/ebiten/v2 v2.6.3
+	tesselbox/assets v0.0.0
+)
+
+replace tesselbox/assets => ./assets
 
 require (
 	github.com/ebitengine/purego v0.5.0 // indirect
