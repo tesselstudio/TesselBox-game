@@ -30,26 +30,26 @@ TesselBox offers a captivating experience in an open-source, hexagonal sandbox e
 -   **Mining & Exploration**: Unearth resources and uncover the secrets of the world as you explore its vast landscapes.
 -   **Open Source**: Join our community and contribute to the evolution of TesselBox!
 
-## 🚀 Quick Start
+## 🚀 Installation
 
-Ready to play? Get TesselBox running in under a minute!
+Get TesselBox running on your system with multiple installation options!
 
-### Option 1: Play Immediately (Pre-built Binaries)
+### Option 1: Package Managers (Recommended)
 
-1. **Download the latest release** from [GitHub Releases](https://github.com/tesselstudio/TesselBox-game/releases)
-2. **Choose your platform**:
-   - Windows: `tesselbox-windows-amd64.exe`
-   - Linux: `tesselbox-linux-amd64`
-   - macOS: Build from source (requires native compilation)
-3. **Run the binary**:
-   ```bash
-   # Linux/macOS
-   chmod +x tesselbox-*
-   ./tesselbox-*
-   
-   # Windows
-   tesselbox-windows-amd64.exe
-   ```
+**macOS (Homebrew)**:
+```bash
+brew install tesselbox/tesselbox/tesselbox
+```
+
+**Linux (Snap)**:
+```bash
+snap install tesselbox
+```
+
+**Windows (Winget)**:
+```powershell
+winget install TesselBox.TesselBox
+```
 
 ### Option 2: Build from Source
 
@@ -69,12 +69,13 @@ Ready to play? Get TesselBox running in under a minute!
 # Build for current platform
 make build
 
-# Build release binaries (Windows + Linux)
+# Build release binaries (Windows + Linux + macOS)
 make release
 
 # Build for specific platform
 make windows
 make linux
+make darwin
 ```
 
 ## 🎮 Controls
@@ -122,6 +123,10 @@ TesselBox-game/
 ├── build/                # Build system
 │   ├── build.go         # Cross-platform builder
 │   └── generate-icons.sh # Icon generator
+├── release-packages/     # Package manager configs
+│   ├── homebrew/        # Homebrew formula
+│   ├── snapcraft.yaml   # Snap package
+│   └── winget.yaml      # Winget manifest
 └── .github/workflows/    # CI/CD pipelines
 ```
 
@@ -129,6 +134,7 @@ TesselBox-game/
 
 ✅ **Cross-platform builds** (Windows, Linux, macOS)
 ✅ **Embedded assets** (single binary distribution)
+✅ **Package manager integration** (Homebrew, Snap, Winget)
 ✅ **Automated releases** (GitHub Actions)
 ✅ **Icon generation** (platform-specific formats)
 ✅ **Version management** (semantic versioning)
