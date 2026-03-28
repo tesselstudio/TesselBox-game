@@ -12,7 +12,7 @@ build:
 	@go run build/build.go
 
 # Build for all platforms
-release: clean icons
+release: clean
 	@echo "Building release binaries..."
 	@go run build/build.go -os=windows -arch=amd64 -output=bin/tesselbox-windows-amd64.exe -release
 	@go run build/build.go -os=linux -arch=amd64 -output=bin/tesselbox-linux-amd64 -release

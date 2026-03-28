@@ -792,10 +792,20 @@ func LoadItems() {
 				if !ok {
 					continue
 				}
+				// Handle both RGB (3 elements) and RGBA (4 elements) color arrays
+				var iconColor color.RGBA
+				if len(i.IconColor) >= 3 {
+					iconColor = color.RGBA{i.IconColor[0], i.IconColor[1], i.IconColor[2], 255}
+				} else if len(i.IconColor) >= 4 {
+					iconColor = color.RGBA{i.IconColor[0], i.IconColor[1], i.IconColor[2], i.IconColor[3]}
+				} else {
+					iconColor = color.RGBA{255, 255, 255, 255} // Default white
+				}
+				
 				props := &ItemProperties{
 					ID:           it,
 					Name:         i.Name,
-					IconColor:    color.RGBA{i.IconColor[0], i.IconColor[1], i.IconColor[2], i.IconColor[3]},
+					IconColor:    iconColor,
 					Description:  i.Description,
 					StackSize:    i.StackSize,
 					Durability:   i.Durability,

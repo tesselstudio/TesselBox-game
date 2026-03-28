@@ -18,6 +18,7 @@ import (
 	"tesselbox/pkg/hexagon"
 	"tesselbox/pkg/items"
 	"tesselbox/pkg/menu"
+	"tesselbox/pkg/organisms"
 	"tesselbox/pkg/player"
 	"tesselbox/pkg/save"
 	"tesselbox/pkg/weather"
@@ -159,6 +160,9 @@ func NewGame() *Game {
 	// Load blocks
 	blocks.LoadBlocks()
 
+	// Load organisms
+	organisms.LoadOrganisms()
+
 	// Add some initial items to inventory for testing
 	g.inventory.AddItem(items.DIRT_BLOCK, 64)
 	g.inventory.AddItem(items.STONE_BLOCK, 64)
@@ -182,10 +186,8 @@ func NewGame() *Game {
 	g.weatherSystem = weather.NewWeatherSystem()
 
 	// Start in menu
-	// g.inMenu = true
-	// g.inGame = false
-	g.inMenu = false
-	g.inGame = true
+	g.inMenu = true
+	g.inGame = false
 
 	return g
 }

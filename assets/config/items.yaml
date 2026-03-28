@@ -1,0 +1,275 @@
+# TesselBox Item Definitions
+# Basic item configurations for the game
+
+dirt_block:
+  id: dirt_block
+  name: Dirt Block
+  iconColor: [139, 90, 43]
+  description: A block of dirt
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: true
+  blockType: dirt
+
+grass_block:
+  id: grass_block
+  name: Grass Block
+  iconColor: [124, 169, 84]
+  description: A grass-covered dirt block
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: true
+  blockType: grass
+
+stone_block:
+  id: stone_block
+  name: Stone Block
+  iconColor: [136, 136, 136]
+  description: A block of stone
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: true
+  blockType: stone
+
+sand_block:
+  id: sand_block
+  name: Sand Block
+  iconColor: [238, 203, 173]
+  description: A block of sand
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: true
+  blockType: sand
+
+log_block:
+  id: log_block
+  name: Log Block
+  iconColor: [139, 90, 43]
+  description: A wooden log
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: true
+  blockType: log
+
+coal:
+  id: coal
+  name: Coal
+  iconColor: [54, 54, 54]
+  description: Fossil fuel used for smelting
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: false
+
+iron_ingot:
+  id: iron_ingot
+  name: Iron Ingot
+  iconColor: [192, 192, 192]
+  description: Refined iron used for crafting
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: false
+
+gold_ingot:
+  id: gold_ingot
+  name: Gold Ingot
+  iconColor: [255, 215, 0]
+  description: Refined gold used for crafting
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: false
+
+diamond:
+  id: diamond
+  name: Diamond
+  iconColor: [185, 242, 255]
+  description: Precious gem used for high-tier tools
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: false
+
+wooden_pickaxe:
+  id: wooden_pickaxe
+  name: Wooden Pickaxe
+  iconColor: [139, 90, 43]
+  description: Basic pickaxe for mining stone
+  stackSize: 1
+  durability: 59
+  isTool: true
+  toolPower: 1.0
+  isPlaceable: false
+
+stone_pickaxe:
+  id: stone_pickaxe
+  name: Stone Pickaxe
+  iconColor: [136, 136, 136]
+  description: Pickaxe for mining iron and coal
+  stackSize: 1
+  durability: 131
+  isTool: true
+  toolPower: 1.5
+  isPlaceable: false
+
+iron_pickaxe:
+  id: iron_pickaxe
+  name: Iron Pickaxe
+  iconColor: [192, 192, 192]
+  description: Pickaxe for mining all ores
+  stackSize: 1
+  durability: 250
+  isTool: true
+  toolPower: 2.0
+  isPlaceable: false
+
+planks:
+  id: planks
+  name: Wooden Planks
+  iconColor: [160, 120, 80]
+  description: Processed wood for building
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: true
+  blockType: plank
+
+stick:
+  id: stick
+  name: Stick
+  iconColor: [139, 90, 43]
+  description: Wooden stick used for crafting
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: false
+
+workbench:
+  id: workbench
+  name: Workbench
+  iconColor: [139, 90, 43]
+  description: Crafting station for advanced recipes
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: true
+
+furnace:
+  id: furnace
+  name: Furnace
+  iconColor: [136, 136, 136]
+  description: Smelting station for ore processing
+  stackSize: 64
+  durability: 0
+  isTool: false
+  isPlaceable: true
+
+wooden_sword:
+  id: wooden_sword
+  name: Wooden Sword
+  iconColor: [139, 90, 43]
+  description: Basic weapon for combat
+  stackSize: 1
+  durability: 59
+  isTool: false
+  isWeapon: true
+  weaponDamage: 4.0
+  weaponRange: 1.0
+  weaponSpeed: 1.6
+  weaponType: sword
+
+stone_sword:
+  id: stone_sword
+  name: Stone Sword
+  iconColor: [136, 136, 136]
+  description: Improved weapon for combat
+  stackSize: 1
+  durability: 131
+  isTool: false
+  isWeapon: true
+  weaponDamage: 5.0
+  weaponRange: 1.0
+  weaponSpeed: 1.6
+  weaponType: sword
+
+iron_sword:
+  id: iron_sword
+  name: Iron Sword
+  iconColor: [192, 192, 192]
+  description: Strong weapon for combat
+  stackSize: 1
+  durability: 250
+  isTool: false
+  isWeapon: true
+  weaponDamage: 6.0
+  weaponRange: 1.0
+  weaponSpeed: 1.6
+  weaponType: sword
+
+diamond_sword:
+  id: diamond_sword
+  name: Diamond Sword
+  iconColor: [185, 242, 255]
+  description: Powerful weapon for combat
+  stackSize: 1
+  durability: 1561
+  isTool: false
+  isWeapon: true
+  weaponDamage: 7.0
+  weaponRange: 1.0
+  weaponSpeed: 1.6
+  weaponType: sword
+
+leather_helmet:
+  id: leather_helmet
+  name: Leather Helmet
+  iconColor: [139, 90, 43]
+  description: Basic head armor
+  stackSize: 1
+  durability: 55
+  isTool: false
+  isArmor: true
+  armorType: helmet
+  armorDefense: 1.0
+
+leather_chestplate:
+  id: leather_chestplate
+  name: Leather Chestplate
+  iconColor: [139, 90, 43]
+  description: Basic torso armor
+  stackSize: 1
+  durability: 80
+  isTool: false
+  isArmor: true
+  armorType: chestplate
+  armorDefense: 3.0
+
+leather_leggings:
+  id: leather_leggings
+  name: Leather Leggings
+  iconColor: [139, 90, 43]
+  description: Basic leg armor
+  stackSize: 1
+  durability: 75
+  isTool: false
+  isArmor: true
+  armorType: leggings
+  armorDefense: 2.0
+
+leather_boots:
+  id: leather_boots
+  name: Leather Boots
+  iconColor: [139, 90, 43]
+  description: Basic foot armor
+  stackSize: 1
+  durability: 65
+  isTool: false
+  isArmor: true
+  armorType: boots
+  armorDefense: 1.0
