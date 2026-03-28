@@ -32,26 +32,9 @@ TesselBox offers a captivating experience in an open-source, hexagonal sandbox e
 
 ## 🚀 Installation
 
-Get TesselBox running on your system with multiple installation options!
+Get TesselBox running on your system!
 
-### Option 1: Package Managers (Recommended)
-
-**macOS (Homebrew)**:
-```bash
-brew install tesselbox/tesselbox/tesselbox
-```
-
-**Linux (Snap)**:
-```bash
-snap install tesselbox
-```
-
-**Windows (Winget)**:
-```powershell
-winget install TesselBox.TesselBox
-```
-
-### Option 2: Build from Source
+### Build from Source
 
 1. **Clone the repository**:
     ```bash
@@ -63,7 +46,7 @@ winget install TesselBox.TesselBox
     go run cmd/main.go
     ```
 
-### Option 3: Build Release Binaries
+### Option 2: Build Release Binaries
 
 ```bash
 # Build for current platform
@@ -123,19 +106,13 @@ TesselBox-game/
 ├── build/                # Build system
 │   ├── build.go         # Cross-platform builder
 │   └── generate-icons.sh # Icon generator
-├── release-packages/     # Package manager configs
-│   ├── homebrew/        # Homebrew formula
-│   ├── snapcraft.yaml   # Snap package
-│   └── winget.yaml      # Winget manifest
-└── .github/workflows/    # CI/CD pipelines
+└── .github/workflows/    # GitHub workflows
 ```
 
 ### Build System Features
 
 ✅ **Cross-platform builds** (Windows, Linux, macOS)
 ✅ **Embedded assets** (single binary distribution)
-✅ **Package manager integration** (Homebrew, Snap, Winget)
-✅ **Automated releases** (GitHub Actions)
 ✅ **Icon generation** (platform-specific formats)
 ✅ **Version management** (semantic versioning)
 
