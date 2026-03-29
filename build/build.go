@@ -70,6 +70,13 @@ func main() {
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("GOOS=%s", config.OS))
 	env = append(env, fmt.Sprintf("GOARCH=%s", config.Arch))
+	
+	// Only disable CGO for actual cross-compilation (not for current platform)
+	currentOS := runtime.GOOS
+	currentArch := runtime.GOARCH
+	if config.OS != currentOS || config.Arch != currentArch {
+		env = append(env, "CGO_ENABLED=0")
+	}
 
 	// Execute build from project root
 	cmd := exec.Command("go", args...)

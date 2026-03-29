@@ -416,9 +416,49 @@ func (epm *EnhancedPluginManager) loadCompiledPlugin(metadata *PluginMetadata) (
 
 // loadSourcePlugin loads a source plugin (for development)
 func (epm *EnhancedPluginManager) loadSourcePlugin(metadata *PluginMetadata) (Plugin, error) {
-	// For now, we don't support loading source plugins directly
-	// This would require building the plugin first or using a plugin interpreter
-	return nil, fmt.Errorf("source plugin loading not implemented yet")
+	// Check if this is a Go plugin directory
+	mainGoPath := filepath.Join(metadata.Path, "main.go")
+	if _, err := os.Stat(mainGoPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("no main.go found in plugin directory %s", metadata.Path)
+	}
+
+	// Create a temporary build directory
+	tempDir, err := os.MkdirTemp("", "tesselbox-plugin-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Build the plugin as a shared library (.so file)
+	soPath := filepath.Join(tempDir, "plugin.so")
+	
+	// Use go build to create the plugin
+	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", soPath, mainGoPath)
+	cmd.Dir = metadata.Path
+	
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("failed to build plugin: %v\nOutput: %s", err, string(output))
+	}
+
+	// Load the compiled plugin
+	pluginObj, err := plugin.Open(soPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open compiled plugin: %v", err)
+	}
+
+	// Look for the plugin symbol
+	sym, err := pluginObj.Lookup("Plugin")
+	if err != nil {
+		return nil, fmt.Errorf("plugin does not export a Plugin symbol: %v", err)
+	}
+
+	// Convert symbol to Plugin interface
+	pluginInstance, ok := sym.(Plugin)
+	if !ok {
+		return nil, fmt.Errorf("plugin does not implement the Plugin interface")
+	}
+
+	return pluginInstance, nil
 }
 
 // UnloadPluginWithMetadata unloads a plugin and updates metadata

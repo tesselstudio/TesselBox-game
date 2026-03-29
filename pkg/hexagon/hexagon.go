@@ -1,6 +1,7 @@
 package hexagon
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -10,31 +11,36 @@ type Hexagon struct {
 }
 
 // NewHexagon creates a hexagon from cube coordinates
-func NewHexagon(q, r, s int) Hexagon {
+func NewHexagon(q, r, s int) (Hexagon, error) {
 	if q+r+s != 0 {
-		panic("cube coordinates must sum to zero")
+		return Hexagon{}, fmt.Errorf("cube coordinates must sum to zero (got %d+%d+%d=%d)", q, r, s, q+r+s)
 	}
+	return Hexagon{Q: q, R: r, S: s}, nil
+}
+
+// NewHexagonUnchecked creates a hexagon without validation (for performance-critical code)
+func NewHexagonUnchecked(q, r, s int) Hexagon {
 	return Hexagon{Q: q, R: r, S: s}
 }
 
 // AxialToHex creates a hexagon from axial coordinates
-func AxialToHex(q, r int) Hexagon {
+func AxialToHex(q, r int) (Hexagon, error) {
 	return NewHexagon(q, r, -q-r)
 }
 
 // HexAdd adds two hexagons together
 func HexAdd(a, b Hexagon) Hexagon {
-	return NewHexagon(a.Q+b.Q, a.R+b.R, a.S+b.S)
+	return NewHexagonUnchecked(a.Q+b.Q, a.R+b.R, a.S+b.S)
 }
 
 // HexSubtract subtracts two hexagons
 func HexSubtract(a, b Hexagon) Hexagon {
-	return NewHexagon(a.Q-b.Q, a.R-b.R, a.S-b.S)
+	return NewHexagonUnchecked(a.Q-b.Q, a.R-b.R, a.S-b.S)
 }
 
 // HexScale scales a hexagon by a factor
 func HexScale(a Hexagon, k int) Hexagon {
-	return NewHexagon(a.Q*k, a.R*k, a.S*k)
+	return NewHexagonUnchecked(a.Q*k, a.R*k, a.S*k)
 }
 
 // HexNeighbors returns the six neighboring hexagons
@@ -90,7 +96,7 @@ func HexRound(q, r float64) Hexagon {
 		rz = -rx - ry
 	}
 	
-	return NewHexagon(int(rx), int(ry), int(rz))
+	return NewHexagonUnchecked(int(rx), int(ry), int(rz))
 }
 
 // HexToPixel converts hexagon coordinates to pixel coordinates

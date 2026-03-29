@@ -3,6 +3,7 @@ module tesselbox
 go 1.21
 
 require (
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/hajimehoshi/ebiten/v2 v2.6.3
 	gopkg.in/yaml.v3 v3.0.1
 	tesselbox/assets v0.0.0
@@ -12,7 +13,6 @@ replace tesselbox/assets => ./assets
 
 require (
 	github.com/ebitengine/purego v0.5.0 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/jezek/xgb v1.1.0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/image v0.24.0 // indirect

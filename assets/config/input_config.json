@@ -1,0 +1,26 @@
+{
+  "bindings": {
+    "move_left": {"key": "A", "action": "move_left"},
+    "move_right": {"key": "D", "action": "move_right"},
+    "move_up": {"key": "W", "action": "move_up"},
+    "move_down": {"key": "S", "action": "move_down"},
+    "jump": {"key": "Space", "action": "jump"},
+    "mine": {"mouse": 0, "is_mouse": true, "action": "mine"},
+    "place": {"mouse": 1, "is_mouse": true, "action": "place"},
+    "drop": {"key": "Q", "action": "drop"},
+    "inventory": {"key": "E", "action": "inventory"},
+    "crafting": {"key": "C", "action": "crafting"},
+    "hotbar_1": {"key": "1", "action": "hotbar_1"},
+    "hotbar_2": {"key": "2", "action": "hotbar_2"},
+    "hotbar_3": {"key": "3", "action": "hotbar_3"},
+    "hotbar_4": {"key": "4", "action": "hotbar_4"},
+    "hotbar_5": {"key": "5", "action": "hotbar_5"},
+    "hotbar_6": {"key": "6", "action": "hotbar_6"},
+    "hotbar_7": {"key": "7", "action": "hotbar_7"},
+    "hotbar_8": {"key": "8", "action": "hotbar_8"},
+    "hotbar_9": {"key": "9", "action": "hotbar_9"},
+    "chat": {"key": "T", "action": "chat"},
+    "command": {"key": "Slash", "action": "command"},
+    "menu": {"key": "Escape", "action": "menu"}
+  }
+}

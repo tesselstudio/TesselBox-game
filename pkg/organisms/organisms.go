@@ -1,6 +1,7 @@
 package organisms
 
 import (
+	"log"
 	"math"
 	"tesselbox/pkg/hexagon"
 	"time"
@@ -69,7 +70,8 @@ func LoadOrganismsFromAssets() {
 	var orgs map[string]*OrganismJSON
 	err = yaml.Unmarshal(data, &orgs)
 	if err != nil {
-		panic(err)
+		log.Printf("Error loading organisms configuration: %v", err)
+		return
 	}
 	OrganismDefinitions = orgs
 }
@@ -289,15 +291,15 @@ func GetOrganismBlocks(org *Organism) []hexagon.Hexagon {
 		logCount := int(props.Behavior["logCount"].(float64))
 		// Tree trunk (vertical)
 		for i := 0; i < logCount; i++ {
-			hex := hexagon.AxialToHex(org.Hex.Q, org.Hex.R-i)
+			hex, _ := hexagon.AxialToHex(org.Hex.Q, org.Hex.R-i)
 			blocks = append(blocks, hex)
 		}
 		// Leaves (around the top)
-		topHex := hexagon.AxialToHex(org.Hex.Q, org.Hex.R-logCount)
+		topHex, _ := hexagon.AxialToHex(org.Hex.Q, org.Hex.R-logCount)
 		neighbors := hexagon.HexNeighbors(topHex)
 		blocks = append(blocks, neighbors...)
 		// More leaves layer
-		topHex2 := hexagon.AxialToHex(org.Hex.Q, org.Hex.R-logCount+1)
+		topHex2, _ := hexagon.AxialToHex(org.Hex.Q, org.Hex.R-logCount+1)
 		neighbors2 := hexagon.HexNeighbors(topHex2)
 		blocks = append(blocks, neighbors2...)
 

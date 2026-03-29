@@ -2,6 +2,7 @@ package blocks
 
 import (
 	"image/color"
+	"log"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -120,8 +121,9 @@ func loadBlocksFromEmbedded() {
 	var blocks map[string]*BlockJSON
 	err = yaml.Unmarshal(data, &blocks)
 	if err != nil {
-		// Log error or panic
-		panic(err)
+		// Log error and return gracefully instead of panicking
+		log.Printf("Error loading blocks configuration: %v", err)
+		return
 	}
 	for id, b := range blocks {
 		props := &BlockProperties{

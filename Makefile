@@ -16,6 +16,7 @@ release: clean
 	@echo "Building release binaries..."
 	@go run build/build.go -os=windows -arch=amd64 -output=bin/tesselbox-windows-amd64.exe -release
 	@go run build/build.go -os=linux -arch=amd64 -output=bin/tesselbox-linux-amd64 -release
+	@echo "Note: ARM64 builds require native compilation due to Ebiten CGO dependencies"
 	@echo "Release binaries built in bin/"
 	@echo "Note: macOS builds require native compilation on macOS"
 
@@ -28,9 +29,21 @@ linux:
 	@mkdir -p bin
 	@go run build/build.go -os=linux -arch=amd64 -output=bin/tesselbox
 
+linux-arm64:
+	@mkdir -p bin
+	@echo "Warning: ARM64 builds may fail due to Ebiten CGO dependencies"
+	@echo "For ARM64 builds, compile on native ARM64 hardware"
+	@go run build/build.go -os=linux -arch=arm64 -output=bin/tesselbox-arm64 || echo "ARM64 build failed - compile on native hardware"
+
 darwin:
 	@mkdir -p bin
 	@go run build/build.go -os=darwin -arch=amd64 -output=bin/tesselbox
+
+darwin-arm64:
+	@mkdir -p bin
+	@echo "Warning: ARM64 builds may fail due to Ebiten CGO dependencies"
+	@echo "For ARM64 builds, compile on native ARM64 hardware"
+	@go run build/build.go -os=darwin -arch=arm64 -output=bin/tesselbox-arm64 || echo "ARM64 build failed - compile on native hardware"
 
 # Generate placeholder icons
 icons:
@@ -136,8 +149,10 @@ help:
 	@echo "  build      - Build for current platform"
 	@echo "  release    - Build for all platforms (release)"
 	@echo "  windows    - Build Windows binary"
-	@echo "  linux      - Build Linux binary"
-	@echo "  darwin     - Build macOS binary"
+	@echo "  linux      - Build Linux binary (amd64)"
+	@echo "  linux-arm64 - Build Linux binary (arm64)"
+	@echo "  darwin     - Build macOS binary (amd64)"
+	@echo "  darwin-arm64 - Build macOS binary (arm64)"
 	@echo "  icons      - Generate placeholder icons"
 	@echo "  dev        - Quick development build"
 	@echo "  test-verbose       - Run tests with verbose output"

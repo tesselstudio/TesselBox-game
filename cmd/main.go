@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"os/exec"
 	"runtime"
@@ -16,6 +17,7 @@ import (
 	"tesselbox/pkg/crafting"
 	"tesselbox/pkg/gametime"
 	"tesselbox/pkg/hexagon"
+	"tesselbox/pkg/input"
 	"tesselbox/pkg/items"
 	"tesselbox/pkg/menu"
 	"tesselbox/pkg/player"
@@ -69,6 +71,15 @@ const (
 	FPS          = 60
 )
 
+// DroppedItem represents an item that has been dropped in the world
+type DroppedItem struct {
+	Type     items.ItemType
+	Quantity int
+	X, Y     float64
+	VX, VY   float64 // Velocity for physics
+	Lifetime time.Time
+}
+
 // Game represents the game state
 type Game struct {
 	// Game state
@@ -81,6 +92,8 @@ type Game struct {
 	craftingSystem *crafting.CraftingSystem
 	craftingUI     *crafting.CraftingUI
 	menu           *menu.Menu
+	pluginManager  interface{} // Will be *entities.EnhancedPluginManager
+	inputManager   *input.InputManager
 
 	// Save system
 	saveManager *save.SaveManager
@@ -92,13 +105,20 @@ type Game struct {
 	// Weather system
 	weatherSystem *weather.WeatherSystem
 
+	// Dropped items
+	droppedItems []*DroppedItem
+
+	// Object pools for rendering optimization
+	vertexPool [][]ebiten.Vertex
+	indicesPool [][]uint16
+	poolIndex int
+
 	// Camera
 	cameraX, cameraY float64
 
 	// Mouse
 	mouseX, mouseY   int
 	hoveredBlockName string
-	debugCounter     int // For debug logging
 	leftMouseWasPressed  bool
 	rightMouseWasPressed bool
 
@@ -141,6 +161,15 @@ func NewGame() *Game {
 		rightMouseWasPressed: false,
 	}
 
+	// Initialize object pools for rendering optimization
+	g.vertexPool = make([][]ebiten.Vertex, 10)
+	g.indicesPool = make([][]uint16, 10)
+	for i := range g.vertexPool {
+		g.vertexPool[i] = make([]ebiten.Vertex, 0, 1000) // Pre-allocate for up to 166 blocks
+		g.indicesPool[i] = make([]uint16, 0, 1000)
+	}
+	g.poolIndex = 0
+
 	// Find a suitable spawn position and set player position
 	// Spawn in area where terrain is actually generated (negative coordinates)
 	spawnX, spawnY := g.world.FindSpawnPosition(-2000, -2000)
@@ -148,10 +177,13 @@ func NewGame() *Game {
 
 	// Initialize crafting system
 	g.craftingSystem = crafting.NewCraftingSystem()
-	if err := g.craftingSystem.LoadRecipes("config/crafting_recipes.yaml"); err != nil {
+	if err := g.craftingSystem.LoadRecipesFromAssets(); err != nil {
 		log.Printf("Warning: Failed to load crafting recipes: %v", err)
 	}
 	g.craftingUI = crafting.NewCraftingUI(g.craftingSystem, g.inventory)
+
+	// Initialize input manager
+	g.inputManager = input.NewInputManager()
 
 	// Load items
 	items.LoadItems()
@@ -197,27 +229,6 @@ func (g *Game) Update() error {
 	deltaTime := currentTime.Sub(g.lastTime).Seconds()
 	g.lastTime = currentTime
 
-	// Update debug counter
-	g.debugCounter++
-	if g.debugCounter >= 60 { // Log every second (60 frames)
-		playerX, playerY := g.player.GetCenter()
-		log.Printf("DEBUG: Player at (%.1f, %.1f), Camera at (%.1f, %.1f)", playerX, playerY, g.cameraX, g.cameraY)
-		g.debugCounter = 0
-	}
-
-	// Test basic input detection in main Update
-	if ebiten.IsKeyPressed(ebiten.KeyA) {
-		log.Printf("DEBUG: A key is being held down!")
-	}
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		log.Printf("DEBUG: Left mouse is being held down!")
-	}
-	
-	// Also test the cursor position
-	if g.debugCounter%60 == 0 {
-		log.Printf("DEBUG: Mouse position: (%d, %d)", g.mouseX, g.mouseY)
-	}
-
 	// Handle menu state
 	if g.inMenu {
 		action := g.menu.Update()
@@ -253,6 +264,9 @@ func (g *Game) Update() error {
 
 		// Update weather system
 		g.weatherSystem.Update(deltaTime, ScreenWidth, ScreenHeight)
+
+		// Update dropped items physics
+		g.updateDroppedItems(deltaTime)
 
 		// Generate chunks around player first to ensure terrain exists for collision
 		centerX, centerY := g.player.GetCenter()
@@ -324,11 +338,11 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 }
 
 func (g *Game) handleGameInput() {
-	// Handle keyboard input
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
+	// Handle keyboard input using input manager
+	if g.inputManager.IsActionPressed("move_left") {
 		g.player.MovingLeft = true
 		g.player.MovingRight = false
-	} else if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyRight) {
+	} else if g.inputManager.IsActionPressed("move_right") {
 		g.player.MovingRight = true
 		g.player.MovingLeft = false
 	} else {
@@ -336,7 +350,7 @@ func (g *Game) handleGameInput() {
 		g.player.MovingRight = false
 	}
 
-	if ebiten.IsKeyPressed(ebiten.KeySpace) || ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyUp) {
+	if g.inputManager.IsActionPressed("jump") {
 		g.player.Jump()
 	}
 
@@ -360,7 +374,7 @@ func (g *Game) handleGameInput() {
 	}
 
 	// Open crafting menu
-	if inpututil.IsKeyJustPressed(ebiten.KeyE) || inpututil.IsKeyJustPressed(ebiten.KeyC) {
+	if g.inputManager.IsActionJustPressed("crafting") || g.inputManager.IsActionJustPressed("inventory") {
 		g.inCrafting = true
 		g.craftingUI.Toggle()
 	}
@@ -377,8 +391,8 @@ func (g *Game) handleGameInput() {
 		g.interactWithStation()
 	}
 
-	// Drop item (Q key)
-	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
+	// Drop item
+	if g.inputManager.IsActionJustPressed("drop") {
 		g.dropItem()
 	}
 
@@ -392,7 +406,7 @@ func (g *Game) handleGameInput() {
 	}
 
 	// Return to menu
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+	if g.inputManager.IsActionJustPressed("menu") {
 		g.inGame = false
 		g.inMenu = true
 		g.menu.SetMainMenu()
@@ -418,49 +432,39 @@ func (g *Game) handleGameInput() {
 	// Track previous state to detect "just pressed"
 	if !g.leftMouseWasPressed && staticLeftPressed {
 		// Left mouse just pressed - start mining
-		log.Printf("DEBUG: Left mouse just pressed - starting mining")
 		g.startMining()
 	}
 	if g.leftMouseWasPressed && !staticLeftPressed {
 		// Left mouse just released - stop mining
-		log.Printf("DEBUG: Left mouse just released - stopping mining")
 		g.player.StopMining()
 	}
 	if !g.rightMouseWasPressed && staticRightPressed {
 		// Right mouse just pressed - place block
-		log.Printf("DEBUG: Right mouse just pressed - attempting block placement")
 		g.handleBlockPlacement()
-		log.Printf("DEBUG: handleBlockPlacement returned")
 	}
 	
 	// Update state
 	g.leftMouseWasPressed = staticLeftPressed
 	g.rightMouseWasPressed = staticRightPressed
 
-	// Test keyboard input with ebiten system
-	if ebiten.IsKeyPressed(ebiten.KeyT) {
-		log.Printf("DEBUG: T key is pressed - testing block placement")
-		g.handleBlockPlacement()
-	}
-
-	// Hotbar selection
-	if inpututil.IsKeyJustPressed(ebiten.Key1) {
+	// Hotbar selection using input manager
+	if g.inputManager.IsActionJustPressed("hotbar_1") {
 		g.inventory.SelectSlot(0)
-	} else if inpututil.IsKeyJustPressed(ebiten.Key2) {
+	} else if g.inputManager.IsActionJustPressed("hotbar_2") {
 		g.inventory.SelectSlot(1)
-	} else if inpututil.IsKeyJustPressed(ebiten.Key3) {
+	} else if g.inputManager.IsActionJustPressed("hotbar_3") {
 		g.inventory.SelectSlot(2)
-	} else if inpututil.IsKeyJustPressed(ebiten.Key4) {
+	} else if g.inputManager.IsActionJustPressed("hotbar_4") {
 		g.inventory.SelectSlot(3)
-	} else if inpututil.IsKeyJustPressed(ebiten.Key5) {
+	} else if g.inputManager.IsActionJustPressed("hotbar_5") {
 		g.inventory.SelectSlot(4)
-	} else if inpututil.IsKeyJustPressed(ebiten.Key6) {
+	} else if g.inputManager.IsActionJustPressed("hotbar_6") {
 		g.inventory.SelectSlot(5)
-	} else if inpututil.IsKeyJustPressed(ebiten.Key7) {
+	} else if g.inputManager.IsActionJustPressed("hotbar_7") {
 		g.inventory.SelectSlot(6)
-	} else if inpututil.IsKeyJustPressed(ebiten.Key8) {
+	} else if g.inputManager.IsActionJustPressed("hotbar_8") {
 		g.inventory.SelectSlot(7)
-	} else if inpututil.IsKeyJustPressed(ebiten.Key9) {
+	} else if g.inputManager.IsActionJustPressed("hotbar_9") {
 		g.inventory.SelectSlot(8)
 	}
 
@@ -473,7 +477,7 @@ func (g *Game) handleGameInput() {
 	}
 
 	// Command system
-	if inpututil.IsKeyJustPressed(ebiten.KeySlash) {
+	if g.inputManager.IsActionJustPressed("command") {
 		g.commandMode = true
 		g.commandString = ""
 	}
@@ -524,7 +528,7 @@ func (g *Game) executeCommand(command string) {
 
 	switch cmd {
 	case "help":
-		log.Printf("Available commands: help, give, creative, survival, tp")
+		log.Printf("Available commands: help, give, creative, survival, tp, plugin list, plugin load, plugin unload, plugin reload")
 	case "give":
 		if len(args) < 2 {
 			log.Printf("Usage: /give <item_type> <quantity>")
@@ -582,8 +586,52 @@ func (g *Game) executeCommand(command string) {
 		g.player.SetPosition(x, y)
 		g.player.SetVelocity(0, 0)
 		log.Printf("Teleported to (%.1f, %.1f)", x, y)
+	case "plugin":
+		if len(args) < 1 {
+			log.Printf("Usage: /plugin <list|load|unload|reload> [plugin_name]")
+			return
+		}
+		g.handlePluginCommand(args[0], args[1:])
 	default:
 		log.Printf("Unknown command: %s", cmd)
+	}
+}
+
+// handlePluginCommand handles plugin-related commands
+func (g *Game) handlePluginCommand(action string, args []string) {
+	if g.pluginManager == nil {
+		log.Printf("Plugin manager not initialized")
+		return
+	}
+
+	switch action {
+	case "list":
+		log.Printf("Plugin management not yet implemented in main game")
+		log.Printf("Plugins would be listed here")
+	case "load":
+		if len(args) < 1 {
+			log.Printf("Usage: /plugin load <plugin_name>")
+			return
+		}
+		log.Printf("Plugin loading not yet implemented in main game")
+		log.Printf("Would load plugin: %s", args[0])
+	case "unload":
+		if len(args) < 1 {
+			log.Printf("Usage: /plugin unload <plugin_name>")
+			return
+		}
+		log.Printf("Plugin unloading not yet implemented in main game")
+		log.Printf("Would unload plugin: %s", args[0])
+	case "reload":
+		if len(args) < 1 {
+			log.Printf("Usage: /plugin reload <plugin_name>")
+			return
+		}
+		log.Printf("Plugin reloading not yet implemented in main game")
+		log.Printf("Would reload plugin: %s", args[0])
+	default:
+		log.Printf("Unknown plugin action: %s", action)
+		log.Printf("Available actions: list, load, unload, reload")
 	}
 }
 
@@ -596,8 +644,30 @@ func (g *Game) dropItem() {
 
 	// Remove one item from the selected slot
 	if g.inventory.RemoveItem(1) {
-		log.Printf("Dropped %v", selectedItem.Type)
-		// TODO: Implement actual item dropping in world (create item entity)
+		// Get player position to drop item in front of player
+		playerX, playerY := g.player.GetCenter()
+		
+		// Drop item slightly in front of player based on facing direction
+		dropX := playerX + 30.0 // Drop in front of player
+		dropY := playerY - 10.0 // Slightly above player center
+		
+		// Add some random velocity for natural dropping motion
+		vx := float64(rand.Intn(100)-50) / 100.0 * 2.0 // Random horizontal velocity
+		vy := -2.0 // Upward velocity for arc motion
+		
+		// Create dropped item entity
+		droppedItem := &DroppedItem{
+			Type:     selectedItem.Type,
+			Quantity: 1,
+			X:        dropX,
+			Y:        dropY,
+			VX:       vx,
+			VY:       vy,
+			Lifetime: time.Now().Add(5 * time.Minute), // Items disappear after 5 minutes
+		}
+		
+		// Add to dropped items list
+		g.droppedItems = append(g.droppedItems, droppedItem)
 	}
 }
 
@@ -643,20 +713,15 @@ func (g *Game) interactWithStation() {
 
 // startMining starts mining the block under the mouse cursor
 func (g *Game) startMining() {
-	log.Printf("DEBUG: startMining called")
 	// Convert mouse position to world coordinates
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
 	// Find the hexagon at mouse position
 	targetHex := g.world.GetHexagonAt(mouseWorldX, mouseWorldY)
-	log.Printf("DEBUG: Looking for block at world (%.1f, %.1f), found: %v", mouseWorldX, mouseWorldY, targetHex != nil)
 	if targetHex == nil || targetHex.BlockType == blocks.AIR {
-		log.Printf("DEBUG: No block found or block is air, returning")
 		return
 	}
-
-	log.Printf("DEBUG: Found block type: %v at (%.1f, %.1f)", targetHex.BlockType, targetHex.X, targetHex.Y)
 
 	// Check if block is unbreakable
 	blockKey := getBlockKeyFromType(targetHex.BlockType)
@@ -672,7 +737,6 @@ func (g *Game) startMining() {
 
 	// In creative mode, destroy blocks instantly
 	if g.CreativeMode {
-		log.Printf("DEBUG: Creative mode - calling completeMining instantly")
 		g.completeMining(targetHex)
 		return
 	}
@@ -827,13 +891,11 @@ func (g *Game) handleMining() {
 
 // handleBlockPlacement handles block placement
 func (g *Game) handleBlockPlacement() {
-	log.Printf("DEBUG: handleBlockPlacement called - inGame: %v, CreativeMode: %v", g.inGame, g.CreativeMode)
 	var blockTypeToPlace string
 
 	if g.CreativeMode && g.selectedBlock != "" {
 		// Use selected block from library in creative mode
 		blockTypeToPlace = g.selectedBlock
-		log.Printf("DEBUG: Using creative mode block: %s", blockTypeToPlace)
 	} else {
 		// Normal inventory-based placement
 		selectedItem := g.inventory.GetSelectedItem()
@@ -989,6 +1051,51 @@ func (g *Game) drawMiningProgress(screen *ebiten.Image) {
 	ebitenutil.DrawRect(screen, barX+barWidth-1, barY, 1, barHeight, g.colorToRGB(0, 0, 0))
 }
 
+// updateDroppedItems updates physics for all dropped items
+func (g *Game) updateDroppedItems(deltaTime float64) {
+	gravity := 9.8 * 50.0 // Scale gravity for pixel space
+	friction := 0.98       // Air friction
+	
+	// Update items in reverse order to safely remove expired items
+	for i := len(g.droppedItems) - 1; i >= 0; i-- {
+		item := g.droppedItems[i]
+		
+		// Check if item has expired
+		if time.Now().After(item.Lifetime) {
+			g.droppedItems = append(g.droppedItems[:i], g.droppedItems[i+1:]...)
+			continue
+		}
+		
+		// Apply physics
+		item.VY += gravity * deltaTime // Apply gravity
+		item.VX *= friction           // Apply friction
+		item.VY *= friction
+		
+		// Update position
+		item.X += item.VX * deltaTime
+		item.Y += item.VY * deltaTime
+		
+		// Simple ground collision - check if item hit ground
+		groundY := float64(1000) // Simple ground level for now
+		if item.Y > groundY {
+			item.Y = groundY
+			item.VY = 0
+			item.VX *= 0.8 // Ground friction
+		}
+		
+		// Check for player pickup (proximity check)
+		playerX, playerY := g.player.GetCenter()
+		distance := math.Sqrt((item.X-playerX)*(item.X-playerX) + (item.Y-playerY)*(item.Y-playerY))
+		if distance < 30.0 { // Pickup range
+			// Try to add to inventory
+			if g.inventory.AddItem(item.Type, item.Quantity) {
+				// Remove picked up item
+				g.droppedItems = append(g.droppedItems[:i], g.droppedItems[i+1:]...)
+			}
+		}
+	}
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.inMenu {
 		g.menu.Draw(screen)
@@ -1020,47 +1127,15 @@ func (g *Game) drawGameScene(screen *ebiten.Image) {
 	// Get visible blocks
 	px, py := g.player.GetCenter()
 	visibleBlocks := g.world.GetVisibleBlocks(px, py)
-	log.Printf("DEBUG: Found %d visible blocks", len(visibleBlocks))
-	
-	// Check what block types are actually in the visible list
-	blockTypeCount := make(map[blocks.BlockType]int)
-	for _, hex := range visibleBlocks {
-		blockTypeCount[hex.BlockType]++
-	}
-	log.Printf("DEBUG: Block types in visible list: %v", blockTypeCount)
-	
-	// Check if our newly placed block is in the visible list
-	newBlockCount := 0
-	for _, hex := range visibleBlocks {
-		if hex.BlockType == blocks.DIRT {
-			newBlockCount++
-		}
-	}
-	log.Printf("DEBUG: Found %d dirt blocks in visible list", newBlockCount)
 
 	// Draw blocks with batching by color for performance
 	g.drawBlocksBatched(screen, visibleBlocks)
-	
-	// Debug: Check if newly placed blocks are being rendered
-	if g.debugCounter%60 == 0 { // Log every second
-		newlyPlacedCount := 0
-		for _, hex := range visibleBlocks {
-			// Check if this is a recently placed block (within last 2 seconds)
-			if hex.BlockType == blocks.DIRT {
-				newlyPlacedCount++
-				// Log position of first few dirt blocks for debugging
-				if newlyPlacedCount <= 3 {
-					log.Printf("DEBUG: Rendering dirt block at (%.1f, %.1f)", hex.X, hex.Y)
-				}
-			}
-		}
-		if newlyPlacedCount > 0 {
-			log.Printf("DEBUG: Rendering %d dirt blocks this frame", newlyPlacedCount)
-		}
-	}
 
 	// Draw player
 	g.drawPlayer(screen)
+
+	// Draw dropped items
+	g.drawDroppedItems(screen)
 
 	// Draw weather particles
 	g.weatherSystem.Draw(screen, g.cameraX, g.cameraY)
@@ -1075,11 +1150,6 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 		if block.BlockType == blocks.AIR {
 			continue
 		}
-		
-		// Debug: log dirt blocks being processed
-		if block.BlockType == blocks.DIRT {
-			log.Printf("DEBUG: Processing dirt block in batching system at (%.1f, %.1f)", block.X, block.Y)
-		}
 
 		props := blocks.BlockDefinitions[getBlockKeyFromType(block.BlockType)]
 		if props == nil {
@@ -1091,15 +1161,7 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 		screenY := block.Y - g.cameraY
 		if screenX < -100 || screenX > ScreenWidth+100 ||
 			screenY < -100 || screenY > ScreenHeight+100 {
-			if block.BlockType == blocks.DIRT {
-				log.Printf("DEBUG: Dirt block off screen: (%.1f, %.1f)", screenX, screenY)
-			}
 			continue
-		}
-		
-		// Debug: log dirt blocks that are on screen
-		if block.BlockType == blocks.DIRT {
-			log.Printf("DEBUG: Dirt block ON SCREEN: (%.1f, %.1f)", screenX, screenY)
 		}
 
 		// Create a key based on color and damage state for grouping
@@ -1118,21 +1180,9 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 	}
 
 	// Draw each color group as a batch
-	for colorKey, groupBlocks := range colorGroups {
+	for _, groupBlocks := range colorGroups {
 		if len(groupBlocks) == 0 {
 			continue
-		}
-		
-		// Debug: check if this group contains dirt blocks
-		hasDirt := false
-		for _, block := range groupBlocks {
-			if block.BlockType == blocks.DIRT {
-				hasDirt = true
-				break
-			}
-		}
-		if hasDirt {
-			log.Printf("DEBUG: Drawing dirt group with %d blocks, color key: %s", len(groupBlocks), colorKey)
 		}
 
 		// Get properties from first block in group
@@ -1142,10 +1192,23 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 			continue
 		}
 
-		// Prepare vertices for all blocks in this color group
+		// Prepare vertices for all blocks in this color group using object pools
 		totalVertices := len(groupBlocks) * 6 // 6 vertices per hexagon
-		vertices := make([]ebiten.Vertex, 0, totalVertices)
-		indices := make([]uint16, 0, len(groupBlocks)*6) // 6 indices per hexagon
+		
+		// Get pooled slices and reset them
+		poolIdx := g.poolIndex % len(g.vertexPool)
+		vertices := g.vertexPool[poolIdx][:0] // Reset length but keep capacity
+		indices := g.indicesPool[poolIdx][:0] // Reset length but keep capacity
+		
+		// Ensure capacity is sufficient
+		if cap(vertices) < totalVertices {
+			vertices = make([]ebiten.Vertex, 0, totalVertices)
+		}
+		if cap(indices) < totalVertices {
+			indices = make([]uint16, 0, totalVertices)
+		}
+		
+		g.poolIndex++ // Rotate through pools
 
 		baseIndex := uint16(0)
 
@@ -1378,33 +1441,62 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, info)
 }
 
+// drawDroppedItems renders all dropped items in the world
+func (g *Game) drawDroppedItems(screen *ebiten.Image) {
+	for _, item := range g.droppedItems {
+		// Calculate screen position
+		screenX := item.X - g.cameraX
+		screenY := item.Y - g.cameraY
+		
+		// Skip if off screen
+		if screenX < -50 || screenX > ScreenWidth+50 || screenY < -50 || screenY > ScreenHeight+50 {
+			continue
+		}
+		
+		// Get item properties for color
+		itemProps := items.GetItemProperties(item.Type)
+		if itemProps == nil {
+			continue
+		}
+		
+		// Draw item as a small square with item color
+		itemSize := 16.0
+		halfSize := itemSize / 2.0
+		
+		// Create simple rectangle representation
+		color := g.colorToRGB(int(itemProps.IconColor.R), int(itemProps.IconColor.G), int(itemProps.IconColor.B))
+		ebitenutil.DrawRect(screen, screenX-halfSize, screenY-halfSize, itemSize, itemSize, color)
+		
+		// Draw border
+		borderColor := g.colorToRGB(0, 0, 0)
+		ebitenutil.DrawRect(screen, screenX-halfSize, screenY-halfSize, itemSize, 1, borderColor)
+		ebitenutil.DrawRect(screen, screenX-halfSize, screenY-halfSize+itemSize-1, itemSize, 1, borderColor)
+		ebitenutil.DrawRect(screen, screenX-halfSize, screenY-halfSize, 1, itemSize, borderColor)
+		ebitenutil.DrawRect(screen, screenX-halfSize+itemSize-1, screenY-halfSize, 1, itemSize, borderColor)
+		
+		// Draw quantity if > 1
+		if item.Quantity > 1 {
+			quantityStr := fmt.Sprintf("%d", item.Quantity)
+			ebitenutil.DebugPrintAt(screen, quantityStr, int(screenX+halfSize-5), int(screenY-halfSize-5))
+		}
+	}
+}
+
 // drawBlock draws a hexagonal block
 func (g *Game) drawBlock(screen *ebiten.Image, block *world.Hexagon) {
 	if block.BlockType == blocks.AIR {
 		return
 	}
-	
-	// Debug: log when drawing dirt blocks
-	if block.BlockType == blocks.DIRT {
-		log.Printf("DEBUG: Drawing dirt block at world (%.1f, %.1f)", block.X, block.Y)
-	}
 
 	blockKey := getBlockKeyFromType(block.BlockType)
 	props := blocks.BlockDefinitions[blockKey]
 	if props == nil {
-		log.Printf("DEBUG: No block definition for type %v", block.BlockType)
 		return
 	}
 
 	// Calculate screen position
 	screenX := block.X - g.cameraX
 	screenY := block.Y - g.cameraY
-	
-	if block.BlockType == blocks.DIRT {
-		log.Printf("DEBUG: Dirt block screen position: (%.1f, %.1f)", screenX, screenY)
-		log.Printf("DEBUG: Camera position: (%.1f, %.1f)", g.cameraX, g.cameraY)
-		log.Printf("DEBUG: Screen size: %dx%d", ScreenWidth, ScreenHeight)
-	}
 
 	// Check if block is on screen
 	if screenX < -100 || screenX > ScreenWidth+100 ||

@@ -37,6 +37,9 @@ type World struct {
 
 	// Spatial hash for optimized collision detection
 	spatialHash map[[2]int][]*Hexagon // Cell coordinates -> list of hexagons
+	
+	// Noise generator for terrain generation (cached for performance)
+	noiseGenerator *biomes.SimplexNoise
 }
 
 // NewWorld creates a new world
@@ -53,6 +56,9 @@ func NewWorld(worldName string) *World {
 		WorldName:   worldName,
 		spatialHash: make(map[[2]int][]*Hexagon),
 	}
+	
+	// Initialize noise generator for terrain generation
+	world.noiseGenerator = biomes.NewSimplexNoise(float64(seed))
 
 	return world
 }
@@ -163,8 +169,8 @@ func (w *World) GetChunk(chunkX, chunkY int) *Chunk {
 func (w *World) generateChunk(chunk *Chunk) {
 	worldX, worldY := chunk.GetWorldPosition()
 
-	// Create noise generator for this world
-	noise := biomes.NewSimplexNoise(float64(w.Seed))
+	// Use cached noise generator for better performance
+	noise := w.noiseGenerator
 
 	for row := 0; row < ChunkSize; row++ {
 		for col := 0; col < ChunkSize; col++ {
@@ -327,7 +333,7 @@ func (w *World) generateChunk(chunk *Chunk) {
 					// Convert pixel coordinates to hex coordinates
 					q, r := hexagon.PixelToHex(x, y, HexSize)
 					hexagonCoords := hexagon.HexRound(q, r)
-					orgHex := hexagon.AxialToHex(hexagonCoords.Q, hexagonCoords.R)
+					orgHex, _ := hexagon.AxialToHex(hexagonCoords.Q, hexagonCoords.R)
 
 					organism := organisms.CreateOrganism(orgType, x, y, orgHex)
 					if organism != nil {
@@ -680,7 +686,7 @@ func (w *World) SpawnCreatures(dayNightCycle *gametime.DayNightCycle, playerX, p
 		// Convert pixel coordinates to hex coordinates
 		q, r := hexagon.PixelToHex(hex.X, hex.Y, HexSize)
 		hexagonCoords := hexagon.HexRound(q, r)
-		creatureHex := hexagon.AxialToHex(hexagonCoords.Q, hexagonCoords.R)
+		creatureHex, _ := hexagon.AxialToHex(hexagonCoords.Q, hexagonCoords.R)
 		creature := creatures.NewCreature(creatureType, spawnX, spawnY, creatureHex)
 		w.Creatures = append(w.Creatures, creature)
 	}
