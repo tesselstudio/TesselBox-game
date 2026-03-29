@@ -1,7 +1,7 @@
 # TesselBox Build System
 # Supports cross-platform builds with icon embedding
 
-.PHONY: all clean build windows linux darwin release test icons
+.PHONY: all clean build windows linux darwin release test icons test-verbose test-coverage test-coverage-html test-integration test-migration test-unit test-race test-bench clean-test
 
 # Default target
 all: build
@@ -49,8 +49,45 @@ dev:
 
 # Run tests
 test:
-	@echo "Running tests..."
-	@go test ./...
+	@echo "Running all tests..."
+	go test ./...
+
+test-verbose:
+	@echo "Running all tests with verbose output..."
+	go test -v ./...
+
+test-coverage:
+	@echo "Running tests with coverage..."
+	go test -cover ./...
+
+test-coverage-html:
+	@echo "Running tests with HTML coverage..."
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
+
+test-integration:
+	@echo "Running integration tests..."
+	go test ./tests/integration/...
+
+test-migration:
+	@echo "Running migration tests..."
+	go test ./tests/migration/
+
+test-unit:
+	@echo "Running unit tests..."
+	go test ./tests/unit/...
+
+test-race:
+	@echo "Running tests with race detection..."
+	go test -race ./...
+
+test-bench:
+	@echo "Running benchmarks..."
+	go test -bench ./...
+
+clean-test:
+	@echo "Cleaning test files..."
+	rm -f coverage.out coverage.html
 
 # Clean build artifacts
 clean:
@@ -103,7 +140,15 @@ help:
 	@echo "  darwin     - Build macOS binary"
 	@echo "  icons      - Generate placeholder icons"
 	@echo "  dev        - Quick development build"
-	@echo "  test       - Run tests"
+	@echo "  test-verbose       - Run tests with verbose output"
+	@echo "  test-coverage      - Run tests with coverage"
+	@echo "  test-coverage-html - Run tests with HTML coverage"
+	@echo "  test-integration   - Run integration tests only"
+	@echo "  test-migration    - Run migration tests only"
+	@echo "  test-unit         - Run unit tests only"
+	@echo "  test-race         - Run tests with race detection"
+	@echo "  test-bench         - Run benchmarks"
+	@echo "  clean-test        - Clean test files"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  deps       - Install build dependencies"
 	@echo "  dist       - Create distribution packages"
