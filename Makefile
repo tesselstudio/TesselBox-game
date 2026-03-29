@@ -1,5 +1,5 @@
 # TesselBox Build System
-# Supports cross-platform builds with icon embedding
+# Supports cross-platform builds (no icons)
 
 .PHONY: all clean build windows linux darwin release test icons test-verbose test-coverage test-coverage-html test-integration test-migration test-unit test-race test-bench clean-test
 
