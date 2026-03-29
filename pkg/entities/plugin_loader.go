@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"plugin"
 	"strings"
 	"sync"
 	"time"
@@ -298,7 +299,7 @@ func NewEnhancedPluginManager(entityManager *EntityManager, systemManager *Syste
 // SetWorld sets the world reference for plugin API
 func (epm *EnhancedPluginManager) SetWorld(world interface{}) {
 	epm.world = world
-	epm.eventBus.(*EventBus).world = world.(*world.World)
+	// Note: EventBus doesn't have world field anymore
 }
 
 // AddPluginDirectory adds a directory to search for plugins
@@ -365,9 +366,9 @@ func (epm *EnhancedPluginManager) LoadPluginFromMetadata(metadata *PluginMetadat
 	for _, permission := range metadata.Config.Permissions {
 		if permission == "*" {
 			// Grant all permissions
-			api.GrantedPermissions = map[string]bool{"*": true}
+			api.allowedActions["*"] = true
 		} else {
-			api.GrantPermission(permission)
+			api.allowedActions[permission] = true
 		}
 	}
 
@@ -393,13 +394,13 @@ func (epm *EnhancedPluginManager) LoadPluginFromMetadata(metadata *PluginMetadat
 
 // loadCompiledPlugin loads a compiled plugin (.so file)
 func (epm *EnhancedPluginManager) loadCompiledPlugin(metadata *PluginMetadata) (Plugin, error) {
-	plug, err := plugin.Open(metadata.Path)
+	pluginObj, err := plugin.Open(metadata.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open plugin %s: %v", metadata.Path, err)
 	}
 
 	// Look for the plugin symbol
-	sym, err := plug.Lookup("Plugin")
+	sym, err := pluginObj.Lookup("Plugin")
 	if err != nil {
 		return nil, fmt.Errorf("plugin %s does not export a Plugin symbol: %v", metadata.Name, err)
 	}

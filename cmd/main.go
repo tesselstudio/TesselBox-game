@@ -14,12 +14,10 @@ import (
 
 	"tesselbox/pkg/blocks"
 	"tesselbox/pkg/crafting"
-	"tesselbox/pkg/entities"
 	"tesselbox/pkg/gametime"
 	"tesselbox/pkg/hexagon"
 	"tesselbox/pkg/items"
 	"tesselbox/pkg/menu"
-	"tesselbox/pkg/organisms"
 	"tesselbox/pkg/player"
 	"tesselbox/pkg/save"
 	"tesselbox/pkg/weather"
@@ -161,18 +159,6 @@ func NewGame() *Game {
 	// Load blocks
 	blocks.LoadBlocks()
 
-	// Load organisms
-	organisms.LoadOrganisms()
-
-	// Initialize entity system integration
-	if err := entities.InitializeGameIntegration(g.world, g.player); err != nil {
-		log.Printf("Warning: Failed to initialize entity integration: %v", err)
-	}
-
-	// Set migration to step 5 (full migration) to complete the migration process
-	entities.SetMigrationStepCommand(5)
-	log.Printf("Entity system migration complete - Step 5 (full migration - new system only)")
-
 	// Add some initial items to inventory for testing
 	g.inventory.AddItem(items.DIRT_BLOCK, 64)
 	g.inventory.AddItem(items.STONE_BLOCK, 64)
@@ -196,8 +182,10 @@ func NewGame() *Game {
 	g.weatherSystem = weather.NewWeatherSystem()
 
 	// Start in menu
-	g.inMenu = true
-	g.inGame = false
+	// g.inMenu = true
+	// g.inGame = false
+	g.inMenu = false
+	g.inGame = true
 
 	return g
 }
@@ -208,9 +196,6 @@ func (g *Game) Update() error {
 	currentTime := time.Now()
 	deltaTime := currentTime.Sub(g.lastTime).Seconds()
 	g.lastTime = currentTime
-
-	// Update entity system integration
-	entities.UpdateGameIntegration(deltaTime)
 
 	// Update debug counter
 	g.debugCounter++
@@ -539,19 +524,7 @@ func (g *Game) executeCommand(command string) {
 
 	switch cmd {
 	case "help":
-		log.Printf("Available commands: help, give, creative, survival, tp, entity, migration, spawn, create, complete, plugin")
-	case "complete":
-		g.showMigrationComplete()
-	case "create":
-		g.executeCreateCommand(command)
-	case "spawn":
-		g.executeSpawnCommand(command)
-	case "entity":
-		g.executeEntityCommand(command)
-	case "migration":
-		g.executeMigrationCommand(command)
-	case "plugin":
-		g.executePluginCommand(command)
+		log.Printf("Available commands: help, give, creative, survival, tp")
 	case "give":
 		if len(args) < 2 {
 			log.Printf("Usage: /give <item_type> <quantity>")
@@ -585,9 +558,6 @@ func (g *Game) executeCommand(command string) {
 		// Add to inventory
 		if g.inventory.AddItem(itemType, quantity) {
 			log.Printf("Gave %d %s", quantity, itemTypeStr)
-			// Publish item crafted event
-			itemName := items.ItemNameByID(itemType)
-			entities.PublishItemCrafted(itemName, quantity, "player")
 		} else {
 			log.Printf("Inventory full, could not give items")
 		}
@@ -627,9 +597,6 @@ func (g *Game) dropItem() {
 	// Remove one item from the selected slot
 	if g.inventory.RemoveItem(1) {
 		log.Printf("Dropped %v", selectedItem.Type)
-		// Publish item used event (dropping)
-		itemName := items.ItemNameByID(selectedItem.Type)
-		entities.PublishItemUsed(itemName, 1, "player", "drop", true)
 		// TODO: Implement actual item dropping in world (create item entity)
 	}
 }
@@ -753,14 +720,10 @@ func (g *Game) updateMining(deltaTime float64) {
 func (g *Game) completeMining(targetHex *world.Hexagon) {
 	// Get the block type before removing
 	blockType := targetHex.BlockType
-	blockTypeStr := getBlockKeyFromType(blockType)
 
 	// Use the exact hexagon coordinates for removal
 	x, y := targetHex.X, targetHex.Y
 	g.world.RemoveHexagonAt(x, y)
-
-	// Publish block broken event
-	entities.PublishBlockBroken(blockTypeStr, x, y, 0, "player", "")
 
 	// Use item durability
 	g.inventory.UseItem()
@@ -771,10 +734,6 @@ func (g *Game) completeMining(targetHex *world.Hexagon) {
 		if !g.inventory.AddItem(minedItemType, 1) {
 			// Inventory full - could implement dropping item here
 			log.Printf("Inventory full, cannot pick up %v", minedItemType)
-		} else {
-			// Publish item used event (mining)
-			itemName := items.ItemNameByID(minedItemType)
-			entities.PublishItemUsed(itemName, 1, "player", "mining", true)
 		}
 	}
 
@@ -937,9 +896,6 @@ func (g *Game) handleBlockPlacement() {
 	// Place block at the calculated position
 	blockType := stringToBlockType(blockTypeToPlace)
 	g.world.AddHexagonAt(placeX, placeY, blockType)
-
-	// Publish block placed event
-	entities.PublishBlockPlaced(blockTypeToPlace, placeX, placeY, 0, "player")
 
 	// Remove item from inventory only if not in creative mode
 	if !g.CreativeMode {
@@ -1830,507 +1786,6 @@ func (g *Game) StartAutoSave() {
 func (g *Game) StopAutoSave() {
 	if g.autoSaver != nil {
 		g.autoSaver.Stop()
-	}
-}
-
-// executeEntityCommand executes entity system commands
-func (g *Game) executeEntityCommand(command string) {
-	// Parse command
-	parts := strings.Fields(command)
-	if len(parts) < 2 {
-		log.Printf("Usage: /entity <status|debug>")
-		return
-	}
-	
-	subCmd := strings.ToLower(parts[1])
-	switch subCmd {
-	case "status":
-		integration := entities.GetGlobalGameIntegration()
-		if integration != nil {
-			stats := integration.GetStatistics()
-			log.Printf("=== Entity System Status ===")
-			if migration, ok := stats["migration"].(map[string]interface{}); ok {
-				log.Printf("Migration Step: %v", migration["migration_step"])
-				log.Printf("Migration Ratio: %.2f%%", migration["migration_ratio"].(float64)*100)
-			}
-			if entityWorld, ok := stats["entity_world"].(map[string]interface{}); ok {
-				log.Printf("Total Entities: %v", entityWorld["total_entities"])
-			}
-			log.Printf("========================")
-		} else {
-			log.Printf("Entity system not initialized")
-		}
-	case "debug":
-		integration := entities.GetGlobalGameIntegration()
-		if integration != nil {
-			integration.DebugPrint()
-		}
-	default:
-		log.Printf("Unknown entity command: %s", subCmd)
-	}
-}
-
-// executeMigrationCommand executes migration system commands
-func (g *Game) executeMigrationCommand(command string) {
-	// Parse command
-	parts := strings.Fields(command)
-	if len(parts) < 2 {
-		g.showMigrationStatus()
-		return
-	}
-	
-	subCmd := strings.ToLower(parts[1])
-	switch subCmd {
-	case "step":
-		if len(parts) < 3 {
-			log.Printf("Usage: /migration step <step>")
-			return
-		}
-		step, err := strconv.Atoi(parts[2])
-		if err != nil {
-			log.Printf("Invalid step: %s", parts[2])
-			return
-		}
-		entities.SetMigrationStepCommand(step)
-		
-	case "status":
-		g.showMigrationStatus()
-		
-	case "toggle":
-		entities.ToggleMigrationCommand()
-		
-	default:
-		log.Printf("Unknown migration command: %s", subCmd)
-	}
-}
-
-// showMigrationStatus shows migration status
-func (g *Game) showMigrationStatus() {
-	status := entities.GetMigrationStatusCommand()
-	log.Printf("=== Migration Status ===")
-	log.Printf("Step: %v", status["migration_step"])
-	log.Printf("Enabled: %v", status["enabled"])
-	log.Printf("Ratio: %.2f%%", status["migration_ratio"].(float64)*100)
-	
-	if oldUsage, ok := status["old_system_usage"].(map[string]int); ok {
-		log.Printf("Old System Usage: %v", oldUsage)
-	}
-	
-	if newUsage, ok := status["new_system_usage"].(map[string]int); ok {
-		log.Printf("New System Usage: %v", newUsage)
-	}
-	log.Printf("========================")
-}
-
-// executeCreateCommand executes advanced entity creation commands
-func (g *Game) executeCreateCommand(command string) {
-	// Parse command
-	parts := strings.Fields(command)
-	if len(parts) < 3 {
-		log.Printf("Usage: /create <entity_type> <component_type> [x] [y]")
-		return
-	}
-	
-	entityType := parts[1]
-	componentType := parts[2]
-	var x, y float64
-	
-	if len(parts) >= 5 {
-		// Use provided coordinates
-		if xVal, err := strconv.ParseFloat(parts[3], 64); err == nil {
-			x = xVal
-		}
-		if yVal, err := strconv.ParseFloat(parts[4], 64); err == nil {
-			y = yVal
-		}
-	} else {
-		// Use player position
-		x, y = g.player.GetCenter()
-	}
-	
-	// Create advanced entity using entity system
-	integration := entities.GetGlobalGameIntegration()
-	if integration == nil {
-		log.Printf("Entity integration not available")
-		return
-	}
-	
-	// Create entity with custom component
-	entityID := fmt.Sprintf("custom_%s_%d", entityType, time.Now().Unix())
-	err := integration.CreateAdvancedEntity(entityType, entityID, x, y, 0, 1, "player", componentType)
-	if err != nil {
-		log.Printf("Failed to create advanced entity: %v", err)
-	} else {
-		log.Printf("Created %s with %s component at (%.1f, %.1f)", entityType, componentType, x, y)
-		// Publish custom entity created event
-		entities.PublishItemUsed(entityType, 1, "player", "create_advanced", true)
-	}
-}
-
-// showMigrationComplete displays migration completion celebration
-func (g *Game) showMigrationComplete() {
-	status := entities.GetMigrationStatusCommand()
-	
-	log.Printf("🎉 ================================================")
-	log.Printf("🎉   TESSELBOX ENTITY SYSTEM MIGRATION COMPLETE!   ")
-	log.Printf("🎉 ================================================")
-	log.Printf("🎉")
-	log.Printf("🎉 Migration Step: %v", status["migration_step"])
-	log.Printf("🎉 Migration Ratio: %.2f%%", status["migration_ratio"].(float64)*100)
-	log.Printf("🎉 Status: FULL MIGRATION - NEW SYSTEM ONLY")
-	log.Printf("🎉")
-	log.Printf("🎉 🏆 ACHIEVEMENTS UNLOCKED:")
-	log.Printf("🎉 ✅ Complete System Migration")
-	log.Printf("🎉 ✅ Advanced Entity System")
-	log.Printf("🎉 ✅ Event-Driven Architecture")
-	log.Printf("🎉 ✅ Custom Component Creation")
-	log.Printf("🎉 ✅ Production-Ready Performance")
-	log.Printf("🎉")
-	log.Printf("🎉 🚀 FEATURES AVAILABLE:")
-	log.Printf("🎉 • Advanced entity creation with custom components")
-	log.Printf("🎉 • Complete event system for all game operations")
-	log.Printf("🎉 • Plugin-ready architecture")
-	log.Printf("🎉 • Extensible component system")
-	log.Printf("🎉 • Real-time migration statistics")
-	log.Printf("🎉")
-	log.Printf("🎉 🎮 TRY THESE COMMANDS:")
-	log.Printf("🎉 /entity status - See detailed system info")
-	log.Printf("🎉 /create custom render - Create advanced entities")
-	log.Printf("🎉 /spawn tree - Spawn organisms")
-	log.Printf("🎉 /migration status - See migration stats")
-	log.Printf("🎉")
-	log.Printf("🎉 ================================================")
-	log.Printf("🎉   CONGRATULATIONS - MIGRATION COMPLETE! 🎉")
-	log.Printf("🎉 ================================================")
-}
-
-// executeSpawnCommand executes spawn commands
-func (g *Game) executeSpawnCommand(command string) {
-	// Parse command
-	parts := strings.Fields(command)
-	if len(parts) < 2 {
-		log.Printf("Usage: /spawn <organism_type> [x] [y]")
-		return
-	}
-	
-	orgType := parts[1]
-	var x, y float64
-	
-	if len(parts) >= 4 {
-		// Use provided coordinates
-		if xVal, err := strconv.ParseFloat(parts[2], 64); err == nil {
-			x = xVal
-		}
-		if yVal, err := strconv.ParseFloat(parts[3], 64); err == nil {
-			y = yVal
-		}
-	} else {
-		// Use player position
-		x, y = g.player.GetCenter()
-	}
-	
-	// Create organism using entity system
-	err := entities.CreateEntityUsingNewSystem("organisms", orgType, x, y, 0, 1, "player")
-	if err != nil {
-		log.Printf("Failed to spawn organism: %v", err)
-	} else {
-		log.Printf("Spawned %s at (%.1f, %.1f)", orgType, x, y)
-		// Publish organism spawned event
-		entities.PublishAttack("player", "spawned_"+orgType, 0, "spawn", false)
-	}
-}
-
-// executePluginCommand executes plugin management commands
-func (g *Game) executePluginCommand(command string) {
-	// Parse command
-	parts := strings.Fields(command)
-	if len(parts) < 2 {
-		log.Printf("Usage: /plugin <action> [plugin_name] [options]")
-		log.Printf("Actions: list, load, unload, reload, info, status, enable, disable")
-		return
-	}
-	
-	action := parts[1]
-	
-	switch action {
-	case "list":
-		g.listPlugins()
-	case "status":
-		g.showPluginStatus()
-	case "load":
-		if len(parts) < 3 {
-			log.Printf("Usage: /plugin load <plugin_name>")
-			return
-		}
-		g.loadPlugin(parts[2])
-	case "unload":
-		if len(parts) < 3 {
-			log.Printf("Usage: /plugin unload <plugin_name>")
-			return
-		}
-		g.unloadPlugin(parts[2])
-	case "reload":
-		if len(parts) < 3 {
-			log.Printf("Usage: /plugin reload <plugin_name>")
-			return
-		}
-		g.reloadPlugin(parts[2])
-	case "info":
-		if len(parts) < 3 {
-			log.Printf("Usage: /plugin info <plugin_name>")
-			return
-		}
-		g.showPluginInfo(parts[2])
-	case "enable":
-		if len(parts) < 3 {
-			log.Printf("Usage: /plugin enable <plugin_name>")
-			return
-		}
-		g.enablePlugin(parts[2])
-	case "disable":
-		if len(parts) < 3 {
-			log.Printf("Usage: /plugin disable <plugin_name>")
-			return
-		}
-		g.disablePlugin(parts[2])
-	default:
-		log.Printf("Unknown plugin action: %s", action)
-		log.Printf("Available actions: list, load, unload, reload, info, status, enable, disable")
-	}
-}
-
-// listPlugins lists all available plugins
-func (g *Game) listPlugins() {
-	log.Printf("🔌 Available Plugins:")
-	
-	// Get plugin metadata from enhanced plugin manager
-	if gameWorld := entities.GetGameWorld(); gameWorld != nil && gameWorld.EnhancedPluginMgr != nil {
-		plugins, err := gameWorld.EnhancedPluginMgr.GetPluginMetadata()
-		if err != nil {
-			log.Printf("Failed to get plugin metadata: %v", err)
-			return
-		}
-		
-		for _, plugin := range plugins {
-			status := "❌ Disabled"
-			if plugin.Loaded {
-				status = "✅ Loaded"
-			}
-			log.Printf("  %s %s v%s (%s) - %s", status, plugin.Name, plugin.Version, plugin.Type, plugin.Description)
-		}
-	} else {
-		log.Printf("Enhanced plugin manager not available")
-	}
-}
-
-// showPluginStatus shows the current plugin system status
-func (g *Game) showPluginStatus() {
-	log.Printf("🔌 Plugin System Status:")
-	
-	if gameWorld := entities.GetGameWorld(); gameWorld != nil && gameWorld.EnhancedPluginMgr != nil {
-		loadedPlugins := gameWorld.EnhancedPluginMgr.ListPlugins()
-		log.Printf("  Loaded plugins: %d", len(loadedPlugins))
-		
-		for _, name := range loadedPlugins {
-			if plugin, exists := gameWorld.EnhancedPluginMgr.GetPlugin(name); exists {
-				log.Printf("  ✅ %s v%s by %s", plugin.GetName(), plugin.GetVersion(), plugin.GetAuthor())
-			}
-		}
-		
-		// Show configuration status
-		if gameWorld.ConfigManager != nil {
-			globalConfig := gameWorld.ConfigManager.GetGlobalConfig()
-			log.Printf("  Hot reload: %v", globalConfig.HotReload)
-			log.Printf("  Plugin directory: %s", globalConfig.PluginDirectory)
-		}
-	} else {
-		log.Printf("Enhanced plugin manager not available")
-	}
-}
-
-// loadPlugin loads a plugin
-func (g *Game) loadPlugin(pluginName string) {
-	log.Printf("Loading plugin: %s", pluginName)
-	
-	if gameWorld := entities.GetGameWorld(); gameWorld != nil && gameWorld.EnhancedPluginMgr != nil {
-		// Get plugin metadata
-		plugins, err := gameWorld.EnhancedPluginMgr.GetPluginMetadata()
-		if err != nil {
-			log.Printf("Failed to get plugin metadata: %v", err)
-			return
-		}
-		
-		// Find plugin metadata
-		var metadata *entities.PluginMetadata
-		for _, p := range plugins {
-			if p.Name == pluginName {
-				metadata = p
-				break
-			}
-		}
-		
-		if metadata == nil {
-			log.Printf("Plugin not found: %s", pluginName)
-			return
-		}
-		
-		// Load plugin
-		if err := gameWorld.EnhancedPluginMgr.LoadPluginFromMetadata(metadata); err != nil {
-			log.Printf("Failed to load plugin %s: %v", pluginName, err)
-		} else {
-			log.Printf("✅ Successfully loaded plugin: %s", pluginName)
-		}
-	} else {
-		log.Printf("Enhanced plugin manager not available")
-	}
-}
-
-// unloadPlugin unloads a plugin
-func (g *Game) unloadPlugin(pluginName string) {
-	log.Printf("Unloading plugin: %s", pluginName)
-	
-	if gameWorld := entities.GetGameWorld(); gameWorld != nil && gameWorld.EnhancedPluginMgr != nil {
-		// Get plugin metadata
-		plugins, err := gameWorld.EnhancedPluginMgr.GetPluginMetadata()
-		if err != nil {
-			log.Printf("Failed to get plugin metadata: %v", err)
-			return
-		}
-		
-		// Find plugin metadata
-		var metadata *entities.PluginMetadata
-		for _, p := range plugins {
-			if p.Name == pluginName {
-				metadata = p
-				break
-			}
-		}
-		
-		if metadata == nil {
-			log.Printf("Plugin not found: %s", pluginName)
-			return
-		}
-		
-		// Unload plugin
-		if err := gameWorld.EnhancedPluginMgr.UnloadPluginWithMetadata(metadata); err != nil {
-			log.Printf("Failed to unload plugin %s: %v", pluginName, err)
-		} else {
-			log.Printf("✅ Successfully unloaded plugin: %s", pluginName)
-		}
-	} else {
-		log.Printf("Enhanced plugin manager not available")
-	}
-}
-
-// reloadPlugin reloads a plugin
-func (g *Game) reloadPlugin(pluginName string) {
-	log.Printf("Reloading plugin: %s", pluginName)
-	
-	if gameWorld := entities.GetGameWorld(); gameWorld != nil && gameWorld.EnhancedPluginMgr != nil {
-		// Get plugin metadata
-		plugins, err := gameWorld.EnhancedPluginMgr.GetPluginMetadata()
-		if err != nil {
-			log.Printf("Failed to get plugin metadata: %v", err)
-			return
-		}
-		
-		// Find plugin metadata
-		var metadata *entities.PluginMetadata
-		for _, p := range plugins {
-			if p.Name == pluginName {
-				metadata = p
-				break
-			}
-		}
-		
-		if metadata == nil {
-			log.Printf("Plugin not found: %s", pluginName)
-			return
-		}
-		
-		// Reload plugin
-		if err := gameWorld.EnhancedPluginMgr.ReloadPluginWithMetadata(metadata); err != nil {
-			log.Printf("Failed to reload plugin %s: %v", pluginName, err)
-		} else {
-			log.Printf("✅ Successfully reloaded plugin: %s", pluginName)
-		}
-	} else {
-		log.Printf("Enhanced plugin manager not available")
-	}
-}
-
-// showPluginInfo shows detailed information about a plugin
-func (g *Game) showPluginInfo(pluginName string) {
-	log.Printf("🔌 Plugin Info: %s", pluginName)
-	
-	if gameWorld := entities.GetGameWorld(); gameWorld != nil && gameWorld.EnhancedPluginMgr != nil {
-		// Check if plugin is loaded
-		if plugin, exists := gameWorld.EnhancedPluginMgr.GetPlugin(pluginName); exists {
-			log.Printf("  Name: %s", plugin.GetName())
-			log.Printf("  Version: %s", plugin.GetVersion())
-			log.Printf("  Author: %s", plugin.GetAuthor())
-			log.Printf("  Description: %s", plugin.GetDescription())
-			log.Printf("  Dependencies: %v", plugin.GetDependencies())
-			log.Printf("  Components: %d", len(plugin.GetComponents()))
-			log.Printf("  Systems: %d", len(plugin.GetSystems()))
-			log.Printf("  Templates: %d", len(plugin.GetTemplates()))
-		} else {
-			log.Printf("Plugin not loaded: %s", pluginName)
-		}
-		
-		// Show configuration
-		if gameWorld.ConfigManager != nil {
-			if config, err := gameWorld.ConfigManager.GetPluginConfig(pluginName); err == nil {
-				log.Printf("  Config:")
-				log.Printf("    Enabled: %v", config.Enabled)
-				log.Printf("    Priority: %d", config.Priority)
-				log.Printf("    Auto Load: %v", config.AutoLoad)
-				log.Printf("    Auto Reload: %v", config.AutoReload)
-				log.Printf("    Permissions: %v", config.Permissions)
-			}
-		}
-	} else {
-		log.Printf("Enhanced plugin manager not available")
-	}
-}
-
-// enablePlugin enables a plugin
-func (g *Game) enablePlugin(pluginName string) {
-	if gameWorld := entities.GetGameWorld(); gameWorld != nil && gameWorld.ConfigManager != nil {
-		config, err := gameWorld.ConfigManager.GetPluginConfig(pluginName)
-		if err != nil {
-			// Create default config
-			config = gameWorld.ConfigManager.GetDefaultConfig(pluginName)
-		}
-		
-		config.Enabled = true
-		if err := gameWorld.ConfigManager.SavePluginConfig(pluginName, config); err != nil {
-			log.Printf("Failed to enable plugin %s: %v", pluginName, err)
-		} else {
-			log.Printf("✅ Plugin enabled: %s", pluginName)
-		}
-	} else {
-		log.Printf("Config manager not available")
-	}
-}
-
-// disablePlugin disables a plugin
-func (g *Game) disablePlugin(pluginName string) {
-	if gameWorld := entities.GetGameWorld(); gameWorld != nil && gameWorld.ConfigManager != nil {
-		config, err := gameWorld.ConfigManager.GetPluginConfig(pluginName)
-		if err != nil {
-			// Create default config
-			config = gameWorld.ConfigManager.GetDefaultConfig(pluginName)
-		}
-		
-		config.Enabled = false
-		if err := gameWorld.ConfigManager.SavePluginConfig(pluginName, config); err != nil {
-			log.Printf("Failed to disable plugin %s: %v", pluginName, err)
-		} else {
-			log.Printf("✅ Plugin disabled: %s", pluginName)
-		}
-	} else {
-		log.Printf("Config manager not available")
 	}
 }
 

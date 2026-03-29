@@ -157,11 +157,15 @@ func embedWindowsIcon(config BuildConfig) error {
 		}
 	}
 	
-	// Extract icon from embedded assets to temporary file
-	iconData, err := extractEmbeddedIcon("icon.png")
+	// Extract proper icon from embedded assets to temporary file
+	iconData, err := extractEmbeddedIcon("tesselbox.ico")
 	if err != nil {
-		fmt.Printf("⚠️  Failed to extract embedded icon: %v\n", err)
-		return nil
+		// Fallback to PNG if ICO not available
+		iconData, err = extractEmbeddedIcon("icon.png")
+		if err != nil {
+			fmt.Printf("⚠️  Failed to extract embedded icon: %v\n", err)
+			return nil
+		}
 	}
 	
 	tempIconPath := "temp_icon.png"
@@ -226,12 +230,22 @@ func embedMacOSIcon(config BuildConfig) error {
 		return fmt.Errorf("failed to move binary to app bundle: %v", err)
 	}
 	
-	// Extract icon from embedded assets
-	iconData, err := extractEmbeddedIcon("icon.png")
+	// Extract proper icon from embedded assets
+	iconData, err := extractEmbeddedIcon("TesselBox.icns")
 	if err != nil {
-		fmt.Printf("⚠️  Failed to extract embedded icon: %v\n", err)
+		// Fallback to PNG if ICNS not available
+		iconData, err = extractEmbeddedIcon("icon.png")
+		if err != nil {
+			fmt.Printf("⚠️  Failed to extract embedded icon: %v\n", err)
+		} else {
+			// Write embedded icon to app bundle
+			iconDst := filepath.Join(appResources, "AppIcon.icns")
+			if err := os.WriteFile(iconDst, iconData, 0644); err != nil {
+				fmt.Printf("⚠️  Failed to write embedded icon: %v\n", err)
+			}
+		}
 	} else {
-		// Write embedded icon to app bundle
+		// Write embedded ICNS to app bundle
 		iconDst := filepath.Join(appResources, "AppIcon.icns")
 		if err := os.WriteFile(iconDst, iconData, 0644); err != nil {
 			fmt.Printf("⚠️  Failed to write embedded icon: %v\n", err)
@@ -295,10 +309,21 @@ Keywords=game;sandbox;hexagon;blocks;crafting;`, config.Output)
 	}
 	defer os.Remove(desktopPath)
 	
-	// Extract icon from embedded assets for Linux integration
-	iconData, err := extractEmbeddedIcon("icon.png")
+	// Extract proper icon from embedded assets for Linux integration
+	iconData, err := extractEmbeddedIcon("tesselbox.png")
 	if err != nil {
-		fmt.Printf("⚠️  Failed to extract embedded icon: %v\n", err)
+		// Fallback to generic icon.png
+		iconData, err = extractEmbeddedIcon("icon.png")
+		if err != nil {
+			fmt.Printf("⚠️  Failed to extract embedded icon: %v\n", err)
+		} else {
+			iconDst := "tesselbox.png"
+			if err := os.WriteFile(iconDst, iconData, 0644); err != nil {
+				fmt.Printf("⚠️  Failed to write embedded icon: %v\n", err)
+			} else {
+				defer os.Remove(iconDst)
+			}
+		}
 	} else {
 		iconDst := "tesselbox.png"
 		if err := os.WriteFile(iconDst, iconData, 0644); err != nil {

@@ -72,8 +72,7 @@ TesselBox features a comprehensive plugin system that allows you to create custo
 mkdir plugins/myplugin
 cd plugins/myplugin
 
-# Follow the comprehensive plugin development guide
-# See DOCUMENTATION.md for complete details
+# Follow the plugin development guide below
 ```
 
 ### In-Game Plugin Management
@@ -174,11 +173,11 @@ TesselBox is built with modern technologies to deliver a robust and engaging gam
 
 ## 📊 Star History
 
-<a href="https://www.star-history.com/?repos=tesselstudio%2FTesselbox-game&type=date&legend=top-left">
+<a href="https://www.star-history.com/">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/Tesselbox-game&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/Tesselbox-game&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/Tesselbox-game&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=tesselstudio/TesselBox-game&type=timeline&legend=bottom-right" />
  </picture>
 </a>
 

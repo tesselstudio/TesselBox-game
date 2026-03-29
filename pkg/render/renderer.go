@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math/rand"
 	"os"
+	"sync"
 	"time"
 
 	"tesselbox/pkg/blocks"
@@ -31,6 +32,21 @@ var (
 	Green    = color.RGBA{100, 200, 100, 255}
 	Red      = color.RGBA{200, 100, 100, 255}
 	Blue     = color.RGBA{50, 150, 255, 255}
+)
+
+// Object pools for performance optimization
+var (
+	hexagonPool = sync.Pool{
+		New: func() interface{} {
+			return make([]ebiten.Vertex, 6) // 6 vertices for hexagon
+		},
+	}
+	
+	indicesPool = sync.Pool{
+		New: func() interface{} {
+			return make([]uint16, 12) // 12 indices for hexagon triangles
+		},
+	}
 )
 
 // Screen dimensions and defaults

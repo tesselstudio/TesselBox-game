@@ -101,8 +101,13 @@ var BlockTypeMap = map[string]BlockType{
 
 // LoadBlocks loads block definitions from YAML files
 func LoadBlocks() {
-	loadBlocksFromEmbedded()
+	LoadBlocksFromAssets()
 	loadMods()
+}
+
+// LoadBlocksFromAssets loads block definitions from embedded assets
+func LoadBlocksFromAssets() {
+	loadBlocksFromEmbedded()
 }
 
 // loadBlocksFromEmbedded loads blocks from embedded YAML data

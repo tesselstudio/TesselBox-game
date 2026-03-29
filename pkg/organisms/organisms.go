@@ -57,6 +57,11 @@ var OrganismTypeMap = map[string]OrganismType{
 
 // LoadOrganisms loads organism definitions from YAML
 func LoadOrganisms() {
+	LoadOrganismsFromAssets()
+}
+
+// LoadOrganismsFromAssets loads organism definitions from embedded assets
+func LoadOrganismsFromAssets() {
 	data, err := assets.GetConfigFile("organisms.yaml")
 	if err != nil {
 		return

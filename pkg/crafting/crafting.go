@@ -78,6 +78,11 @@ func (cs *CraftingSystem) LoadRecipes(filePath string) error {
 	return nil
 }
 
+// LoadRecipesFromAssets loads recipes from embedded assets
+func (cs *CraftingSystem) LoadRecipesFromAssets() error {
+	return cs.LoadRecipes("crafting_recipes.yaml")
+}
+
 // GetRecipe retrieves a recipe by ID
 func (cs *CraftingSystem) GetRecipe(id string) (*Recipe, bool) {
 	recipe, exists := cs.recipes[id]

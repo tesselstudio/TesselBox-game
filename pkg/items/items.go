@@ -784,6 +784,11 @@ func GetItemProperties(itemType ItemType) *ItemProperties {
 
 // LoadItems loads item definitions from YAML file
 func LoadItems() {
+	LoadItemsFromAssets()
+}
+
+// LoadItemsFromAssets loads item definitions from embedded assets
+func LoadItemsFromAssets() {
 	if data, err := assets.GetConfigFile("items.yaml"); err == nil {
 		var items map[string]*ItemJSON
 		if err := yaml.Unmarshal(data, &items); err == nil {

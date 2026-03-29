@@ -36,6 +36,9 @@ const (
 	ActionLogout
 	ActionOpenBlockLibrary
 	ActionSelectBlock
+	ActionToggleSound
+	ActionToggleFullscreen
+	ActionChangeResolution
 )
 
 // MenuItem represents a menu option
@@ -145,6 +148,19 @@ func (m *Menu) SetBlockLibraryMenu() {
 	if len(m.Items) > 0 {
 		m.SelectedItem = 0
 	}
+}
+
+// SetSettingsMenu sets up the settings menu
+func (m *Menu) SetSettingsMenu() {
+	m.CurrentMenu = MenuSettings
+	m.Title = "SETTINGS"
+	m.Items = []MenuItem{
+		{Text: "TOGGLE SOUND", Action: ActionToggleSound, Position: 0, Enabled: true},
+		{Text: "TOGGLE FULLSCREEN", Action: ActionToggleFullscreen, Position: 1, Enabled: true},
+		{Text: "CHANGE RESOLUTION", Action: ActionChangeResolution, Position: 2, Enabled: true},
+		{Text: "BACK", Action: ActionBack, Position: 3, Enabled: true},
+	}
+	m.SelectedItem = 0
 }
 
 // Update handles menu input and updates
