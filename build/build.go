@@ -25,7 +25,7 @@ func main() {
 	flag.StringVar(&config.Arch, "arch", runtime.GOARCH, "Target architecture")
 	flag.StringVar(&config.Output, "output", "", "Output file path")
 	flag.BoolVar(&config.Release, "release", false, "Release build (optimized)")
-	flag.StringVar(&config.Version, "version", "2.0.0", "Version string")
+	flag.StringVar(&config.Version, "version", "v0.3-alpha", "Version string")
 	flag.Parse()
 
 	// Set default output if not specified

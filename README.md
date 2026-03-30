@@ -11,15 +11,15 @@
 
 <p align="center">
   <a href="https://github.com/tesselstudio/TesselBox-game/archive/refs/heads/main.zip">
-    <img src="https://raw.githubusercontent.com/tesselstudio/TesselBox-game/main/download.png" alt="Download TesselBox" width="120" style="border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <img src="download.png" alt="Download TesselBox" width="120" style="border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
   </a>
 </p>
 
-TesselBox is an open-source sandbox game engine built in Go. Dive into a procedural hexagonal world where you can mine, build, and explore endless landscapes with advanced plugin support and modding capabilities.
+Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes with advanced plugin support and modding capabilities.
 
 ## 🎮 Gameplay Overview
 
-TesselBox offers an immersive experience in an open-source, hexagonal sandbox environment with advanced plugin support. Players engage in mining, building, and exploring vast, procedurally generated landscapes. The game's core features include building unique structures on a hexagonal grid, discovering new terrains through procedural generation, unearthing resources while exploring the world, and creating custom content through a powerful plugin system.
+TesselBox offers a captivating experience in an open-source, hexagonal sandbox environment with advanced plugin support. Players can engage in mining, building, and exploring vast, procedurally generated landscapes. The game's core features include building unique structures on a hexagonal grid, discovering new terrains through procedural generation, unearthing resources while exploring the world, and creating custom content through a powerful plugin system.
 
 ### Features
 
@@ -161,17 +161,17 @@ We welcome all contributions! Whether you're a developer, designer, or tester, y
 
 ## 🛠️ Built With
 
-TesselBox is built with modern technologies to deliver a robust gaming experience across platforms.
+TesselBox is built with modern technologies to deliver a robust and engaging gaming experience.
 
 <p align="center">
-    <img src="https://skillicons.dev/icons?i=go,linux,windows,apple,git,github,markdown,vscode" alt="Technology Stack">
+    <img src="https://skillicons.dev/icons?i=go,linux,windows,git,github,markdown,vscode,apple" alt="Technology Stack">
 </p>
 
--   **Go**: High-performance language for the game engine
--   **Cross-Platform**: Linux, Windows, and macOS support
--   **Git & GitHub**: Version control and collaboration
--   **Markdown**: Documentation format
--   **VS Code**: Recommended IDE
+-   **Go**: The primary programming language for the game engine.
+-   **Linux, Windows, Apple**: Supported operating systems for running the game.
+-   **Git & GitHub**: Version control and collaborative development platform.
+-   **Markdown**: Used for documentation and README formatting.
+-   **VS Code**: Recommended development environment.
 
 ## 📊 Star History
 
