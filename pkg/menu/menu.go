@@ -1,6 +1,7 @@
 package menu
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 	"tesselbox/pkg/blocks"
@@ -58,11 +59,18 @@ type Menu struct {
 	SelectedBlock string // For block library menu
 	CreativeMode  bool   // Whether creative mode is enabled
 
+	// Scrolling for block library
+	ScrollOffset   int
+	VisibleItems   int
+	MaxVisibleItems int
+
 	// Visual properties
 	Title           string
 	BackgroundColor color.RGBA
 	AccentColor     color.RGBA
 	HoverColor      color.RGBA
+	TextColor       color.RGBA
+	DisabledColor   color.RGBA
 
 	// Animation
 	animTimer     float64
@@ -84,14 +92,18 @@ func NewMenu() *Menu {
 
 	menu := &Menu{
 		CurrentMenu:     MenuMain, // Start with main menu screen
-		BackgroundColor: color.RGBA{20, 25, 40, 255},
-		AccentColor:     color.RGBA{100, 150, 200, 255},
-		HoverColor:      color.RGBA{150, 200, 255, 255},
+		BackgroundColor: color.RGBA{15, 20, 35, 255},    // Darker blue background
+		AccentColor:     color.RGBA{120, 180, 255, 255}, // Brighter blue accent
+		HoverColor:      color.RGBA{180, 220, 255, 255}, // Light blue hover
+		TextColor:       color.RGBA{255, 255, 255, 255}, // White text
+		DisabledColor:   color.RGBA{128, 128, 128, 255}, // Gray disabled
 		animTimer:       0.0,
 		rotationAngle:   0.0,
 		fadeAlpha:       1.0,
 		transitioning:   false,
 		whiteImage:      whiteImage,
+		MaxVisibleItems: 8, // Show max 8 items at once
+		ScrollOffset:    0,
 	}
 
 	menu.SetMainMenu()
@@ -134,6 +146,7 @@ func (m *Menu) SetBlockLibraryMenu() {
 	m.Title = "BLOCK LIBRARY"
 	m.Items = []MenuItem{}
 	m.SelectedBlock = ""
+	m.ScrollOffset = 0
 
 	// Add all available blocks as menu items
 	for blockName := range blocks.BlockDefinitions {
@@ -147,6 +160,11 @@ func (m *Menu) SetBlockLibraryMenu() {
 
 	if len(m.Items) > 0 {
 		m.SelectedItem = 0
+		// Calculate visible items
+		m.VisibleItems = len(m.Items)
+		if m.VisibleItems > m.MaxVisibleItems {
+			m.VisibleItems = m.MaxVisibleItems
+		}
 	}
 }
 
@@ -178,11 +196,26 @@ func (m *Menu) Update() MenuAction {
 		}
 	}
 
+	// Handle ESC key for returning to main menu
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		if m.CurrentMenu == MenuBlockLibrary || m.CurrentMenu == MenuSettings {
+			return ActionBack
+		}
+	}
+
 	// Handle keyboard input
 	if inpututil.IsKeyJustPressed(ebiten.KeyUp) {
 		m.SelectedItem--
 		if m.SelectedItem < 0 {
 			m.SelectedItem = len(m.Items) - 1
+		}
+		// Handle scrolling for block library
+		if m.CurrentMenu == MenuBlockLibrary && len(m.Items) > m.MaxVisibleItems {
+			if m.SelectedItem < m.ScrollOffset {
+				m.ScrollOffset = m.SelectedItem
+			} else if m.SelectedItem >= m.ScrollOffset+m.MaxVisibleItems {
+				m.ScrollOffset = m.SelectedItem - m.MaxVisibleItems + 1
+			}
 		}
 	}
 
@@ -190,6 +223,41 @@ func (m *Menu) Update() MenuAction {
 		m.SelectedItem++
 		if m.SelectedItem >= len(m.Items) {
 			m.SelectedItem = 0
+			m.ScrollOffset = 0 // Reset scroll when wrapping to top
+		}
+		// Handle scrolling for block library
+		if m.CurrentMenu == MenuBlockLibrary && len(m.Items) > m.MaxVisibleItems {
+			if m.SelectedItem < m.ScrollOffset {
+				m.ScrollOffset = m.SelectedItem
+			} else if m.SelectedItem >= m.ScrollOffset+m.MaxVisibleItems {
+				m.ScrollOffset = m.SelectedItem - m.MaxVisibleItems + 1
+			}
+		}
+	}
+
+	// Handle mouse wheel scrolling for block library
+	if m.CurrentMenu == MenuBlockLibrary && len(m.Items) > m.MaxVisibleItems {
+		_, scrollY := ebiten.Wheel()
+		if scrollY > 0 {
+			// Scroll up
+			m.ScrollOffset--
+			if m.ScrollOffset < 0 {
+				m.ScrollOffset = 0
+			}
+			// Adjust selected item if needed
+			if m.SelectedItem < m.ScrollOffset {
+				m.SelectedItem = m.ScrollOffset
+			}
+		} else if scrollY < 0 {
+			// Scroll down
+			maxScroll := len(m.Items) - m.MaxVisibleItems
+			if m.ScrollOffset < maxScroll {
+				m.ScrollOffset++
+			}
+			// Adjust selected item if needed
+			if m.SelectedItem >= m.ScrollOffset+m.MaxVisibleItems {
+				m.SelectedItem = m.ScrollOffset + m.MaxVisibleItems - 1
+			}
 		}
 	}
 
@@ -234,15 +302,29 @@ func (m *Menu) handleMouseClick(mx, my int) MenuAction {
 	centerX := screenWidth / 2
 	startX := centerX - itemWidth/2
 
-	for i, item := range m.Items {
-		itemY := startY + i*itemHeight
+	// Determine which items are visible based on scroll offset
+	visibleStart := m.ScrollOffset
+	visibleEnd := m.ScrollOffset + m.VisibleItems
+	if visibleEnd > len(m.Items) {
+		visibleEnd = len(m.Items)
+	}
+
+	for i := visibleStart; i < visibleEnd; i++ {
+		item := m.Items[i]
+		visibleIndex := i - m.ScrollOffset
+		itemY := startY + visibleIndex*itemHeight
 
 		// Check if click is on this item - use same dimensions as drawing
 		if mx >= startX && mx <= startX+itemWidth &&
 			my >= itemY && my <= itemY+itemHeight-10 {
 			m.SelectedItem = i
 			if item.Enabled {
-				return item.Action
+				if m.CurrentMenu == MenuBlockLibrary {
+					m.SelectedBlock = item.Text
+					return ActionSelectBlock
+				} else {
+					return item.Action
+				}
 			}
 		}
 	}
@@ -262,8 +344,17 @@ func (m *Menu) updateHoverFromMouse(mx, my int) {
 	centerX := screenWidth / 2
 	startX := centerX - itemWidth/2
 
-	for i, item := range m.Items {
-		itemY := startY + i*itemHeight
+	// Determine which items are visible based on scroll offset
+	visibleStart := m.ScrollOffset
+	visibleEnd := m.ScrollOffset + m.VisibleItems
+	if visibleEnd > len(m.Items) {
+		visibleEnd = len(m.Items)
+	}
+
+	for i := visibleStart; i < visibleEnd; i++ {
+		item := m.Items[i]
+		visibleIndex := i - m.ScrollOffset
+		itemY := startY + visibleIndex*itemHeight
 
 		// Check if mouse is hovering over this item - use same dimensions as drawing
 		if mx >= startX && mx <= startX+itemWidth &&
@@ -382,27 +473,52 @@ func (m *Menu) drawMenuItems(screen *ebiten.Image) {
 	centerX := screenWidth / 2
 	startX := centerX - itemWidth/2
 
-	for i, item := range m.Items {
-		itemY := startY + i*itemHeight
+	// Determine which items are visible based on scroll offset
+	visibleStart := m.ScrollOffset
+	visibleEnd := m.ScrollOffset + m.VisibleItems
+	if visibleEnd > len(m.Items) {
+		visibleEnd = len(m.Items)
+	}
+
+	// Draw scroll indicators if needed
+	if m.CurrentMenu == MenuBlockLibrary && len(m.Items) > m.MaxVisibleItems {
+		// Draw up arrow if not at top
+		if m.ScrollOffset > 0 {
+			ebitenutil.DebugPrintAt(screen, "▲", centerX-5, startY-30)
+		}
+		// Draw down arrow if not at bottom
+		if m.ScrollOffset < len(m.Items)-m.MaxVisibleItems {
+			lastVisibleY := startY + (m.VisibleItems-1)*itemHeight + itemHeight
+			ebitenutil.DebugPrintAt(screen, "▼", centerX-5, lastVisibleY+10)
+		}
+		// Draw scroll indicator text
+		scrollText := fmt.Sprintf("%d/%d", m.ScrollOffset+1, len(m.Items))
+		ebitenutil.DebugPrintAt(screen, scrollText, centerX-20, startY-50)
+	}
+
+	for i := visibleStart; i < visibleEnd; i++ {
+		item := m.Items[i]
+		visibleIndex := i - m.ScrollOffset
+		itemY := startY + visibleIndex*itemHeight
 
 		// Determine color based on state
-		bgColor := color.RGBA{50, 60, 80, 200}
+		bgColor := color.RGBA{40, 60, 90, 230} // Darker, more opaque background
 		borderColor := m.AccentColor
 
 		if item.Hovered {
-			bgColor = color.RGBA{80, 100, 130, 230}
+			bgColor = color.RGBA{80, 120, 180, 250} // Brighter hover
 			borderColor = m.HoverColor
 		}
 
 		if !item.Enabled {
-			bgColor = color.RGBA{40, 40, 50, 150}
-			borderColor = color.RGBA{80, 80, 80, 255}
+			bgColor = color.RGBA{30, 30, 40, 180} // Darker disabled
+			borderColor = m.DisabledColor
 		}
 
 		// Draw hexagon-shaped button background
 		m.drawHexButton(screen, float64(startX), float64(itemY), float64(itemWidth), float64(itemHeight-10), bgColor, borderColor)
 
-		// Draw item text with larger size - draw multiple times for thicker text
+		// Draw item text with better visibility
 		// Center text in button
 		textX := startX + (itemWidth-len(item.Text)*8)/2
 		textY := itemY + 30 // Centered vertically in button
