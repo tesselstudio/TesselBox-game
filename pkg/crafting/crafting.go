@@ -55,24 +55,138 @@ func NewCraftingSystem() *CraftingSystem {
 	}
 }
 
-// LoadRecipes loads recipes from a YAML file
+// LoadRecipes loads recipes from a YAML file with fallback support
 func (cs *CraftingSystem) LoadRecipes(filePath string) error {
 	data, err := assets.GetConfigFile("crafting_recipes.yaml")
 	if err != nil {
-		return fmt.Errorf("failed to read recipes file: %w", err)
+		// If embedded file fails, try to load default recipes
+		return cs.loadDefaultRecipes()
 	}
 
 	var recipes []Recipe
 	if err := yaml.Unmarshal(data, &recipes); err != nil {
-		return fmt.Errorf("failed to parse recipes YAML: %w", err)
+		// If parsing fails, fall back to default recipes
+		return cs.loadDefaultRecipes()
 	}
 
 	// Clear existing recipes
 	cs.recipes = make(map[string]*Recipe)
 
 	// Load recipes
+	loadedCount := 0
 	for i := range recipes {
-		cs.recipes[recipes[i].ID] = &recipes[i]
+		if recipes[i].ID != "" {
+			cs.recipes[recipes[i].ID] = &recipes[i]
+			loadedCount++
+		}
+	}
+
+	// If no valid recipes were loaded, fall back to defaults
+	if loadedCount == 0 {
+		return cs.loadDefaultRecipes()
+	}
+
+	return nil
+}
+
+// loadDefaultRecipes loads a minimal set of default recipes for basic gameplay
+func (cs *CraftingSystem) loadDefaultRecipes() error {
+	// Clear existing recipes
+	cs.recipes = make(map[string]*Recipe)
+
+	// Basic crafting recipes
+	defaultRecipes := []Recipe{
+		{
+			ID:          "wooden_pickaxe",
+			Name:        "Wooden Pickaxe",
+			Description: "A basic pickaxe for mining stone",
+			Inputs: []RecipeInput{
+				{ItemType: items.PLANKS, Quantity: 3},
+				{ItemType: items.STICK, Quantity: 2},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.WOODEN_PICKAXE, Quantity: 1},
+			},
+			CraftingTime:    2.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "stone_pickaxe",
+			Name:        "Stone Pickaxe",
+			Description: "A sturdy pickaxe for mining ores",
+			Inputs: []RecipeInput{
+				{ItemType: items.STONE_BLOCK, Quantity: 3},
+				{ItemType: items.STICK, Quantity: 2},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.STONE_PICKAXE, Quantity: 1},
+			},
+			CraftingTime:    3.0,
+			RequiredTool:    items.WOODEN_PICKAXE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "planks",
+			Name:        "Wooden Planks",
+			Description: "Basic building material",
+			Inputs: []RecipeInput{
+				{ItemType: items.LOG_BLOCK, Quantity: 1},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.PLANKS, Quantity: 4},
+			},
+			CraftingTime:    1.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_NONE,
+		},
+		{
+			ID:          "sticks",
+			Name:        "Sticks",
+			Description: "Basic crafting component",
+			Inputs: []RecipeInput{
+				{ItemType: items.PLANKS, Quantity: 2},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.STICK, Quantity: 4},
+			},
+			CraftingTime:    0.5,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_NONE,
+		},
+		{
+			ID:          "workbench",
+			Name:        "Workbench",
+			Description: "Basic crafting station",
+			Inputs: []RecipeInput{
+				{ItemType: items.PLANKS, Quantity: 4},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.WORKBENCH, Quantity: 1},
+			},
+			CraftingTime:    2.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_NONE,
+		},
+		{
+			ID:          "furnace",
+			Name:        "Furnace",
+			Description: "Smelting and cooking station",
+			Inputs: []RecipeInput{
+				{ItemType: items.STONE_BLOCK, Quantity: 8},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.FURNACE, Quantity: 1},
+			},
+			CraftingTime:    3.0,
+			RequiredTool:    items.WOODEN_PICKAXE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+	}
+
+	// Load default recipes
+	for i := range defaultRecipes {
+		cs.recipes[defaultRecipes[i].ID] = &defaultRecipes[i]
 	}
 
 	return nil

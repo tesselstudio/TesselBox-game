@@ -1,7 +1,7 @@
 # TesselBox Build System
 # Supports cross-platform builds (no icons)
 
-.PHONY: all clean build windows linux darwin release test icons test-verbose test-coverage test-coverage-html test-integration test-migration test-unit test-race test-bench clean-test
+.PHONY: all clean build windows linux darwin release test test-verbose test-coverage test-coverage-html test-integration test-migration test-unit test-race test-bench clean-test
 
 # Default target
 all: build
@@ -9,13 +9,22 @@ all: build
 # Build for current platform
 build:
 	@echo "Building for $(shell go env GOOS)/$(shell go env GOARCH)..."
-	@go run build/build.go
+	@mkdir -p bin
+	@go build -ldflags "-X main.Version=v0.3-alpha" -o bin/tesselbox cmd/main.go
 
 # Build for all platforms
 release: clean
 	@echo "Building release binaries..."
-	@go run build/build.go -os=windows -arch=amd64 -output=bin/tesselbox-windows-amd64.exe -release
-	@go run build/build.go -os=linux -arch=amd64 -output=bin/tesselbox-linux-amd64 -release
+	@mkdir -p bin
+	@echo "Building Windows AMD64..."
+	@GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.3-alpha -s -w" -trimpath -o bin/tesselbox-windows-amd64.exe cmd/main.go
+	@if [ "$(shell go env GOOS)" = "linux" ]; then \
+		echo "Building Linux AMD64..."; \
+		go build -ldflags "-X main.Version=v0.3-alpha -s -w" -trimpath -o bin/tesselbox-linux-amd64 cmd/main.go; \
+	else \
+		echo "Warning: Cross-compiling to Linux may fail due to Ebiten CGO dependencies"; \
+		GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.3-alpha -s -w" -trimpath -o bin/tesselbox-linux-amd64 cmd/main.go || echo "Linux cross-compilation failed - compile on native hardware"; \
+	fi
 	@echo "Note: ARM64 builds require native compilation due to Ebiten CGO dependencies"
 	@echo "Release binaries built in bin/"
 	@echo "Note: macOS builds require native compilation on macOS"
@@ -23,41 +32,37 @@ release: clean
 # Platform-specific builds
 windows:
 	@mkdir -p bin
-	@go run build/build.go -os=windows -arch=amd64 -output=bin/tesselbox.exe
+	@GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.3-alpha" -o bin/tesselbox.exe ./cmd/
 
 linux:
 	@mkdir -p bin
-	@go run build/build.go -os=linux -arch=amd64 -output=bin/tesselbox
+	@if [ "$(shell go env GOOS)" = "linux" ]; then \
+		go build -ldflags "-X main.Version=v0.3-alpha" -o bin/tesselbox ./cmd/; \
+	else \
+		echo "Warning: Cross-compiling to Linux may fail due to Ebiten CGO dependencies"; \
+		GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.3-alpha" -o bin/tesselbox ./cmd/ || echo "Linux cross-compilation failed - compile on native hardware"; \
+	fi
 
 linux-arm64:
 	@mkdir -p bin
 	@echo "Warning: ARM64 builds may fail due to Ebiten CGO dependencies"
 	@echo "For ARM64 builds, compile on native ARM64 hardware"
-	@go run build/build.go -os=linux -arch=arm64 -output=bin/tesselbox-arm64 || echo "ARM64 build failed - compile on native hardware"
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.3-alpha" -o bin/tesselbox-arm64 ./cmd/ || echo "ARM64 build failed - compile on native hardware"
 
 darwin:
 	@mkdir -p bin
-	@go run build/build.go -os=darwin -arch=amd64 -output=bin/tesselbox
+	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.3-alpha" -o bin/tesselbox ./cmd/
 
 darwin-arm64:
 	@mkdir -p bin
 	@echo "Warning: ARM64 builds may fail due to Ebiten CGO dependencies"
 	@echo "For ARM64 builds, compile on native ARM64 hardware"
-	@go run build/build.go -os=darwin -arch=arm64 -output=bin/tesselbox-arm64 || echo "ARM64 build failed - compile on native hardware"
-
-# Generate placeholder icons
-icons:
-	@echo "Generating placeholder icons..."
-	@if command -v convert >/dev/null 2>&1; then \
-		cd build && ./generate-icons.sh; \
-	else \
-		echo "ImageMagick not found. Install with: brew install imagemagick or apt-get install imagemagick"; \
-	fi
+	@GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.3-alpha" -o bin/tesselbox-arm64 ./cmd/ || echo "ARM64 build failed - compile on native hardware"
 
 # Development build (fast)
 dev:
 	@echo "Building development version..."
-	@go build -o tesselbox cmd/main.go
+	@go build -o tesselbox ./cmd/
 	@echo "Development binary: tesselbox"
 
 # Run tests
@@ -115,7 +120,6 @@ clean:
 # Install build dependencies
 deps:
 	@echo "Installing build dependencies..."
-	@go install github.com/akavel/rsrc@latest
 	@if command -v convert >/dev/null 2>&1; then \
 		echo "ImageMagick already installed"; \
 	else \
@@ -137,8 +141,6 @@ dist: release
 	@mkdir -p dist
 	@cd bin && tar -czf ../dist/tesselbox-linux-amd64.tar.gz tesselbox-linux-amd64
 	@cd bin && zip -r ../dist/tesselbox-windows-amd64.zip tesselbox-windows-amd64.exe
-	@cd bin && tar -czf ../dist/tesselbox-darwin-amd64.tar.gz TesselBox.app
-	@cd bin && tar -czf ../dist/tesselbox-darwin-arm64.tar.gz TesselBox.app
 	@echo "Distribution packages created in dist/"
 
 # Show help
@@ -153,7 +155,6 @@ help:
 	@echo "  linux-arm64 - Build Linux binary (arm64)"
 	@echo "  darwin     - Build macOS binary (amd64)"
 	@echo "  darwin-arm64 - Build macOS binary (arm64)"
-	@echo "  icons      - Generate placeholder icons"
 	@echo "  dev        - Quick development build"
 	@echo "  test-verbose       - Run tests with verbose output"
 	@echo "  test-coverage      - Run tests with coverage"

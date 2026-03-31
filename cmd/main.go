@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"tesselbox/pkg/audio"
 	"tesselbox/pkg/blocks"
 	"tesselbox/pkg/crafting"
 	"tesselbox/pkg/gametime"
@@ -105,6 +106,14 @@ type Game struct {
 	// Weather system
 	weatherSystem *weather.WeatherSystem
 
+	// Audio system
+	audioManager  *audio.AudioManager
+	soundLibrary  *audio.SoundLibrary
+
+	// Footstep audio tracking
+	lastFootstepTime time.Time
+	footstepCooldown time.Duration
+
 	// Dropped items
 	droppedItems []*DroppedItem
 
@@ -179,17 +188,59 @@ func NewGame() *Game {
 	g.craftingSystem = crafting.NewCraftingSystem()
 	if err := g.craftingSystem.LoadRecipesFromAssets(); err != nil {
 		log.Printf("Warning: Failed to load crafting recipes: %v", err)
+		log.Printf("Game will continue with default recipes")
 	}
 	g.craftingUI = crafting.NewCraftingUI(g.craftingSystem, g.inventory)
 
 	// Initialize input manager
 	g.inputManager = input.NewInputManager()
 
+	// Load game assets with validation
+	log.Printf("Loading game assets...")
+	assetLoadErrors := []string{}
+
 	// Load items
+	log.Printf("Loading items...")
 	items.LoadItems()
+	if len(items.ItemDefinitions) == 0 {
+		assetLoadErrors = append(assetLoadErrors, "No items loaded")
+	} else {
+		log.Printf("Successfully loaded %d item definitions", len(items.ItemDefinitions))
+	}
 
 	// Load blocks
+	log.Printf("Loading blocks...")
 	blocks.LoadBlocks()
+	if len(blocks.BlockDefinitions) == 0 {
+		assetLoadErrors = append(assetLoadErrors, "No blocks loaded")
+	} else {
+		log.Printf("Successfully loaded %d block definitions", len(blocks.BlockDefinitions))
+	}
+
+	// Validate essential game assets
+	essentialAssets := map[string]int{
+		"items":  len(items.ItemDefinitions),
+		"blocks": len(blocks.BlockDefinitions),
+		"recipes": g.craftingSystem.GetRecipeCount(),
+	}
+
+	assetValidationPassed := true
+	for assetType, count := range essentialAssets {
+		if count == 0 {
+			assetValidationPassed = false
+			log.Printf("CRITICAL: No %s loaded - game may not function properly", assetType)
+		} else {
+			log.Printf("Asset validation passed: %d %s loaded", count, assetType)
+		}
+	}
+
+	if !assetValidationPassed {
+		log.Printf("WARNING: Some essential assets failed to load")
+		log.Printf("Asset errors: %v", assetLoadErrors)
+		log.Printf("Game will attempt to continue with fallback systems")
+	} else {
+		log.Printf("All essential assets loaded successfully")
+	}
 
 	// Add some initial items to inventory for testing
 	g.inventory.AddItem(items.DIRT_BLOCK, 64)
@@ -212,6 +263,39 @@ func NewGame() *Game {
 
 	// Initialize weather system
 	g.weatherSystem = weather.NewWeatherSystem()
+
+	// Initialize audio system
+	g.audioManager = audio.NewAudioManager()
+	g.soundLibrary = audio.NewSoundLibrary(g.audioManager)
+	
+	// Load audio files with validation
+	log.Printf("Loading audio system...")
+	loader := audio.NewAudioLoader(g.audioManager)
+	if err := loader.LoadAllAudio(); err != nil {
+		log.Printf("Warning: Failed to load audio files: %v", err)
+		assetLoadErrors = append(assetLoadErrors, "Audio loading failed")
+		// Load placeholder sounds if real audio files are missing
+		loader.LoadPlaceholderSounds()
+		log.Printf("Loaded placeholder audio sounds")
+	} else {
+		log.Printf("Audio system loaded successfully")
+	}
+	
+	// Initialize sound library
+	g.soundLibrary.InitializeDefaultSounds()
+	
+	// Validate audio system
+	loadedSounds := g.audioManager.GetLoadedSounds()
+	if len(loadedSounds) == 0 {
+		assetLoadErrors = append(assetLoadErrors, "No audio sounds loaded")
+		log.Printf("WARNING: No audio sounds available")
+	} else {
+		log.Printf("Audio validation passed: %d sounds loaded", len(loadedSounds))
+	}
+
+	// Initialize footstep tracking
+	g.lastFootstepTime = time.Now()
+	g.footstepCooldown = 400 * time.Millisecond // Footstep every 400ms when walking
 
 	// Start in menu
 	// g.inMenu = true
@@ -265,6 +349,12 @@ func (g *Game) Update() error {
 		// Update weather system
 		g.weatherSystem.Update(deltaTime, ScreenWidth, ScreenHeight)
 
+		// Update audio system (clean up finished sounds)
+		g.audioManager.Update()
+
+		// Handle footstep sounds
+		g.handleFootstepAudio(deltaTime)
+
 		// Update dropped items physics
 		g.updateDroppedItems(deltaTime)
 
@@ -306,6 +396,9 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) handleMenuAction(action menu.MenuAction) {
+	// Play UI click sound for most actions
+	g.playUISound("click")
+	
 	switch action {
 	case menu.ActionStartGame:
 		g.inMenu = false
@@ -375,6 +468,7 @@ func (g *Game) handleGameInput() {
 
 	// Open crafting menu
 	if g.inputManager.IsActionJustPressed("crafting") || g.inputManager.IsActionJustPressed("inventory") {
+		g.playUISound("open")
 		g.inCrafting = true
 		g.craftingUI.Toggle()
 	}
@@ -450,30 +544,41 @@ func (g *Game) handleGameInput() {
 	// Hotbar selection using input manager
 	if g.inputManager.IsActionJustPressed("hotbar_1") {
 		g.inventory.SelectSlot(0)
+		g.playItemSound("hotbar_select")
 	} else if g.inputManager.IsActionJustPressed("hotbar_2") {
 		g.inventory.SelectSlot(1)
+		g.playItemSound("hotbar_select")
 	} else if g.inputManager.IsActionJustPressed("hotbar_3") {
 		g.inventory.SelectSlot(2)
+		g.playItemSound("hotbar_select")
 	} else if g.inputManager.IsActionJustPressed("hotbar_4") {
 		g.inventory.SelectSlot(3)
+		g.playItemSound("hotbar_select")
 	} else if g.inputManager.IsActionJustPressed("hotbar_5") {
 		g.inventory.SelectSlot(4)
+		g.playItemSound("hotbar_select")
 	} else if g.inputManager.IsActionJustPressed("hotbar_6") {
 		g.inventory.SelectSlot(5)
+		g.playItemSound("hotbar_select")
 	} else if g.inputManager.IsActionJustPressed("hotbar_7") {
 		g.inventory.SelectSlot(6)
+		g.playItemSound("hotbar_select")
 	} else if g.inputManager.IsActionJustPressed("hotbar_8") {
 		g.inventory.SelectSlot(7)
+		g.playItemSound("hotbar_select")
 	} else if g.inputManager.IsActionJustPressed("hotbar_9") {
 		g.inventory.SelectSlot(8)
+		g.playItemSound("hotbar_select")
 	}
 
 	// Scroll wheel for hotbar
 	_, scrollY := ebiten.Wheel()
 	if scrollY > 0 {
 		g.inventory.PrevSlot()
+		g.playItemSound("hotbar_select")
 	} else if scrollY < 0 {
 		g.inventory.NextSlot()
+		g.playItemSound("hotbar_select")
 	}
 
 	// Command system
@@ -785,6 +890,9 @@ func (g *Game) completeMining(targetHex *world.Hexagon) {
 	// Get the block type before removing
 	blockType := targetHex.BlockType
 
+	// Play mining complete sound
+	g.playBlockSound("break", blockType)
+
 	// Use the exact hexagon coordinates for removal
 	x, y := targetHex.X, targetHex.Y
 	g.world.RemoveHexagonAt(x, y)
@@ -959,6 +1067,9 @@ func (g *Game) handleBlockPlacement() {
 	blockType := stringToBlockType(blockTypeToPlace)
 	g.world.AddHexagonAt(placeX, placeY, blockType)
 
+	// Play block placement sound
+	g.playBlockSound("place", blockType)
+
 	// Remove item from inventory only if not in creative mode
 	if !g.CreativeMode {
 		g.inventory.RemoveItem(1)
@@ -1089,6 +1200,8 @@ func (g *Game) updateDroppedItems(deltaTime float64) {
 		if distance < 30.0 { // Pickup range
 			// Try to add to inventory
 			if g.inventory.AddItem(item.Type, item.Quantity) {
+				// Play pickup sound
+				g.playItemSound("pickup")
 				// Remove picked up item
 				g.droppedItems = append(g.droppedItems[:i], g.droppedItems[i+1:]...)
 			}
@@ -1878,6 +1991,111 @@ func (g *Game) StartAutoSave() {
 func (g *Game) StopAutoSave() {
 	if g.autoSaver != nil {
 		g.autoSaver.Stop()
+	}
+}
+
+// handleFootstepAudio handles footstep sounds based on player movement
+func (g *Game) handleFootstepAudio(deltaTime float64) {
+	// Only play footsteps if player is moving and on ground
+	if (g.player.MovingLeft || g.player.MovingRight) && g.player.OnGround && !g.player.IsFlying {
+		// Check if enough time has passed since last footstep
+		if time.Since(g.lastFootstepTime) >= g.footstepCooldown {
+			// Determine surface type based on player position
+			surfaceType := g.getSurfaceTypeAtPlayer()
+			g.soundLibrary.PlayFootstep(surfaceType)
+			g.lastFootstepTime = time.Now()
+		}
+	}
+}
+
+// getSurfaceTypeAtPlayer determines the surface type under the player
+func (g *Game) getSurfaceTypeAtPlayer() string {
+	// Check the block directly under the player
+	playerX, playerY := g.player.GetCenter()
+	groundY := playerY + g.player.Height/2 + 5 // Slightly below player center
+	
+	hex := g.world.GetHexagonAt(playerX, groundY)
+	if hex == nil || hex.BlockType == blocks.AIR {
+		return "air" // In air, no footstep sound
+	}
+	
+	// Convert block type to surface type
+	switch hex.BlockType {
+	case blocks.GRASS:
+		return "grass"
+	case blocks.DIRT:
+		return "dirt"
+	case blocks.STONE, blocks.BEDROCK, blocks.BRICK:
+		return "stone"
+	case blocks.SAND:
+		return "sand"
+	case blocks.WATER:
+		return "water"
+	case blocks.LOG:
+		return "wood"
+	default:
+		return "stone" // Default to stone
+	}
+}
+
+// playBlockSound plays a sound for block interactions
+func (g *Game) playBlockSound(action string, blockType blocks.BlockType) {
+	blockName := getBlockKeyFromType(blockType)
+	g.soundLibrary.PlayBlockSound(action, blockName)
+}
+
+// playItemSound plays a sound for item interactions
+func (g *Game) playItemSound(action string) {
+	g.soundLibrary.PlayItemSound(action)
+}
+
+// playUISound plays a sound for UI interactions
+func (g *Game) playUISound(action string) {
+	g.soundLibrary.PlayUISound(action)
+}
+
+// playCraftingSound plays a sound for crafting interactions
+func (g *Game) playCraftingSound(action string) {
+	g.soundLibrary.PlayCraftingSound(action)
+}
+
+// playMusic plays background music based on context
+func (g *Game) playMusic(context string) {
+	g.soundLibrary.PlayMusic(context)
+}
+
+// updateAudioContext updates the audio context based on game state
+func (g *Game) updateAudioContext() {
+	// Determine current biome (simplified)
+	biome := "plains" // Default biome
+	if g.player.Y < -500 {
+		biome = "underground"
+	}
+	
+	// Get weather from weather system
+	weather := "clear" // Default weather
+	if g.weatherSystem != nil {
+		// This would need to be implemented in weather system
+		// weather = g.weatherSystem.GetCurrentWeather()
+	}
+	
+	// Determine if underground
+	isUnderground := g.player.Y < 0
+	
+	// Determine time of day
+	timeOfDay := "day"
+	if g.dayNightCycle != nil {
+		// This would need to be implemented in day/night cycle
+		// timeOfDay = g.dayNightCycle.GetTimeOfDay()
+	}
+	
+	g.soundLibrary.UpdateContext(biome, weather, isUnderground, timeOfDay)
+}
+
+// cleanupAudio cleans up audio resources when shutting down
+func (g *Game) cleanupAudio() {
+	if g.audioManager != nil {
+		g.audioManager.Cleanup()
 	}
 }
 

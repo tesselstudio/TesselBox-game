@@ -111,35 +111,55 @@ func LoadBlocksFromAssets() {
 	loadBlocksFromEmbedded()
 }
 
-// loadBlocksFromEmbedded loads blocks from embedded YAML data
+// loadBlocksFromEmbedded loads blocks from embedded YAML data with improved validation
 func loadBlocksFromEmbedded() {
 	data, err := assets.GetConfigFile("blocks.yaml")
 	if err != nil {
-		// If file doesn't exist, skip
+		log.Printf("Warning: Failed to load blocks.yaml from embedded assets: %v", err)
+		log.Printf("Loading default block configurations...")
+		loadDefaultBlocks()
 		return
 	}
+	
 	var blocks map[string]*BlockJSON
-	err = yaml.Unmarshal(data, &blocks)
-	if err != nil {
-		// Log error and return gracefully instead of panicking
-		log.Printf("Error loading blocks configuration: %v", err)
+	if err := yaml.Unmarshal(data, &blocks); err != nil {
+		log.Printf("Warning: Failed to parse blocks.yaml: %v", err)
+		log.Printf("Loading default block configurations...")
+		loadDefaultBlocks()
 		return
 	}
+	
+	// Validate loaded blocks
+	if len(blocks) == 0 {
+		log.Printf("Warning: No valid blocks found in blocks.yaml")
+		log.Printf("Loading default block configurations...")
+		loadDefaultBlocks()
+		return
+	}
+	
+	loadedCount := 0
 	for id, b := range blocks {
+		// Validate block data
+		if b.Name == "" || len(b.Color) < 4 {
+			log.Printf("Warning: Invalid block data for %s, skipping", id)
+			continue
+		}
+		
 		props := &BlockProperties{
 			ID:          BlockTypeMap[id],
 			Name:        b.Name,
 			Color:       color.RGBA{b.Color[0], b.Color[1], b.Color[2], b.Color[3]},
-			Hardness:    b.Hardness,
-			Transparent: b.Transparent,
-			Solid:       b.Solid,
-			Collectible: b.Collectible,
-			Flammable:   b.Flammable,
-			LightLevel:  b.LightLevel,
-			Gravity:     b.Gravity,
-			Viscosity:   b.Viscosity,
+			Hardness:    validateHardness(b.Hardness),
+			Transparent: validateBool(b.Transparent, false),
+			Solid:       validateBool(b.Solid, true),
+			Collectible: validateBool(b.Collectible, true),
+			Flammable:   validateBool(b.Flammable, false),
+			LightLevel:  validateLightLevel(b.LightLevel),
+			Gravity:     validateBool(b.Gravity, false),
+			Viscosity:   validateViscosity(b.Viscosity),
 			Pattern:     b.Pattern,
 		}
+		
 		if len(b.TopColor) == 4 {
 			props.TopColor = color.RGBA{b.TopColor[0], b.TopColor[1], b.TopColor[2], b.TopColor[3]}
 		}
@@ -156,6 +176,229 @@ func loadBlocksFromEmbedded() {
 				}
 			}
 		}
+
+		BlockDefinitions[id] = props
+		loadedCount++
+	}
+	
+	if loadedCount == 0 {
+		log.Printf("Warning: No valid blocks could be loaded from blocks.yaml")
+		log.Printf("Loading default block configurations...")
+		loadDefaultBlocks()
+	} else {
+		log.Printf("Successfully loaded %d block configurations", loadedCount)
+	}
+}
+
+// Validation functions for block properties
+func validateHardness(hardness float64) float64 {
+	if hardness < 0 {
+		return 1.0 // Default hardness
+	}
+	if hardness > 100 {
+		return 100.0 // Cap maximum hardness
+	}
+	return hardness
+}
+
+func validateBool(value bool, defaultValue bool) bool {
+	// In YAML parsing, this is mostly a pass-through, but useful for consistency
+	return value
+}
+
+func validateLightLevel(level int) int {
+	if level < 0 {
+		return 0
+	}
+	if level > 15 {
+		return 15
+	}
+	return level
+}
+
+func validateViscosity(viscosity float64) float64 {
+	if viscosity < 0 {
+		return 0.0
+	}
+	if viscosity > 1.0 {
+		return 1.0
+	}
+	return viscosity
+}
+
+// loadDefaultBlocks loads essential default block configurations
+func loadDefaultBlocks() {
+	defaultBlocks := map[string]*BlockProperties{
+		"air": {
+			ID:          AIR,
+			Name:        "Air",
+			Color:       color.RGBA{0, 0, 0, 0},
+			Hardness:    0,
+			Transparent: true,
+			Solid:       false,
+			Collectible: false,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+		"dirt": {
+			ID:          DIRT,
+			Name:        "Dirt",
+			Color:       color.RGBA{139, 90, 43, 255},
+			Hardness:    0.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"grass": {
+			ID:          GRASS,
+			Name:        "Grass",
+			Color:       color.RGBA{124, 169, 84, 255},
+			TopColor:    color.RGBA{124, 169, 84, 255},
+			SideColor:   color.RGBA{139, 90, 43, 255},
+			Hardness:    0.6,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"stone": {
+			ID:          STONE,
+			Name:        "Stone",
+			Color:       color.RGBA{128, 128, 128, 255},
+			Hardness:    1.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"sand": {
+			ID:          SAND,
+			Name:        "Sand",
+			Color:       color.RGBA{238, 203, 173, 255},
+			Hardness:    0.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"water": {
+			ID:          WATER,
+			Name:        "Water",
+			Color:       color.RGBA{64, 164, 223, 128},
+			Hardness:    0,
+			Transparent: true,
+			Solid:       false,
+			Collectible: false,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+			Viscosity:   0.6,
+		},
+		"log": {
+			ID:          LOG,
+			Name:        "Log",
+			Color:       color.RGBA{139, 69, 19, 255},
+			Hardness:    1.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"leaves": {
+			ID:          LEAVES,
+			Name:        "Leaves",
+			Color:       color.RGBA{34, 139, 34, 200},
+			Hardness:    0.2,
+			Transparent: true,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+		"coal_ore": {
+			ID:          COAL_ORE,
+			Name:        "Coal Ore",
+			Color:       color.RGBA{54, 54, 54, 255},
+			Hardness:    1.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"iron_ore": {
+			ID:          IRON_ORE,
+			Name:        "Iron Ore",
+			Color:       color.RGBA{183, 183, 183, 255},
+			Hardness:    2.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"gold_ore": {
+			ID:          GOLD_ORE,
+			Name:        "Gold Ore",
+			Color:       color.RGBA{255, 215, 0, 255},
+			Hardness:    2.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"diamond_ore": {
+			ID:          DIAMOND_ORE,
+			Name:        "Diamond Ore",
+			Color:       color.RGBA{185, 242, 255, 255},
+			Hardness:    3.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"bedrock": {
+			ID:          BEDROCK,
+			Name:        "Bedrock",
+			Color:       color.RGBA{64, 64, 64, 255},
+			Hardness:    -1, // Unbreakable
+			Transparent: false,
+			Solid:       true,
+			Collectible: false,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+	}
+
+	// Load default blocks
+	loadedCount := 0
+	for id, props := range defaultBlocks {
+		BlockDefinitions[id] = props
+		loadedCount++
+	}
+	
+	log.Printf("Successfully loaded %d default block configurations", loadedCount)
+}
 
 		// Load texture if specified, otherwise generate procedural if colors available
 		if b.Texture != "" {

@@ -1,4 +1,4 @@
-# Binaries for programs and plugins
+# Go binaries and build artifacts
 *.exe
 *.exe~
 *.dll
@@ -6,127 +6,79 @@
 *.dylib
 tesselbox
 tesselbox.exe
+bin/
+dist/
 
-# Test binary, built with `go test -c`
+# Test and coverage files
 *.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+coverage.txt
 
-# Go workspace file
+# Go module and workspace files
 go.work
+go.sum
+vendor/
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go module cache
-go/
-go/pkg/
-
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
 
-# OS files
+# OS-specific files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Local configuration
+# Configuration and environment files
 .env
 *.local
+config/local.*
 
-# User-specific files
-.cache/
-.config/
-.local/
-.ssh/
-.bash_history
-.zshrc
-
-# Temporary files
-*.tmp
-*.temp
+# Game-specific files
+saves/
+worlds/
+logs/
 *.log
 
-# Archive files
+# Temporary and cache files
+*.tmp
+*.temp
+.cache/
+*.cache
+
+# Archive and distribution files
 *.zip
 *.tar.gz
+*.tar.bz2
 *.rar
+*.7z
 
-# User directories
-.MyIDE/
-.agent_hooks/
-.amp/
-.android/
-.app-store/
-.augmentcode/
-.aws/
-.azad/
-.bito/
-.bitowingman/
-.bun/
+# AI/Assistant tools
+.qodo/
+.windsurf/
+.cursor/
 .claude/
+.continue/
 .claude.json
 .claude.json.backup
-.codegpt/
-.codeium/
-.codex/
-.coding_ai_history
-.continue/
-.created/
-.cursor/
-.dotnet/
-.epic/
-.expo/
-.fitten/
-.fltk/
-.gdbinit/
-.gemini/
-.gitconfig/
-.gnome/
-.idlerc/
-.java/
-.junie/
-.kombai/
-.kombai-binaries/
-.lesshst/
-.lingma/
-.lldbinit/
-.marscode/
-.mozilla/
-.mullvad-browser/
-.MyIDE/
+
+# Development tools
+.gitconfig
+.bash_history
+.zshrc
+.python_history
+
+# Package managers
 .npm/
 .nuget/
-.nv/
-.nvm/
-.ollama/
-.opencode/
-.pam_environment/
-.pki/
-.professional_ide/
-.purecode/
-.pyenv/
-.python_history/
-.qodo/
-.sudo_as_admin_successful
-.var/
 .vcpkg/
-.wget-hsts/
-.windsurf/
-.wine/
-.xscreensaver/
-.zen/
-.zencoder/
-.zenflow/
-.zoom/
-.zshrc/
+.cargo/
 
-# Snap directories
+# Build tools directories
 snap/
-
-# GitHub directory
-github/
+node_modules/
