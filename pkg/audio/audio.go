@@ -306,6 +306,15 @@ func (am *AudioManager) GetLoadedSounds() []string {
 	return sounds
 }
 
+// HasSound checks if a sound is already loaded
+func (am *AudioManager) HasSound(name string) bool {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+	
+	_, exists := am.sounds[name]
+	return exists
+}
+
 // GetPlayingSounds returns a list of currently playing sounds
 func (am *AudioManager) GetPlayingSounds() []string {
 	am.playerMu.RLock()

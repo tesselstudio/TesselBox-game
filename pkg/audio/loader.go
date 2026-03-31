@@ -27,14 +27,43 @@ func NewAudioLoader(manager *AudioManager) *AudioLoader {
 	}
 }
 
-// LoadAllAudio loads all audio files from embedded assets
+// LoadAllAudio loads all audio files from embedded assets with robust fallback
 func (al *AudioLoader) LoadAllAudio() error {
 	log.Printf("Loading audio files from embedded assets...")
 	
-	// Since we don't have actual audio files embedded, create placeholder sounds immediately
+	loadedCount := 0
+	errorCount := 0
+	
+	// Try to load from embedded directories
+	directories := []struct {
+		path      string
+		audioType AudioType
+		volume    float64
+		loop      bool
+	}{
+		{"assets/sfx", AudioTypeSFX, 0.7, false},
+		{"assets/music", AudioTypeMusic, 0.4, true},
+		{"assets/ambient", AudioTypeAmbient, 0.3, true},
+	}
+	
+	for _, dir := range directories {
+		if err := al.loadAudioFromDir(dir.path, dir.audioType, dir.volume, dir.loop); err != nil {
+			log.Printf("Warning: Failed to load audio from %s: %v", dir.path, err)
+			errorCount++
+		} else {
+			loadedCount++
+		}
+	}
+	
+	// Always load placeholder sounds to ensure basic audio functionality
 	al.LoadPlaceholderSounds()
 	
-	log.Printf("Audio loading completed with placeholder sounds")
+	if loadedCount > 0 {
+		log.Printf("Audio loading completed: %d directories loaded, %d directories used placeholders", loadedCount, errorCount)
+	} else {
+		log.Printf("Audio loading completed with placeholder sounds only")
+	}
+	
 	return nil
 }
 
@@ -201,7 +230,7 @@ func modFloat(a, b float64) float64 {
 	return a
 }
 
-// LoadPlaceholderSounds creates placeholder sounds for missing audio files
+// LoadPlaceholderSounds creates placeholder sounds for missing audio files with improved reliability
 func (al *AudioLoader) LoadPlaceholderSounds() {
 	log.Printf("Creating placeholder audio sounds...")
 	
@@ -215,39 +244,44 @@ func (al *AudioLoader) LoadPlaceholderSounds() {
 	}{
 		"ui_click":           {440, 0.1, AudioTypeSFX, 0.5, false},
 		"ui_hover":           {880, 0.05, AudioTypeSFX, 0.3, false},
+		"ui_open":            {660, 0.15, AudioTypeSFX, 0.6, false},
+		"ui_close":           {330, 0.15, AudioTypeSFX, 0.6, false},
 		"block_place":        {660, 0.15, AudioTypeSFX, 0.6, false},
 		"block_break":        {220, 0.2, AudioTypeSFX, 0.7, false},
 		"item_pickup":        {880, 0.1, AudioTypeSFX, 0.6, false},
+		"item_drop":          {440, 0.1, AudioTypeSFX, 0.5, false},
+		"hotbar_select":      {550, 0.08, AudioTypeSFX, 0.4, false},
 		"footstep_grass":     {330, 0.1, AudioTypeSFX, 0.4, false},
 		"footstep_stone":     {440, 0.1, AudioTypeSFX, 0.5, false},
+		"footstep_dirt":      {380, 0.1, AudioTypeSFX, 0.45, false},
+		"footstep_sand":      {290, 0.1, AudioTypeSFX, 0.4, false},
 		"jump":               {550, 0.15, AudioTypeSFX, 0.6, false},
+		"land":               {220, 0.1, AudioTypeSFX, 0.5, false},
+		"craft_complete":     {880, 0.2, AudioTypeSFX, 0.6, false},
 		"menu_music":         {220, 10.0, AudioTypeMusic, 0.3, true},
 		"gameplay_music":     {110, 15.0, AudioTypeMusic, 0.4, true},
 		"wind":               {80, 20.0, AudioTypeAmbient, 0.2, true},
 		"rain":               {200, 25.0, AudioTypeAmbient, 0.3, true},
+		"night":              {60, 30.0, AudioTypeAmbient, 0.15, true},
 	}
 	
+	createdCount := 0
+	skippedCount := 0
+	
 	for name, config := range placeholderSounds {
-		// Only create placeholder if sound doesn't already exist
-		if al.manager.GetLoadedSounds() != nil {
-			loaded := al.manager.GetLoadedSounds()
-			exists := false
-			for _, loadedName := range loaded {
-				if loadedName == name {
-					exists = true
-					break
-				}
-			}
-			if exists {
-				continue
-			}
+		// Check if sound already exists to avoid duplicates
+		if al.manager.HasSound(name) {
+			skippedCount++
+			continue
 		}
 		
 		data := al.CreatePlaceholderAudio(config.frequency, config.duration, SampleRate)
 		if err := al.manager.LoadSound(name, data, config.audioType, config.volume, config.loop); err != nil {
 			log.Printf("Failed to create placeholder sound %s: %v", name, err)
+		} else {
+			createdCount++
 		}
 	}
 	
-	log.Printf("Placeholder audio sounds created")
+	log.Printf("Placeholder audio sounds created: %d new, %d skipped (already exist)", createdCount, skippedCount)
 }

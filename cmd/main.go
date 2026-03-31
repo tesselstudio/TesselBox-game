@@ -188,17 +188,59 @@ func NewGame() *Game {
 	g.craftingSystem = crafting.NewCraftingSystem()
 	if err := g.craftingSystem.LoadRecipesFromAssets(); err != nil {
 		log.Printf("Warning: Failed to load crafting recipes: %v", err)
+		log.Printf("Game will continue with default recipes")
 	}
 	g.craftingUI = crafting.NewCraftingUI(g.craftingSystem, g.inventory)
 
 	// Initialize input manager
 	g.inputManager = input.NewInputManager()
 
+	// Load game assets with validation
+	log.Printf("Loading game assets...")
+	assetLoadErrors := []string{}
+
 	// Load items
+	log.Printf("Loading items...")
 	items.LoadItems()
+	if len(items.ItemDefinitions) == 0 {
+		assetLoadErrors = append(assetLoadErrors, "No items loaded")
+	} else {
+		log.Printf("Successfully loaded %d item definitions", len(items.ItemDefinitions))
+	}
 
 	// Load blocks
+	log.Printf("Loading blocks...")
 	blocks.LoadBlocks()
+	if len(blocks.BlockDefinitions) == 0 {
+		assetLoadErrors = append(assetLoadErrors, "No blocks loaded")
+	} else {
+		log.Printf("Successfully loaded %d block definitions", len(blocks.BlockDefinitions))
+	}
+
+	// Validate essential game assets
+	essentialAssets := map[string]int{
+		"items":  len(items.ItemDefinitions),
+		"blocks": len(blocks.BlockDefinitions),
+		"recipes": g.craftingSystem.GetRecipeCount(),
+	}
+
+	assetValidationPassed := true
+	for assetType, count := range essentialAssets {
+		if count == 0 {
+			assetValidationPassed = false
+			log.Printf("CRITICAL: No %s loaded - game may not function properly", assetType)
+		} else {
+			log.Printf("Asset validation passed: %d %s loaded", count, assetType)
+		}
+	}
+
+	if !assetValidationPassed {
+		log.Printf("WARNING: Some essential assets failed to load")
+		log.Printf("Asset errors: %v", assetLoadErrors)
+		log.Printf("Game will attempt to continue with fallback systems")
+	} else {
+		log.Printf("All essential assets loaded successfully")
+	}
 
 	// Add some initial items to inventory for testing
 	g.inventory.AddItem(items.DIRT_BLOCK, 64)
@@ -226,16 +268,30 @@ func NewGame() *Game {
 	g.audioManager = audio.NewAudioManager()
 	g.soundLibrary = audio.NewSoundLibrary(g.audioManager)
 	
-	// Load audio files
+	// Load audio files with validation
+	log.Printf("Loading audio system...")
 	loader := audio.NewAudioLoader(g.audioManager)
 	if err := loader.LoadAllAudio(); err != nil {
-		log.Printf("Warning: Failed to load some audio files: %v", err)
+		log.Printf("Warning: Failed to load audio files: %v", err)
+		assetLoadErrors = append(assetLoadErrors, "Audio loading failed")
 		// Load placeholder sounds if real audio files are missing
 		loader.LoadPlaceholderSounds()
+		log.Printf("Loaded placeholder audio sounds")
+	} else {
+		log.Printf("Audio system loaded successfully")
 	}
 	
 	// Initialize sound library
 	g.soundLibrary.InitializeDefaultSounds()
+	
+	// Validate audio system
+	loadedSounds := g.audioManager.GetLoadedSounds()
+	if len(loadedSounds) == 0 {
+		assetLoadErrors = append(assetLoadErrors, "No audio sounds loaded")
+		log.Printf("WARNING: No audio sounds available")
+	} else {
+		log.Printf("Audio validation passed: %d sounds loaded", len(loadedSounds))
+	}
 
 	// Initialize footstep tracking
 	g.lastFootstepTime = time.Now()
