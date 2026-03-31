@@ -6,10 +6,32 @@ import (
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"gopkg.in/yaml.v3"
 	"tesselbox/assets"
 )
+
+
+// LiquidType represents the type of liquid
+type LiquidType int
+
+const (
+	WATER_LIQUID LiquidType = iota
+	LAVA_LIQUID
+)
+
+// LiquidProperties defines the properties of a liquid type
+type LiquidProperties struct {
+	Type         LiquidType
+	Name         string
+	Color        color.RGBA
+	Density      float64  // How heavy the liquid is
+	Viscosity    float64  // How thick/runny the liquid is (0-1)
+	FlowSpeed    float64  // How fast the liquid flows
+	LightLevel   int      // Light emission level
+	Transparent  bool
+	Gravity      bool
+	SpreadRate   int      // How far liquid spreads horizontally
+}
 
 
 // BlockType represents the type of a block
@@ -21,7 +43,6 @@ const (
 	GRASS
 	STONE
 	SAND
-	WATER
 	LOG
 	LEAVES
 	COAL_ORE
@@ -33,6 +54,38 @@ const (
 	BRICK
 	PLANK
 	CACTUS
+	WORKBENCH
+	FURNACE
+	ANVIL
+	// New decorative and functional blocks
+	GRAVEL
+	SANDSTONE
+	OBSIDIAN
+	ICE
+	SNOW
+	TORCH
+	CRAFTING_TABLE
+	CHEST
+	LADDER
+	FENCE
+	GATE
+	DOOR
+	WINDOW
+	FLOWER
+	TALL_GRASS
+	MUSHROOM_RED
+	MUSHROOM_BROWN
+	WOOL
+	BOOKSHELF
+	JUKEBOX
+	NOTE_BLOCK
+	PUMPKIN
+	MELON
+	HAY_BALE
+	COBBLESTONE
+	MOSSY_COBBLESTONE
+	STONE_BRICKS
+	CHISELED_STONE
 )
 
 // BlockProperties defines the properties of a block type
@@ -80,13 +133,44 @@ type BlockJSON struct {
 // BlockDefinitions holds all block type definitions
 var BlockDefinitions = make(map[string]*BlockProperties)
 
+// LiquidDefinitions holds all liquid type definitions
+var LiquidDefinitions = make(map[LiquidType]*LiquidProperties)
+
+// Initialize liquid definitions
+func init() {
+	LiquidDefinitions[WATER_LIQUID] = &LiquidProperties{
+		Type:        WATER_LIQUID,
+		Name:        "Water",
+		Color:       color.RGBA{64, 164, 223, 180},
+		Density:     1.0,
+		Viscosity:   0.3,  // Quite runny
+		FlowSpeed:   2.0,  // Flows moderately fast
+		LightLevel:  0,
+		Transparent: true,
+		Gravity:     true,
+		SpreadRate:  7,    // Spreads up to 7 blocks horizontally
+	}
+	
+	LiquidDefinitions[LAVA_LIQUID] = &LiquidProperties{
+		Type:        LAVA_LIQUID,
+		Name:        "Lava",
+		Color:       color.RGBA{255, 100, 0, 200},
+		Density:     3.0,  // Much heavier than water
+		Viscosity:   0.8,  // Thick and slow
+		FlowSpeed:   0.5,  // Flows slowly
+		LightLevel:  12,   // Emits light
+		Transparent: false,
+		Gravity:     true,
+		SpreadRate:  3,    // Doesn't spread as far
+	}
+}
+
 var BlockTypeMap = map[string]BlockType{
 	"air":         AIR,
 	"dirt":        DIRT,
 	"grass":       GRASS,
 	"stone":       STONE,
 	"sand":        SAND,
-	"water":       WATER,
 	"log":         LOG,
 	"leaves":      LEAVES,
 	"coal_ore":    COAL_ORE,
@@ -98,6 +182,38 @@ var BlockTypeMap = map[string]BlockType{
 	"brick":       BRICK,
 	"plank":       PLANK,
 	"cactus":      CACTUS,
+	"workbench":   WORKBENCH,
+	"furnace":     FURNACE,
+	"anvil":       ANVIL,
+	// New blocks
+	"gravel":           GRAVEL,
+	"sandstone":       SANDSTONE,
+	"obsidian":        OBSIDIAN,
+	"ice":             ICE,
+	"snow":            SNOW,
+	"torch":           TORCH,
+	"crafting_table":  CRAFTING_TABLE,
+	"chest":           CHEST,
+	"ladder":          LADDER,
+	"fence":           FENCE,
+	"gate":            GATE,
+	"door":            DOOR,
+	"window":          WINDOW,
+	"flower":          FLOWER,
+	"tall_grass":      TALL_GRASS,
+	"mushroom_red":    MUSHROOM_RED,
+	"mushroom_brown":  MUSHROOM_BROWN,
+	"wool":            WOOL,
+	"bookshelf":       BOOKSHELF,
+	"jukebox":         JUKEBOX,
+	"note_block":      NOTE_BLOCK,
+	"pumpkin":         PUMPKIN,
+	"melon":           MELON,
+	"hay_bale":        HAY_BALE,
+	"cobblestone":     COBBLESTONE,
+	"mossy_cobblestone": MOSSY_COBBLESTONE,
+	"stone_bricks":    STONE_BRICKS,
+	"chiseled_stone":  CHISELED_STONE,
 }
 
 // LoadBlocks loads block definitions from YAML files
@@ -291,19 +407,6 @@ func loadDefaultBlocks() {
 			LightLevel:  0,
 			Gravity:     true,
 		},
-		"water": {
-			ID:          WATER,
-			Name:        "Water",
-			Color:       color.RGBA{64, 164, 223, 128},
-			Hardness:    0,
-			Transparent: true,
-			Solid:       false,
-			Collectible: false,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     false,
-			Viscosity:   0.6,
-		},
 		"log": {
 			ID:          LOG,
 			Name:        "Log",
@@ -388,6 +491,187 @@ func loadDefaultBlocks() {
 			LightLevel:  0,
 			Gravity:     false,
 		},
+		"workbench": {
+			ID:          WORKBENCH,
+			Name:        "Workbench",
+			Color:       color.RGBA{139, 69, 19, 255},
+			Hardness:    1.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"furnace": {
+			ID:          FURNACE,
+			Name:        "Furnace",
+			Color:       color.RGBA{169, 169, 169, 255},
+			Hardness:    1.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"anvil": {
+			ID:          ANVIL,
+			Name:        "Anvil",
+			Color:       color.RGBA{192, 192, 192, 255},
+			Hardness:    2.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		// New decorative and functional blocks
+		"gravel": {
+			ID:          GRAVEL,
+			Name:        "Gravel",
+			Color:       color.RGBA{136, 140, 141, 255},
+			Hardness:    0.6,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"sandstone": {
+			ID:          SANDSTONE,
+			Name:        "Sandstone",
+			Color:       color.RGBA{238, 203, 173, 255},
+			Hardness:    0.8,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"obsidian": {
+			ID:          OBSIDIAN,
+			Name:        "Obsidian",
+			Color:       color.RGBA{27, 23, 23, 255},
+			Hardness:    5.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"ice": {
+			ID:          ICE,
+			Name:        "Ice",
+			Color:       color.RGBA{175, 223, 255, 200},
+			Hardness:    0.5,
+			Transparent: true,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+		"snow": {
+			ID:          SNOW,
+			Name:        "Snow",
+			Color:       color.RGBA{255, 255, 255, 255},
+			Hardness:    0.2,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+		"torch": {
+			ID:          TORCH,
+			Name:        "Torch",
+			Color:       color.RGBA{255, 200, 100, 255},
+			Hardness:    0.1,
+			Transparent: true,
+			Solid:       false,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  14,
+			Gravity:     false,
+		},
+		"crafting_table": {
+			ID:          CRAFTING_TABLE,
+			Name:        "Crafting Table",
+			Color:       color.RGBA{139, 90, 43, 255},
+			Hardness:    1.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"chest": {
+			ID:          CHEST,
+			Name:        "Chest",
+			Color:       color.RGBA{139, 90, 19, 255},
+			Hardness:    1.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"wool": {
+			ID:          WOOL,
+			Name:        "Wool",
+			Color:       color.RGBA{222, 222, 222, 255},
+			Hardness:    0.3,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"flower": {
+			ID:          FLOWER,
+			Name:        "Flower",
+			Color:       color.RGBA{255, 100, 100, 255},
+			Hardness:    0.1,
+			Transparent: true,
+			Solid:       false,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+		"pumpkin": {
+			ID:          PUMPKIN,
+			Name:        "Pumpkin",
+			Color:       color.RGBA{255, 140, 0, 255},
+			Hardness:    0.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"cobblestone": {
+			ID:          COBBLESTONE,
+			Name:        "Cobblestone",
+			Color:       color.RGBA{128, 128, 128, 255},
+			Hardness:    1.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
 	}
 
 	// Load default blocks
@@ -398,21 +682,6 @@ func loadDefaultBlocks() {
 	}
 	
 	log.Printf("Successfully loaded %d default block configurations", loadedCount)
-}
-
-		// Load texture if specified, otherwise generate procedural if colors available
-		if b.Texture != "" {
-			img, _, err := ebitenutil.NewImageFromFile(b.Texture)
-			if err == nil {
-				props.Texture = img
-			}
-		} else if len(props.Colors) > 0 {
-			// Generate procedural texture using color palette
-			props.Texture = generateProceduralTexture(props.Colors, props.ID)
-		}
-
-		BlockDefinitions[id] = props
-	}
 }
 
 // loadMods loads mod block definitions
@@ -481,4 +750,104 @@ func CollectibleByType(blockType string) bool {
 func ValidBlockType(blockType string) bool {
 	_, ok := BlockDefinitions[blockType]
 	return ok
+}
+
+// GetLiquidProperties returns the properties of a liquid type
+func GetLiquidProperties(liquidType LiquidType) *LiquidProperties {
+	return LiquidDefinitions[liquidType]
+}
+
+// IsValidLiquid checks if a liquid type is valid
+func IsValidLiquid(liquidType LiquidType) bool {
+	_, ok := LiquidDefinitions[liquidType]
+	return ok
+}
+
+// LiquidPhysics represents the physics state of a liquid cell
+type LiquidPhysics struct {
+	LiquidType   LiquidType
+	Level        float64  // 0.0 to 1.0 (empty to full)
+	Flowing      bool     // Whether this liquid is actively flowing
+	Source       bool     // Whether this is a source block
+	UpdateTime   float64  // Last time this liquid was updated
+	Pressure     float64  // Liquid pressure for physics calculations
+}
+
+// UpdateLiquidPhysics updates liquid flow based on gravity and terrain
+func UpdateLiquidPhysics(liquid *LiquidPhysics, deltaTime float64, neighbors []*LiquidPhysics) {
+	props := GetLiquidProperties(liquid.LiquidType)
+	if props == nil {
+		return
+	}
+	
+	// Apply gravity
+	if props.Gravity && liquid.Level > 0.0 {
+		// Check if liquid can flow down
+		canFlowDown := true
+		for _, neighbor := range neighbors {
+			if neighbor != nil && neighbor.Level < 1.0 {
+				canFlowDown = true
+				break
+			}
+		}
+		
+		if canFlowDown {
+			// Calculate flow rate based on viscosity
+			flowRate := props.FlowSpeed * deltaTime * (1.0 - props.Viscosity)
+			liquid.Level = max(0.0, liquid.Level-flowRate)
+			liquid.Flowing = true
+		}
+	}
+	
+	// Horizontal spreading
+	if liquid.Level > 0.0 && !liquid.Source {
+		// Spread to adjacent cells based on pressure and viscosity
+		spreadAmount := (liquid.Level * props.FlowSpeed * deltaTime) / float64(props.SpreadRate)
+		spreadAmount *= (1.0 - props.Viscosity) // More viscous liquids spread less
+		
+		liquid.Level = max(0.0, liquid.Level-spreadAmount)
+		if spreadAmount > 0.01 {
+			liquid.Flowing = true
+		}
+	}
+	
+	// Update time
+	liquid.UpdateTime += deltaTime
+	
+	// Stop flowing if level is too low
+	if liquid.Level < 0.01 {
+		liquid.Level = 0.0
+		liquid.Flowing = false
+	}
+}
+
+// CalculateLiquidShape calculates the visual shape of liquid based on level and terrain
+func CalculateLiquidShape(liquid *LiquidPhysics, terrainHeight float64) []float64 {
+	props := GetLiquidProperties(liquid.LiquidType)
+	if props == nil || liquid.Level <= 0.0 {
+		return []float64{}
+	}
+	
+	// Basic liquid shape - can be enhanced for more realistic rendering
+	shape := make([]float64, 8) // 4 points for a quad
+	
+	// Calculate liquid surface height based on level and viscosity
+	surfaceHeight := terrainHeight + (liquid.Level * 0.8) // Liquid doesn't fill completely
+	
+	// Adjust for viscosity (thicker liquids have flatter surfaces)
+	if props.Viscosity > 0.5 {
+		surfaceHeight = terrainHeight + (liquid.Level * 0.9)
+	}
+	
+	// Simple quad shape - can be replaced with more complex liquid mesh
+	shape[0] = 0.0 // x1
+	shape[1] = surfaceHeight // y1
+	shape[2] = 1.0 // x2
+	shape[3] = surfaceHeight // y2
+	shape[4] = 1.0 // x3
+	shape[5] = terrainHeight // y3
+	shape[6] = 0.0 // x4
+	shape[7] = terrainHeight // y4
+	
+	return shape
 }

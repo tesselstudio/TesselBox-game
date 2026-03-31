@@ -39,7 +39,6 @@ func stringToBlockType(blockTypeStr string) blocks.BlockType {
 		"grass":       blocks.GRASS,
 		"stone":       blocks.STONE,
 		"sand":        blocks.SAND,
-		"water":       blocks.WATER,
 		"log":         blocks.LOG,
 		"leaves":      blocks.LEAVES,
 		"coal_ore":    blocks.COAL_ORE,
@@ -51,6 +50,38 @@ func stringToBlockType(blockTypeStr string) blocks.BlockType {
 		"brick":       blocks.BRICK,
 		"plank":       blocks.PLANK,
 		"cactus":      blocks.CACTUS,
+		"workbench":   blocks.WORKBENCH,
+		"furnace":     blocks.FURNACE,
+		"anvil":       blocks.ANVIL,
+		// New blocks
+		"gravel":           blocks.GRAVEL,
+		"sandstone":       blocks.SANDSTONE,
+		"obsidian":        blocks.OBSIDIAN,
+		"ice":             blocks.ICE,
+		"snow":            blocks.SNOW,
+		"torch":           blocks.TORCH,
+		"crafting_table":  blocks.CRAFTING_TABLE,
+		"chest":           blocks.CHEST,
+		"ladder":          blocks.LADDER,
+		"fence":           blocks.FENCE,
+		"gate":            blocks.GATE,
+		"door":            blocks.DOOR,
+		"window":          blocks.WINDOW,
+		"flower":          blocks.FLOWER,
+		"tall_grass":      blocks.TALL_GRASS,
+		"mushroom_red":    blocks.MUSHROOM_RED,
+		"mushroom_brown":  blocks.MUSHROOM_BROWN,
+		"wool":            blocks.WOOL,
+		"bookshelf":       blocks.BOOKSHELF,
+		"jukebox":         blocks.JUKEBOX,
+		"note_block":      blocks.NOTE_BLOCK,
+		"pumpkin":         blocks.PUMPKIN,
+		"melon":           blocks.MELON,
+		"hay_bale":        blocks.HAY_BALE,
+		"cobblestone":     blocks.COBBLESTONE,
+		"mossy_cobblestone": blocks.MOSSY_COBBLESTONE,
+		"stone_bricks":    blocks.STONE_BRICKS,
+		"chiseled_stone":  blocks.CHISELED_STONE,
 	}
 	if bt, ok := blockMap[blockTypeStr]; ok {
 		return bt
@@ -246,6 +277,19 @@ func NewGame() *Game {
 	g.inventory.AddItem(items.DIRT_BLOCK, 64)
 	g.inventory.AddItem(items.STONE_BLOCK, 64)
 	g.inventory.AddItem(items.GRASS_BLOCK, 64)
+	g.inventory.AddItem(items.WORKBENCH, 1)
+	g.inventory.AddItem(items.FURNACE, 1)
+	g.inventory.AddItem(items.WOODEN_PICKAXE, 1)
+	g.inventory.AddItem(items.STONE_PICKAXE, 1)
+	g.inventory.AddItem(items.COAL, 10)
+	g.inventory.AddItem(items.DIAMOND, 5)
+	// Add some new blocks for testing
+	g.inventory.AddItem(items.COBBLESTONE, 32)
+	g.inventory.AddItem(items.SANDSTONE, 32)
+	g.inventory.AddItem(items.GRAVEL, 32)
+	g.inventory.AddItem(items.WOOL, 16)
+	g.inventory.AddItem(items.GLASS, 16)
+	g.inventory.AddItem(items.TORCH, 16)
 
 	// Initialize menu
 	g.menu = menu.NewMenu()
@@ -498,6 +542,40 @@ func (g *Game) handleGameInput() {
 			log.Println("Game loaded successfully")
 		}
 	}
+	
+	// Quick save (F5)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF5) {
+		if err := g.SaveGame(); err != nil {
+			log.Printf("Failed to save game: %v", err)
+		} else {
+			log.Println("Game saved successfully")
+		}
+	}
+	
+	// Backup save (F6)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF6) {
+		if g.saveManager != nil {
+			if err := g.saveManager.BackupSave(); err != nil {
+				log.Printf("Failed to backup save: %v", err)
+			} else {
+				log.Println("Save backup created successfully")
+			}
+		}
+	}
+	
+	// Save info (F7)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF7) {
+		if g.saveManager != nil {
+			if info, err := g.saveManager.GetSaveInfo(); err != nil {
+				log.Printf("Failed to get save info: %v", err)
+			} else {
+				log.Printf("Save Info - World: %s, Player: %s, Mode: %s, Play Time: %.1f min", 
+					info.WorldName, info.PlayerName, info.GameMode, info.PlayTime/60)
+				log.Printf("Stats - Blocks Placed: %d, Destroyed: %d, Items Crafted: %d", 
+					info.BlocksPlaced, info.BlocksDestroyed, info.ItemsCrafted)
+			}
+		}
+	}
 
 	// Return to menu
 	if g.inputManager.IsActionJustPressed("menu") {
@@ -579,6 +657,28 @@ func (g *Game) handleGameInput() {
 	} else if scrollY < 0 {
 		g.inventory.NextSlot()
 		g.playItemSound("hotbar_select")
+	}
+
+	// Inventory management shortcuts
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		// Ctrl+S: Sort inventory
+		g.inventory.SortInventory()
+		g.inventory.ConsolidateItems()
+		log.Printf("Inventory sorted and consolidated")
+	}
+	
+	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
+		// I: Show inventory stats
+		stats := g.inventory.GetInventoryStats()
+		log.Printf("Inventory: %d/%d slots used, %d items, %d types", 
+			stats["used_slots"], stats["total_slots"], 
+			stats["total_items"], stats["unique_types"])
+	}
+	
+	if inpututil.IsKeyJustPressed(ebiten.KeyC) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		// Ctrl+C: Consolidate items only
+		g.inventory.ConsolidateItems()
+		log.Printf("Items consolidated")
 	}
 
 	// Command system
@@ -1825,8 +1925,6 @@ func getBlockKeyFromType(blockType blocks.BlockType) string {
 		return "stone"
 	case blocks.SAND:
 		return "sand"
-	case blocks.WATER:
-		return "water"
 	case blocks.LOG:
 		return "log"
 	case blocks.LEAVES:
@@ -1946,6 +2044,12 @@ func openURL(url string) error {
 
 // createSaveState creates a save state from the current game state
 func (g *Game) createSaveState() *save.GameState {
+	// Determine game mode string
+	gameMode := "survival"
+	if g.CreativeMode {
+		gameMode = "creative"
+	}
+	
 	return &save.GameState{
 		World:      g.world,
 		Player:     g.player,
@@ -1955,6 +2059,24 @@ func (g *Game) createSaveState() *save.GameState {
 		InMenu:     g.inMenu,
 		InGame:     g.inGame,
 		InCrafting: g.inCrafting,
+		
+		// Enhanced game state
+		CreativeMode:    g.CreativeMode,
+		GameMode:        gameMode,
+		WorldTime:       g.dayNightCycle.GameTime, // Use the GameTime field directly
+		Weather:         "clear", // TODO: Implement weather system
+		PlayerHealth:    100.0, // TODO: Implement player health
+		PlayerMaxHealth: 100.0,
+		
+		// Crafting state
+		CraftingStation:  "", // TODO: Track current crafting station
+		UnlockedRecipes:  []string{}, // TODO: Track unlocked recipes
+		
+		// Statistics (TODO: Implement tracking)
+		BlocksPlaced:    0,
+		BlocksDestroyed: 0,
+		ItemsCrafted:    0,
+		PlayTime:        0, // TODO: Track play time
 	}
 }
 
@@ -2029,8 +2151,6 @@ func (g *Game) getSurfaceTypeAtPlayer() string {
 		return "stone"
 	case blocks.SAND:
 		return "sand"
-	case blocks.WATER:
-		return "water"
 	case blocks.LOG:
 		return "wood"
 	default:
