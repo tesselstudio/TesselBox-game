@@ -542,6 +542,40 @@ func (g *Game) handleGameInput() {
 			log.Println("Game loaded successfully")
 		}
 	}
+	
+	// Quick save (F5)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF5) {
+		if err := g.SaveGame(); err != nil {
+			log.Printf("Failed to save game: %v", err)
+		} else {
+			log.Println("Game saved successfully")
+		}
+	}
+	
+	// Backup save (F6)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF6) {
+		if g.saveManager != nil {
+			if err := g.saveManager.BackupSave(); err != nil {
+				log.Printf("Failed to backup save: %v", err)
+			} else {
+				log.Println("Save backup created successfully")
+			}
+		}
+	}
+	
+	// Save info (F7)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF7) {
+		if g.saveManager != nil {
+			if info, err := g.saveManager.GetSaveInfo(); err != nil {
+				log.Printf("Failed to get save info: %v", err)
+			} else {
+				log.Printf("Save Info - World: %s, Player: %s, Mode: %s, Play Time: %.1f min", 
+					info.WorldName, info.PlayerName, info.GameMode, info.PlayTime/60)
+				log.Printf("Stats - Blocks Placed: %d, Destroyed: %d, Items Crafted: %d", 
+					info.BlocksPlaced, info.BlocksDestroyed, info.ItemsCrafted)
+			}
+		}
+	}
 
 	// Return to menu
 	if g.inputManager.IsActionJustPressed("menu") {
@@ -2010,6 +2044,12 @@ func openURL(url string) error {
 
 // createSaveState creates a save state from the current game state
 func (g *Game) createSaveState() *save.GameState {
+	// Determine game mode string
+	gameMode := "survival"
+	if g.CreativeMode {
+		gameMode = "creative"
+	}
+	
 	return &save.GameState{
 		World:      g.world,
 		Player:     g.player,
@@ -2019,6 +2059,24 @@ func (g *Game) createSaveState() *save.GameState {
 		InMenu:     g.inMenu,
 		InGame:     g.inGame,
 		InCrafting: g.inCrafting,
+		
+		// Enhanced game state
+		CreativeMode:    g.CreativeMode,
+		GameMode:        gameMode,
+		WorldTime:       g.dayNightCycle.GameTime, // Use the GameTime field directly
+		Weather:         "clear", // TODO: Implement weather system
+		PlayerHealth:    100.0, // TODO: Implement player health
+		PlayerMaxHealth: 100.0,
+		
+		// Crafting state
+		CraftingStation:  "", // TODO: Track current crafting station
+		UnlockedRecipes:  []string{}, // TODO: Track unlocked recipes
+		
+		// Statistics (TODO: Implement tracking)
+		BlocksPlaced:    0,
+		BlocksDestroyed: 0,
+		ItemsCrafted:    0,
+		PlayTime:        0, // TODO: Track play time
 	}
 }
 

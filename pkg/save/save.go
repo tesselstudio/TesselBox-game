@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"tesselbox/pkg/items"
@@ -15,30 +16,47 @@ import (
 // SaveData represents the complete game state that can be saved/loaded
 type SaveData struct {
 	// Metadata
-	Version    string    `json:"version"`
-	SaveTime   time.Time `json:"save_time"`
-	WorldName  string    `json:"world_name"`
-	PlayerName string    `json:"player_name"`
-	Seed       int64     `json:"seed"`
+	Version     string    `json:"version"`
+	SaveTime    time.Time `json:"save_time"`
+	WorldName   string    `json:"world_name"`
+	PlayerName  string    `json:"player_name"`
+	Seed        int64     `json:"seed"`
+	GameMode    string    `json:"game_mode"` // "creative" or "survival"
 
 	// Player state
 	PlayerX      float64 `json:"player_x"`
 	PlayerY      float64 `json:"player_y"`
 	PlayerVX     float64 `json:"player_vx"`
 	PlayerVY     float64 `json:"player_vy"`
+	PlayerHealth float64 `json:"player_health"`
+	PlayerMaxHealth float64 `json:"player_max_health"`
 	SelectedSlot int     `json:"selected_slot"`
 
 	// Inventory state
 	InventorySlots []InventorySlotData `json:"inventory_slots"`
+	HotbarSlots   []InventorySlotData `json:"hotbar_slots"`
 
-	// World state (chunks are saved separately by world storage)
-	CameraX float64 `json:"camera_x"`
-	CameraY float64 `json:"camera_y"`
+	// World state
+	CameraX    float64 `json:"camera_x"`
+	CameraY    float64 `json:"camera_y"`
+	WorldTime  float64 `json:"world_time"` // Day/night cycle time
+	Weather    string  `json:"weather"`    // Current weather
 
 	// Game state
 	InMenu     bool `json:"in_menu"`
 	InGame     bool `json:"in_game"`
 	InCrafting bool `json:"in_crafting"`
+	CreativeMode bool `json:"creative_mode"`
+
+	// Crafting state
+	CraftingStation string `json:"crafting_station"`
+	UnlockedRecipes []string `json:"unlocked_recipes"`
+
+	// Statistics
+	BlocksPlaced   int `json:"blocks_placed"`
+	BlocksDestroyed int `json:"blocks_destroyed"`
+	ItemsCrafted    int `json:"items_crafted"`
+	PlayTime        float64 `json:"play_time_seconds"`
 }
 
 // InventorySlotData represents a single inventory slot for serialization
@@ -75,27 +93,45 @@ func NewSaveManager(worldName, playerName string) *SaveManager {
 func (sm *SaveManager) SaveGame(gameState *GameState) error {
 	// Create save data
 	saveData := &SaveData{
-		Version:    "1.0",
-		SaveTime:   time.Now(),
-		WorldName:  sm.WorldName,
-		PlayerName: sm.PlayerName,
-		Seed:       gameState.World.Seed,
+		Version:     "2.0", // Updated version for enhanced save format
+		SaveTime:    time.Now(),
+		WorldName:   sm.WorldName,
+		PlayerName:  sm.PlayerName,
+		Seed:        gameState.World.Seed,
+		GameMode:    gameState.GameMode,
 
 		// Player state
-		PlayerX:      gameState.Player.X,
-		PlayerY:      gameState.Player.Y,
-		PlayerVX:     gameState.Player.VX,
-		PlayerVY:     gameState.Player.VY,
-		SelectedSlot: gameState.Player.SelectedSlot,
+		PlayerX:        gameState.Player.X,
+		PlayerY:        gameState.Player.Y,
+		PlayerVX:       gameState.Player.VX,
+		PlayerVY:       gameState.Player.VY,
+		PlayerHealth:   gameState.PlayerHealth,
+		PlayerMaxHealth: gameState.PlayerMaxHealth,
+		SelectedSlot:  gameState.Player.SelectedSlot,
 
 		// Camera state
 		CameraX: gameState.CameraX,
 		CameraY: gameState.CameraY,
+		
+		// World state
+		WorldTime: gameState.WorldTime,
+		Weather:   gameState.Weather,
 
 		// Game state
-		InMenu:     gameState.InMenu,
-		InGame:     gameState.InGame,
-		InCrafting: gameState.InCrafting,
+		InMenu:       gameState.InMenu,
+		InGame:       gameState.InGame,
+		InCrafting:   gameState.InCrafting,
+		CreativeMode: gameState.CreativeMode,
+		
+		// Crafting state
+		CraftingStation:  gameState.CraftingStation,
+		UnlockedRecipes: gameState.UnlockedRecipes,
+
+		// Statistics
+		BlocksPlaced:    gameState.BlocksPlaced,
+		BlocksDestroyed: gameState.BlocksDestroyed,
+		ItemsCrafted:    gameState.ItemsCrafted,
+		PlayTime:        gameState.PlayTime,
 	}
 
 	// Convert inventory to serializable format
@@ -103,6 +139,21 @@ func (sm *SaveManager) SaveGame(gameState *GameState) error {
 		saveData.InventorySlots = make([]InventorySlotData, len(gameState.Inventory.Slots))
 		for i, slot := range gameState.Inventory.Slots {
 			saveData.InventorySlots[i] = InventorySlotData{
+				Type:       slot.Type,
+				Quantity:   slot.Quantity,
+				Durability: slot.Durability,
+			}
+		}
+		
+		// Save hotbar slots (first 10 slots of inventory)
+		hotbarSize := 10
+		if len(gameState.Inventory.Slots) < hotbarSize {
+			hotbarSize = len(gameState.Inventory.Slots)
+		}
+		saveData.HotbarSlots = make([]InventorySlotData, hotbarSize)
+		for i := 0; i < hotbarSize; i++ {
+			slot := gameState.Inventory.Slots[i]
+			saveData.HotbarSlots[i] = InventorySlotData{
 				Type:       slot.Type,
 				Quantity:   slot.Quantity,
 				Durability: slot.Durability,
@@ -165,15 +216,35 @@ func (sm *SaveManager) ApplySaveData(saveData *SaveData, gameState *GameState) e
 	gameState.Player.VX = saveData.PlayerVX
 	gameState.Player.VY = saveData.PlayerVY
 	gameState.Player.SelectedSlot = saveData.SelectedSlot
+	
+	// Apply enhanced player state
+	gameState.PlayerHealth = saveData.PlayerHealth
+	gameState.PlayerMaxHealth = saveData.PlayerMaxHealth
 
 	// Apply camera state
 	gameState.CameraX = saveData.CameraX
 	gameState.CameraY = saveData.CameraY
+	
+	// Apply world state
+	gameState.WorldTime = saveData.WorldTime
+	gameState.Weather = saveData.Weather
 
 	// Apply game state
 	gameState.InMenu = saveData.InMenu
 	gameState.InGame = saveData.InGame
 	gameState.InCrafting = saveData.InCrafting
+	gameState.CreativeMode = saveData.CreativeMode
+	gameState.GameMode = saveData.GameMode
+	
+	// Apply crafting state
+	gameState.CraftingStation = saveData.CraftingStation
+	gameState.UnlockedRecipes = saveData.UnlockedRecipes
+	
+	// Apply statistics
+	gameState.BlocksPlaced = saveData.BlocksPlaced
+	gameState.BlocksDestroyed = saveData.BlocksDestroyed
+	gameState.ItemsCrafted = saveData.ItemsCrafted
+	gameState.PlayTime = saveData.PlayTime
 
 	// Apply inventory state
 	if gameState.Inventory != nil && len(saveData.InventorySlots) > 0 {
@@ -195,6 +266,19 @@ func (sm *SaveManager) ApplySaveData(saveData *SaveData, gameState *GameState) e
 					Type:       slotData.Type,
 					Quantity:   slotData.Quantity,
 					Durability: slotData.Durability,
+				}
+			}
+		}
+		
+		// Restore hotbar slots if available
+		if len(saveData.HotbarSlots) > 0 {
+			for i, slotData := range saveData.HotbarSlots {
+				if i < len(gameState.Inventory.Slots) {
+					gameState.Inventory.Slots[i] = items.Item{
+						Type:       slotData.Type,
+						Quantity:   slotData.Quantity,
+						Durability: slotData.Durability,
+					}
 				}
 			}
 		}
@@ -262,6 +346,13 @@ func (sm *SaveManager) GetSaveInfo() (*SaveInfo, error) {
 		PlayerY:        saveData.PlayerY,
 		ChunkCount:     worldMetadata.ChunkCount,
 		WorldCreatedAt: worldMetadata.CreatedAt,
+		// Enhanced fields
+		GameMode:        saveData.GameMode,
+		PlayTime:        saveData.PlayTime,
+		BlocksPlaced:    saveData.BlocksPlaced,
+		BlocksDestroyed: saveData.BlocksDestroyed,
+		ItemsCrafted:    saveData.ItemsCrafted,
+		Seed:            saveData.Seed,
 	}, nil
 }
 
@@ -275,6 +366,13 @@ type SaveInfo struct {
 	PlayerY        float64   `json:"player_y"`
 	ChunkCount     int       `json:"chunk_count"`
 	WorldCreatedAt time.Time `json:"world_created_at"`
+	// Enhanced fields
+	GameMode        string  `json:"game_mode"`
+	PlayTime        float64 `json:"play_time"`
+	BlocksPlaced    int     `json:"blocks_placed"`
+	BlocksDestroyed int     `json:"blocks_destroyed"`
+	ItemsCrafted    int     `json:"items_crafted"`
+	Seed            int64   `json:"seed"`
 }
 
 // GameState represents the current game state (used for save/load operations)
@@ -287,6 +385,24 @@ type GameState struct {
 	InMenu     bool
 	InGame     bool
 	InCrafting bool
+	
+	// Enhanced game state
+	CreativeMode   bool
+	GameMode       string // "creative" or "survival"
+	WorldTime      float64 // Day/night cycle time
+	Weather        string  // Current weather
+	PlayerHealth   float64
+	PlayerMaxHealth float64
+	
+	// Crafting state
+	CraftingStation  string
+	UnlockedRecipes []string
+	
+	// Statistics
+	BlocksPlaced    int
+	BlocksDestroyed int
+	ItemsCrafted    int
+	PlayTime        float64
 }
 
 // AutoSaver handles automatic saving at intervals
@@ -367,4 +483,43 @@ func ListAllWorlds() ([]string, error) {
 // DeleteWorld deletes an entire world and all its saves
 func DeleteWorld(worldName string) error {
 	return world.DeleteWorld(worldName)
+}
+
+// BackupSave creates a backup of the current save
+func (sm *SaveManager) BackupSave() error {
+	saveData, err := sm.LoadGame()
+	if err != nil {
+		return err
+	}
+	
+	// Create backup filename with timestamp
+	timestamp := saveData.SaveTime.Format("20060102_150405")
+	backupFilename := filepath.Join(sm.SaveDir, fmt.Sprintf("backup_%s_%s.json", sm.PlayerName, timestamp))
+	
+	saveDataJSON, err := json.MarshalIndent(saveData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal backup data: %w", err)
+	}
+	
+	return os.WriteFile(backupFilename, saveDataJSON, 0644)
+}
+
+// ListBackups returns a list of all backup files for this world
+func (sm *SaveManager) ListBackups() ([]string, error) {
+	entries, err := os.ReadDir(sm.SaveDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	
+	var backups []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "backup_") {
+			backups = append(backups, entry.Name())
+		}
+	}
+	
+	return backups, nil
 }
