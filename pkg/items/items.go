@@ -644,6 +644,157 @@ func (inv *Inventory) AddItem(itemType ItemType, quantity int) bool {
 	return remaining == 0
 }
 
+// SortInventory sorts the inventory by item type and quantity
+func (inv *Inventory) SortInventory() {
+	// Create a copy of slots for sorting
+	slots := make([]Item, len(inv.Slots))
+	copy(slots, inv.Slots)
+	
+	// Sort by item type, then by quantity (descending)
+	for i := 0; i < len(slots)-1; i++ {
+		for j := i + 1; j < len(slots); j++ {
+			// Empty slots go to the end
+			if slots[i].Type == NONE && slots[j].Type != NONE {
+				slots[i], slots[j] = slots[j], slots[i]
+			} else if slots[i].Type != NONE && slots[j].Type != NONE {
+				// Sort by item type
+				if slots[i].Type > slots[j].Type {
+					slots[i], slots[j] = slots[j], slots[i]
+				} else if slots[i].Type == slots[j].Type {
+					// Same type, sort by quantity (descending)
+					if slots[i].Quantity < slots[j].Quantity {
+						slots[i], slots[j] = slots[j], slots[i]
+					}
+				}
+			}
+		}
+	}
+	
+	// Update inventory with sorted slots
+	inv.Slots = slots
+}
+
+// ConsolidateItems merges stackable items of the same type
+func (inv *Inventory) ConsolidateItems() {
+	for i := 0; i < len(inv.Slots); i++ {
+		if inv.Slots[i].Type == NONE {
+			continue
+		}
+		
+		for j := i + 1; j < len(inv.Slots); j++ {
+			if inv.Slots[j].Type == inv.Slots[i].Type {
+				props := ItemDefinitions[inv.Slots[i].Type]
+				if props != nil && props.StackSize > 1 {
+					// Calculate how much can be transferred
+					canTransfer := min(props.StackSize - inv.Slots[i].Quantity, inv.Slots[j].Quantity)
+					inv.Slots[i].Quantity += canTransfer
+					inv.Slots[j].Quantity -= canTransfer
+					
+					// Clear empty slot
+					if inv.Slots[j].Quantity == 0 {
+						inv.Slots[j] = Item{Type: NONE, Quantity: 0, Durability: -1}
+					}
+				}
+			}
+		}
+	}
+}
+
+// GetInventoryStats returns statistics about the inventory
+func (inv *Inventory) GetInventoryStats() map[string]interface{} {
+	totalItems := 0
+	usedSlots := 0
+	uniqueItems := make(map[ItemType]int)
+	
+	for _, slot := range inv.Slots {
+		if slot.Type != NONE {
+			usedSlots++
+			totalItems += slot.Quantity
+			uniqueItems[slot.Type] += slot.Quantity
+		}
+	}
+	
+	return map[string]interface{}{
+		"total_slots":    len(inv.Slots),
+		"used_slots":     usedSlots,
+		"empty_slots":    len(inv.Slots) - usedSlots,
+		"total_items":    totalItems,
+		"unique_types":   len(uniqueItems),
+		"selected_slot":  inv.Selected,
+	}
+}
+
+// SwapSlots swaps two slots in the inventory
+func (inv *Inventory) SwapSlots(slot1, slot2 int) bool {
+	if slot1 < 0 || slot1 >= len(inv.Slots) || slot2 < 0 || slot2 >= len(inv.Slots) {
+		return false
+	}
+	
+	inv.Slots[slot1], inv.Slots[slot2] = inv.Slots[slot2], inv.Slots[slot1]
+	
+	// Update selected slot if it was affected
+	if inv.Selected == slot1 {
+		inv.Selected = slot2
+	} else if inv.Selected == slot2 {
+		inv.Selected = slot1
+	}
+	
+	return true
+}
+
+// MoveItem moves an item from one slot to another
+func (inv *Inventory) MoveItem(fromSlot, toSlot int, quantity int) bool {
+	if fromSlot < 0 || fromSlot >= len(inv.Slots) || toSlot < 0 || toSlot >= len(inv.Slots) {
+		return false
+	}
+	
+	fromItem := &inv.Slots[fromSlot]
+	toItem := &inv.Slots[toSlot]
+	
+	if fromItem.Type == NONE {
+		return false // Nothing to move
+	}
+	
+	// Clamp quantity to available amount
+	if quantity > fromItem.Quantity {
+		quantity = fromItem.Quantity
+	}
+	
+	// If target slot is empty, move the item
+	if toItem.Type == NONE {
+		toItem.Type = fromItem.Type
+		toItem.Quantity = quantity
+		toItem.Durability = fromItem.Durability
+		
+		fromItem.Quantity -= quantity
+		if fromItem.Quantity == 0 {
+			fromItem.Type = NONE
+			fromItem.Durability = -1
+		}
+		return true
+	}
+	
+	// If target slot has same item type, try to stack
+	if toItem.Type == fromItem.Type {
+		props := ItemDefinitions[fromItem.Type]
+		if props != nil && props.StackSize > 1 {
+			canAdd := min(props.StackSize - toItem.Quantity, quantity)
+			toItem.Quantity += canAdd
+			fromItem.Quantity -= canAdd
+			
+			if fromItem.Quantity == 0 {
+				fromItem.Type = NONE
+				fromItem.Durability = -1
+			}
+			return true
+		}
+	}
+	
+	// If we can't stack, swap the items
+	inv.SwapSlots(fromSlot, toSlot)
+	return true
+}
+
 // RemoveItem removes items from the selected slot
 func (inv *Inventory) RemoveItem(quantity int) bool {
 	if inv.Selected >= len(inv.Slots) {

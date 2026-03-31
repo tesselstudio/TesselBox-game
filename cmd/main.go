@@ -590,6 +590,28 @@ func (g *Game) handleGameInput() {
 		g.playItemSound("hotbar_select")
 	}
 
+	// Inventory management shortcuts
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		// Ctrl+S: Sort inventory
+		g.inventory.SortInventory()
+		g.inventory.ConsolidateItems()
+		log.Printf("Inventory sorted and consolidated")
+	}
+	
+	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
+		// I: Show inventory stats
+		stats := g.inventory.GetInventoryStats()
+		log.Printf("Inventory: %d/%d slots used, %d items, %d types", 
+			stats["used_slots"], stats["total_slots"], 
+			stats["total_items"], stats["unique_types"])
+	}
+	
+	if inpututil.IsKeyJustPressed(ebiten.KeyC) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		// Ctrl+C: Consolidate items only
+		g.inventory.ConsolidateItems()
+		log.Printf("Items consolidated")
+	}
+
 	// Command system
 	if g.inputManager.IsActionJustPressed("command") {
 		g.commandMode = true
