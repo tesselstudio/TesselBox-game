@@ -143,8 +143,6 @@ func getBlockKey(blockType blocks.BlockType) string {
 		return "stone"
 	case blocks.SAND:
 		return "sand"
-	case blocks.WATER:
-		return "water"
 	case blocks.LOG:
 		return "log"
 	case blocks.LEAVES:

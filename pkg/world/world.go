@@ -225,7 +225,8 @@ func (w *World) generateChunk(chunk *Chunk) {
 			if depth < -10 {
 				// Above surface - air (unless it's an ocean)
 				if biomeType == biomes.OCEAN && depth < 0 && depth > -60 {
-					blockType = blocks.WATER
+					// TODO: Implement liquid system for oceans
+					blockType = blocks.AIR // Temporarily use air until liquid system is integrated
 				} else {
 					blockType = blocks.AIR
 				}

@@ -39,7 +39,6 @@ func stringToBlockType(blockTypeStr string) blocks.BlockType {
 		"grass":       blocks.GRASS,
 		"stone":       blocks.STONE,
 		"sand":        blocks.SAND,
-		"water":       blocks.WATER,
 		"log":         blocks.LOG,
 		"leaves":      blocks.LEAVES,
 		"coal_ore":    blocks.COAL_ORE,
@@ -1892,8 +1891,6 @@ func getBlockKeyFromType(blockType blocks.BlockType) string {
 		return "stone"
 	case blocks.SAND:
 		return "sand"
-	case blocks.WATER:
-		return "water"
 	case blocks.LOG:
 		return "log"
 	case blocks.LEAVES:
@@ -2096,8 +2093,6 @@ func (g *Game) getSurfaceTypeAtPlayer() string {
 		return "stone"
 	case blocks.SAND:
 		return "sand"
-	case blocks.WATER:
-		return "water"
 	case blocks.LOG:
 		return "wood"
 	default:
