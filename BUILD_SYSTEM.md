@@ -1,22 +1,7 @@
 # TesselBox Build System
 
 ## Overview
-Complete cross-platform build system for TesselBox with embedded assets and automated releases.
-
-## Files Created
-
-### Core Build System
-- `build/build.go` - Main build script with cross-platform support
-- `build/go.mod` - Build module dependencies
-- `build/version.go` - Version info generator
-
-### Icon Generation
-- `build/generate-icons.sh` - Creates platform-specific icons
-- `assets/icons/` - Generated icon files (.ico, .icns, .png)
-
-### Automation
-- `.github/workflows/release.yml` - GitHub Actions CI/CD
-- `build/release.sh` - Automated release script
+Simple Make-based build system for TesselBox with cross-platform support.
 
 ## Usage
 
@@ -25,66 +10,78 @@ Complete cross-platform build system for TesselBox with embedded assets and auto
 # Build for current platform
 make build
 
-# Build for all platforms
+# Build for all platforms (release optimized)
 make release
 
 # Build for specific platform
 make windows
 make linux
 make darwin
-```
+make linux-arm64
+make darwin-arm64
 
-### Direct Build Script
-```bash
-cd build
-go run build.go -os=linux -arch=amd64 -output=tesselbox -release
-```
+# Quick development build
+make dev
 
-### Generate Icons
-```bash
-cd build
-./generate-icons.sh
-```
+# Clean build artifacts
+make clean
 
-### Release Process
-```bash
-cd build
-./release.sh 2.0.0
+# Install build dependencies
+make deps
+
+# Create distribution packages
+make dist
 ```
 
 ## Features
 
 ✅ **Cross-platform builds** (Windows, Linux, macOS Intel/ARM)
-✅ **Embedded assets** (single binary distribution)
-✅ **Icon generation** (platform-specific formats)
-✅ **Automated releases** (GitHub Actions)
-✅ **Version management** (semantic versioning)
-✅ **Optimized builds** (stripped binaries)
-✅ **CI/CD pipeline** (automated testing and building)
+✅ **Optimized builds** (stripped binaries for release)
+✅ **Simple Make-based system** (no external build scripts)
+✅ **Development builds** (fast iteration)
+✅ **Package creation** (tar.gz and zip distributions)
 
 ## Output
 
-Builds create optimized binaries in the `bin/` directory:
+Builds create binaries in the `bin/` directory:
 - `tesselbox-windows-amd64.exe`
 - `tesselbox-linux-amd64`
 - `tesselbox-darwin-amd64`
 - `tesselbox-darwin-arm64`
 
-## Release Automation
+Release builds include optimization flags:
+- `-s -w` for stripped binaries
+- `-trimpath` for cleaner stack traces
+- Version injection via ldflags
 
-1. Push tag to trigger GitHub Actions
-2. Automatic cross-platform builds
-3. Generated release with all binaries
-4. Automatic release notes
-5. Artifact upload
+## Build Targets
 
-## Next Steps
+### Core Targets
+- `build` - Build for current platform
+- `release` - Build optimized binaries for all platforms
+- `clean` - Remove build artifacts
+- `dev` - Quick development build
 
-To complete the distribution system:
+### Platform-specific
+- `windows` - Windows AMD64 binary
+- `linux` - Linux AMD64 binary
+- `darwin` - macOS Intel binary
+- `linux-arm64` - Linux ARM64 binary (native compilation required)
+- `darwin-arm64` - macOS ARM64 binary (native compilation required)
 
-1. **Package Managers**: Homebrew, Snap, Winget formulas
-2. **Game Platforms**: Itch.io, Steam integration
-3. **Installer Creation**: MSI, DMG, AppImage packages
-4. **Auto-updater**: Built-in update mechanism
+### Utilities
+- `test` - Run all tests
+- `test-verbose` - Run tests with verbose output
+- `test-coverage` - Run tests with coverage
+- `deps` - Install build dependencies
+- `dist` - Create distribution packages
+- `help` - Show available targets
 
-The build system is now complete and ready for production use! 🚀
+## Notes
+
+- ARM64 builds require native compilation due to Ebiten CGO dependencies
+- macOS builds should be performed on macOS hardware
+- Icons are generated separately if needed
+- Version is set to `v0.3-alpha` by default
+
+The build system is now simplified and uses native Make commands! 🚀
