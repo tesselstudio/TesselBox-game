@@ -44,11 +44,13 @@ const (
 
 // MenuItem represents a menu option
 type MenuItem struct {
-	Text     string
-	Action   MenuAction
-	Position int
-	Hovered  bool
-	Enabled  bool
+	Text        string
+	Action      MenuAction
+	Position    int
+	Hovered     bool
+	Enabled     bool
+	Tooltip     string
+	Description string
 }
 
 // Menu represents the main menu system
@@ -75,6 +77,14 @@ type Menu struct {
 	// Animation
 	animTimer     float64
 	rotationAngle float64
+
+	// Tooltip system
+	TooltipVisible   bool
+	TooltipText      string
+	TooltipX, TooltipY int
+	TooltipTimer     float64
+	TooltipDelay     float64
+	TooltipAlpha     float64
 
 	// Transitions
 	fadeAlpha     float64
@@ -104,6 +114,12 @@ func NewMenu() *Menu {
 		whiteImage:      whiteImage,
 		MaxVisibleItems: 8, // Show max 8 items at once
 		ScrollOffset:    0,
+		// Tooltip system initialization
+		TooltipVisible: false,
+		TooltipText:    "",
+		TooltipTimer:   0.0,
+		TooltipDelay:   0.5, // 0.5 second delay
+		TooltipAlpha:   0.0,
 	}
 
 	menu.SetMainMenu()
@@ -126,16 +142,20 @@ func (m *Menu) SetMainMenu() {
 	m.CurrentMenu = MenuMain
 	m.Title = "TESSELBOX"
 	m.Items = []MenuItem{
-		{Text: "START GAME", Action: ActionStartGame, Position: 0, Enabled: true},
+		{Text: "START GAME", Action: ActionStartGame, Position: 0, Enabled: true,
+			Tooltip: "Start a new game session", Description: "Begin your adventure in the hexagon world"},
 	}
 
 	if m.CreativeMode {
-		m.Items = append(m.Items, MenuItem{Text: "BLOCK LIBRARY", Action: ActionOpenBlockLibrary, Position: len(m.Items), Enabled: true})
+		m.Items = append(m.Items, MenuItem{Text: "BLOCK LIBRARY", Action: ActionOpenBlockLibrary, Position: len(m.Items), Enabled: true,
+			Tooltip: "Browse and select blocks", Description: "Access all available block types for creative mode"})
 	}
 
 	m.Items = append(m.Items, []MenuItem{
-		{Text: "SETTINGS", Action: ActionOpenSettings, Position: len(m.Items), Enabled: true},
-		{Text: "EXIT", Action: ActionExit, Position: len(m.Items), Enabled: true},
+		{Text: "SETTINGS", Action: ActionOpenSettings, Position: len(m.Items), Enabled: true,
+			Tooltip: "Configure game settings", Description: "Adjust audio, video and gameplay options"},
+		{Text: "EXIT", Action: ActionExit, Position: len(m.Items), Enabled: true,
+			Tooltip: "Exit the game", Description: "Close TesselBox and return to desktop"},
 	}...)
 	m.SelectedItem = 0
 }
@@ -186,6 +206,9 @@ func (m *Menu) Update() MenuAction {
 	// Update animations
 	m.animTimer += 0.016 // Approx 60 FPS
 	m.rotationAngle += 0.005
+
+	// Update tooltips
+	m.updateTooltip(0.016)
 
 	// Handle fade transition
 	if m.transitioning {
@@ -381,6 +404,9 @@ func (m *Menu) Draw(screen *ebiten.Image) {
 	// Draw menu items
 	m.drawMenuItems(screen)
 
+	// Draw tooltips
+	m.drawTooltip(screen)
+
 	// Draw version info
 	ebitenutil.DebugPrintAt(screen, "v2.0 - Hexagon Sandbox", 10, 690)
 }
@@ -570,4 +596,166 @@ func rotatePoint(x, y, cx, cy, angle float64) [2]float64 {
 	rotatedY := cy + dx*sin + dy*cos
 
 	return [2]float64{rotatedX, rotatedY}
+}
+
+// drawTooltip renders the tooltip if visible
+func (m *Menu) drawTooltip(screen *ebiten.Image) {
+	if !m.TooltipVisible || m.TooltipText == "" {
+		return
+	}
+
+	// Calculate tooltip dimensions
+	padding := 10
+	maxWidth := 300
+	lines := m.wrapText(m.TooltipText, maxWidth)
+	
+	lineHeight := 20
+	tooltipWidth := maxWidth + padding*2
+	tooltipHeight := len(lines)*lineHeight + padding*2
+
+	// Ensure tooltip stays on screen
+	tooltipX := m.TooltipX
+	tooltipY := m.TooltipY
+	
+	if tooltipX+tooltipWidth > 1280 {
+		tooltipX = 1280 - tooltipWidth - 10
+	}
+	if tooltipY+tooltipHeight > 720 {
+		tooltipY = 720 - tooltipHeight - 10
+	}
+	if tooltipX < 0 {
+		tooltipX = 10
+	}
+	if tooltipY < 0 {
+		tooltipY = 10
+	}
+
+	// Draw tooltip background with alpha
+	bgColor := color.RGBA{40, 40, 50, uint8(m.TooltipAlpha * 200)}
+	borderColor := color.RGBA{120, 180, 255, uint8(m.TooltipAlpha * 255)}
+	
+	m.drawHexButton(screen, float64(tooltipX), float64(tooltipY), float64(tooltipWidth), float64(tooltipHeight), bgColor, borderColor)
+
+	// Draw tooltip text
+	for i, line := range lines {
+		ebitenutil.DebugPrintAt(screen, line, tooltipX+padding, tooltipY+padding+i*lineHeight)
+	}
+}
+
+// updateTooltip updates the tooltip state based on hover
+func (m *Menu) updateTooltip(deltaTime float64) {
+	mx, my := ebiten.CursorPosition()
+	
+	// Check if hovering over any menu item
+	hoveringItem := false
+	for i, item := range m.Items {
+		if !item.Enabled || item.Tooltip == "" {
+			continue
+		}
+
+		// Calculate item position (same as drawMenuItems)
+		screenWidth := 1280
+		screenHeight := 720
+		startY := screenHeight/2 - 100
+		itemHeight := 80
+		itemWidth := 450
+		centerX := screenWidth / 2
+		startX := centerX - itemWidth/2
+		
+		// Check if this item is visible
+		if i < m.ScrollOffset || i >= m.ScrollOffset+m.VisibleItems {
+			continue
+		}
+		
+		visibleIndex := i - m.ScrollOffset
+		itemY := startY + visibleIndex*itemHeight
+
+		// Check if mouse is hovering over this item
+		if mx >= startX && mx <= startX+itemWidth &&
+			my >= itemY && my <= itemY+itemHeight-10 {
+			
+			if !m.TooltipVisible || m.TooltipText != item.Tooltip {
+				m.TooltipTimer = 0.0
+				m.TooltipText = item.Tooltip
+				m.TooltipX = mx + 15
+				m.TooltipY = my - 30
+			}
+			
+			m.TooltipTimer += deltaTime
+			if m.TooltipTimer >= m.TooltipDelay {
+				m.TooltipVisible = true
+				// Fade in effect
+				if m.TooltipAlpha < 1.0 {
+					m.TooltipAlpha = min(1.0, m.TooltipAlpha+deltaTime*3)
+				}
+			}
+			
+			hoveringItem = true
+			break
+		}
+	}
+	
+	// Hide tooltip if not hovering
+	if !hoveringItem {
+		if m.TooltipVisible {
+			// Fade out effect
+			m.TooltipAlpha -= deltaTime * 3
+			if m.TooltipAlpha <= 0 {
+				m.TooltipVisible = false
+				m.TooltipAlpha = 0
+				m.TooltipText = ""
+			}
+		} else {
+			m.TooltipTimer = 0
+		}
+	}
+}
+
+// wrapText wraps text to fit within maxWidth
+func (m *Menu) wrapText(text string, maxWidth int) []string {
+	words := []string{}
+	currentWord := ""
+	
+	for _, char := range text {
+		if char == ' ' {
+			if currentWord != "" {
+				words = append(words, currentWord)
+				currentWord = ""
+			}
+		} else {
+			currentWord += string(char)
+		}
+	}
+	if currentWord != "" {
+		words = append(words, currentWord)
+	}
+	
+	lines := []string{}
+	currentLine := ""
+	
+	for _, word := range words {
+		testLine := currentLine
+		if testLine != "" {
+			testLine += " "
+		}
+		testLine += word
+		
+		// Rough estimate of text width (6 pixels per character)
+		if len(testLine)*6 > maxWidth {
+			if currentLine != "" {
+				lines = append(lines, currentLine)
+				currentLine = word
+			} else {
+				lines = append(lines, word)
+			}
+		} else {
+			currentLine = testLine
+		}
+	}
+	
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+	
+	return lines
 }
