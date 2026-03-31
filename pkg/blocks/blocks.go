@@ -35,6 +35,35 @@ const (
 	WORKBENCH
 	FURNACE
 	ANVIL
+	// New decorative and functional blocks
+	GRAVEL
+	SANDSTONE
+	OBSIDIAN
+	ICE
+	SNOW
+	TORCH
+	CRAFTING_TABLE
+	CHEST
+	LADDER
+	FENCE
+	GATE
+	DOOR
+	WINDOW
+	FLOWER
+	TALL_GRASS
+	MUSHROOM_RED
+	MUSHROOM_BROWN
+	WOOL
+	BOOKSHELF
+	JUKEBOX
+	NOTE_BLOCK
+	PUMPKIN
+	MELON
+	HAY_BALE
+	COBBLESTONE
+	MOSSY_COBBLESTONE
+	STONE_BRICKS
+	CHISELED_STONE
 )
 
 // BlockProperties defines the properties of a block type
@@ -103,6 +132,35 @@ var BlockTypeMap = map[string]BlockType{
 	"workbench":   WORKBENCH,
 	"furnace":     FURNACE,
 	"anvil":       ANVIL,
+	// New blocks
+	"gravel":           GRAVEL,
+	"sandstone":       SANDSTONE,
+	"obsidian":        OBSIDIAN,
+	"ice":             ICE,
+	"snow":            SNOW,
+	"torch":           TORCH,
+	"crafting_table":  CRAFTING_TABLE,
+	"chest":           CHEST,
+	"ladder":          LADDER,
+	"fence":           FENCE,
+	"gate":            GATE,
+	"door":            DOOR,
+	"window":          WINDOW,
+	"flower":          FLOWER,
+	"tall_grass":      TALL_GRASS,
+	"mushroom_red":    MUSHROOM_RED,
+	"mushroom_brown":  MUSHROOM_BROWN,
+	"wool":            WOOL,
+	"bookshelf":       BOOKSHELF,
+	"jukebox":         JUKEBOX,
+	"note_block":      NOTE_BLOCK,
+	"pumpkin":         PUMPKIN,
+	"melon":           MELON,
+	"hay_bale":        HAY_BALE,
+	"cobblestone":     COBBLESTONE,
+	"mossy_cobblestone": MOSSY_COBBLESTONE,
+	"stone_bricks":    STONE_BRICKS,
+	"chiseled_stone":  CHISELED_STONE,
 }
 
 // LoadBlocks loads block definitions from YAML files
@@ -422,6 +480,151 @@ func loadDefaultBlocks() {
 			Name:        "Anvil",
 			Color:       color.RGBA{192, 192, 192, 255},
 			Hardness:    2.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		// New decorative and functional blocks
+		"gravel": {
+			ID:          GRAVEL,
+			Name:        "Gravel",
+			Color:       color.RGBA{136, 140, 141, 255},
+			Hardness:    0.6,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"sandstone": {
+			ID:          SANDSTONE,
+			Name:        "Sandstone",
+			Color:       color.RGBA{238, 203, 173, 255},
+			Hardness:    0.8,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"obsidian": {
+			ID:          OBSIDIAN,
+			Name:        "Obsidian",
+			Color:       color.RGBA{27, 23, 23, 255},
+			Hardness:    5.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"ice": {
+			ID:          ICE,
+			Name:        "Ice",
+			Color:       color.RGBA{175, 223, 255, 200},
+			Hardness:    0.5,
+			Transparent: true,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+		"snow": {
+			ID:          SNOW,
+			Name:        "Snow",
+			Color:       color.RGBA{255, 255, 255, 255},
+			Hardness:    0.2,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+		"torch": {
+			ID:          TORCH,
+			Name:        "Torch",
+			Color:       color.RGBA{255, 200, 100, 255},
+			Hardness:    0.1,
+			Transparent: true,
+			Solid:       false,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  14,
+			Gravity:     false,
+		},
+		"crafting_table": {
+			ID:          CRAFTING_TABLE,
+			Name:        "Crafting Table",
+			Color:       color.RGBA{139, 90, 43, 255},
+			Hardness:    1.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"chest": {
+			ID:          CHEST,
+			Name:        "Chest",
+			Color:       color.RGBA{139, 90, 19, 255},
+			Hardness:    1.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"wool": {
+			ID:          WOOL,
+			Name:        "Wool",
+			Color:       color.RGBA{222, 222, 222, 255},
+			Hardness:    0.3,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"flower": {
+			ID:          FLOWER,
+			Name:        "Flower",
+			Color:       color.RGBA{255, 100, 100, 255},
+			Hardness:    0.1,
+			Transparent: true,
+			Solid:       false,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     false,
+		},
+		"pumpkin": {
+			ID:          PUMPKIN,
+			Name:        "Pumpkin",
+			Color:       color.RGBA{255, 140, 0, 255},
+			Hardness:    0.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"cobblestone": {
+			ID:          COBBLESTONE,
+			Name:        "Cobblestone",
+			Color:       color.RGBA{128, 128, 128, 255},
+			Hardness:    1.5,
 			Transparent: false,
 			Solid:       true,
 			Collectible: true,

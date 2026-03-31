@@ -32,6 +32,21 @@ const (
 	GEL
 	STRING
 	ROTTEN_FLESH
+	// New block items
+	COBBLESTONE
+	SANDSTONE
+	GRAVEL
+	OBSIDIAN
+	ICE
+	SNOW
+	TORCH
+	CHEST
+	LADDER
+	FENCE
+	WOOL
+	FLOWER
+	PUMPKIN
+	GLASS
 	// Weapons
 	WOODEN_SWORD
 	STONE_SWORD
@@ -122,6 +137,21 @@ var ItemTypeMap = map[string]ItemType{
 	"gel":                GEL,
 	"string":             STRING,
 	"rotten_flesh":       ROTTEN_FLESH,
+	// New block items
+	"cobblestone":        COBBLESTONE,
+	"sandstone":          SANDSTONE,
+	"gravel":             GRAVEL,
+	"obsidian":           OBSIDIAN,
+	"ice":                ICE,
+	"snow":               SNOW,
+	"torch":              TORCH,
+	"chest":              CHEST,
+	"ladder":             LADDER,
+	"fence":              FENCE,
+	"wool":               WOOL,
+	"flower":             FLOWER,
+	"pumpkin":            PUMPKIN,
+	"glass":              GLASS,
 	"wooden_sword":       WOODEN_SWORD,
 	"stone_sword":        STONE_SWORD,
 	"iron_sword":         IRON_SWORD,
@@ -242,6 +272,161 @@ var ItemDefinitions = map[ItemType]*ItemProperties{
 		StackSize:   64,
 		Durability:  -1,
 		IsTool:      false,
+	},
+	// New block items
+	COBBLESTONE: {
+		ID:          COBBLESTONE,
+		Name:        "Cobblestone",
+		IconColor:   color.RGBA{128, 128, 128, 255},
+		Description: "Rough stone block",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "cobblestone",
+	},
+	SANDSTONE: {
+		ID:          SANDSTONE,
+		Name:        "Sandstone",
+		IconColor:   color.RGBA{238, 203, 173, 255},
+		Description: "Compressed sand block",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "sandstone",
+	},
+	GRAVEL: {
+		ID:          GRAVEL,
+		Name:        "Gravel",
+		IconColor:   color.RGBA{136, 140, 141, 255},
+		Description: "Loose stone fragments",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "gravel",
+	},
+	OBSIDIAN: {
+		ID:          OBSIDIAN,
+		Name:        "Obsidian",
+		IconColor:   color.RGBA{27, 23, 23, 255},
+		Description: "Volcanic glass block",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "obsidian",
+	},
+	ICE: {
+		ID:          ICE,
+		Name:        "Ice",
+		IconColor:   color.RGBA{175, 223, 255, 255},
+		Description: "Frozen water block",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "ice",
+	},
+	SNOW: {
+		ID:          SNOW,
+		Name:        "Snow",
+		IconColor:   color.RGBA{255, 255, 255, 255},
+		Description: "Snow layer",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "snow",
+	},
+	TORCH: {
+		ID:          TORCH,
+		Name:        "Torch",
+		IconColor:   color.RGBA{255, 200, 100, 255},
+		Description: "Light source",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "torch",
+	},
+	CHEST: {
+		ID:          CHEST,
+		Name:        "Chest",
+		IconColor:   color.RGBA{139, 90, 19, 255},
+		Description: "Storage container",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "chest",
+	},
+	LADDER: {
+		ID:          LADDER,
+		Name:        "Ladder",
+		IconColor:   color.RGBA{139, 90, 43, 255},
+		Description: "Climbing aid",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "ladder",
+	},
+	FENCE: {
+		ID:          FENCE,
+		Name:        "Fence",
+		IconColor:   color.RGBA{139, 90, 43, 255},
+		Description: "Barrier for animals",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "fence",
+	},
+	WOOL: {
+		ID:          WOOL,
+		Name:        "Wool",
+		IconColor:   color.RGBA{222, 222, 222, 255},
+		Description: "Textile block",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "wool",
+	},
+	FLOWER: {
+		ID:          FLOWER,
+		Name:        "Flower",
+		IconColor:   color.RGBA{255, 100, 100, 255},
+		Description: "Decorative plant",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "flower",
+	},
+	PUMPKIN: {
+		ID:          PUMPKIN,
+		Name:        "Pumpkin",
+		IconColor:   color.RGBA{255, 140, 0, 255},
+		Description: "Decorative gourd",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "pumpkin",
+	},
+	GLASS: {
+		ID:          GLASS,
+		Name:        "Glass",
+		IconColor:   color.RGBA{200, 200, 255, 255},
+		Description: "Transparent block",
+		StackSize:   64,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "glass",
 	},
 	PLANKS: {
 		ID:          PLANKS,

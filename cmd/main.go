@@ -54,6 +54,35 @@ func stringToBlockType(blockTypeStr string) blocks.BlockType {
 		"workbench":   blocks.WORKBENCH,
 		"furnace":     blocks.FURNACE,
 		"anvil":       blocks.ANVIL,
+		// New blocks
+		"gravel":           blocks.GRAVEL,
+		"sandstone":       blocks.SANDSTONE,
+		"obsidian":        blocks.OBSIDIAN,
+		"ice":             blocks.ICE,
+		"snow":            blocks.SNOW,
+		"torch":           blocks.TORCH,
+		"crafting_table":  blocks.CRAFTING_TABLE,
+		"chest":           blocks.CHEST,
+		"ladder":          blocks.LADDER,
+		"fence":           blocks.FENCE,
+		"gate":            blocks.GATE,
+		"door":            blocks.DOOR,
+		"window":          blocks.WINDOW,
+		"flower":          blocks.FLOWER,
+		"tall_grass":      blocks.TALL_GRASS,
+		"mushroom_red":    blocks.MUSHROOM_RED,
+		"mushroom_brown":  blocks.MUSHROOM_BROWN,
+		"wool":            blocks.WOOL,
+		"bookshelf":       blocks.BOOKSHELF,
+		"jukebox":         blocks.JUKEBOX,
+		"note_block":      blocks.NOTE_BLOCK,
+		"pumpkin":         blocks.PUMPKIN,
+		"melon":           blocks.MELON,
+		"hay_bale":        blocks.HAY_BALE,
+		"cobblestone":     blocks.COBBLESTONE,
+		"mossy_cobblestone": blocks.MOSSY_COBBLESTONE,
+		"stone_bricks":    blocks.STONE_BRICKS,
+		"chiseled_stone":  blocks.CHISELED_STONE,
 	}
 	if bt, ok := blockMap[blockTypeStr]; ok {
 		return bt
@@ -255,6 +284,13 @@ func NewGame() *Game {
 	g.inventory.AddItem(items.STONE_PICKAXE, 1)
 	g.inventory.AddItem(items.COAL, 10)
 	g.inventory.AddItem(items.DIAMOND, 5)
+	// Add some new blocks for testing
+	g.inventory.AddItem(items.COBBLESTONE, 32)
+	g.inventory.AddItem(items.SANDSTONE, 32)
+	g.inventory.AddItem(items.GRAVEL, 32)
+	g.inventory.AddItem(items.WOOL, 16)
+	g.inventory.AddItem(items.GLASS, 16)
+	g.inventory.AddItem(items.TORCH, 16)
 
 	// Initialize menu
 	g.menu = menu.NewMenu()
