@@ -6,7 +6,6 @@ import (
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"gopkg.in/yaml.v3"
 	"tesselbox/assets"
 )
@@ -398,21 +397,6 @@ func loadDefaultBlocks() {
 	}
 	
 	log.Printf("Successfully loaded %d default block configurations", loadedCount)
-}
-
-		// Load texture if specified, otherwise generate procedural if colors available
-		if b.Texture != "" {
-			img, _, err := ebitenutil.NewImageFromFile(b.Texture)
-			if err == nil {
-				props.Texture = img
-			}
-		} else if len(props.Colors) > 0 {
-			// Generate procedural texture using color palette
-			props.Texture = generateProceduralTexture(props.Colors, props.ID)
-		}
-
-		BlockDefinitions[id] = props
-	}
 }
 
 // loadMods loads mod block definitions
