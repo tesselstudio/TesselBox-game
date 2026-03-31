@@ -32,6 +32,9 @@ const (
 	BRICK
 	PLANK
 	CACTUS
+	WORKBENCH
+	FURNACE
+	ANVIL
 )
 
 // BlockProperties defines the properties of a block type
@@ -97,6 +100,9 @@ var BlockTypeMap = map[string]BlockType{
 	"brick":       BRICK,
 	"plank":       PLANK,
 	"cactus":      CACTUS,
+	"workbench":   WORKBENCH,
+	"furnace":     FURNACE,
+	"anvil":       ANVIL,
 }
 
 // LoadBlocks loads block definitions from YAML files
@@ -386,6 +392,42 @@ func loadDefaultBlocks() {
 			Flammable:   false,
 			LightLevel:  0,
 			Gravity:     false,
+		},
+		"workbench": {
+			ID:          WORKBENCH,
+			Name:        "Workbench",
+			Color:       color.RGBA{139, 69, 19, 255},
+			Hardness:    1.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   true,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"furnace": {
+			ID:          FURNACE,
+			Name:        "Furnace",
+			Color:       color.RGBA{169, 169, 169, 255},
+			Hardness:    1.5,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
+		},
+		"anvil": {
+			ID:          ANVIL,
+			Name:        "Anvil",
+			Color:       color.RGBA{192, 192, 192, 255},
+			Hardness:    2.0,
+			Transparent: false,
+			Solid:       true,
+			Collectible: true,
+			Flammable:   false,
+			LightLevel:  0,
+			Gravity:     true,
 		},
 	}
 

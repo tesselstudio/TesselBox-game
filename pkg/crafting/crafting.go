@@ -182,6 +182,108 @@ func (cs *CraftingSystem) loadDefaultRecipes() error {
 			RequiredTool:    items.WOODEN_PICKAXE,
 			RequiredStation: STATION_WORKBENCH,
 		},
+		{
+			ID:          "iron_pickaxe",
+			Name:        "Iron Pickaxe",
+			Description: "A durable pickaxe for mining tough materials",
+			Inputs: []RecipeInput{
+				{ItemType: items.IRON_INGOT, Quantity: 3},
+				{ItemType: items.STICK, Quantity: 2},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.IRON_PICKAXE, Quantity: 1},
+			},
+			CraftingTime:    4.0,
+			RequiredTool:    items.STONE_PICKAXE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "wooden_sword",
+			Name:        "Wooden Sword",
+			Description: "A basic weapon for defense",
+			Inputs: []RecipeInput{
+				{ItemType: items.PLANKS, Quantity: 2},
+				{ItemType: items.STICK, Quantity: 1},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.WOODEN_SWORD, Quantity: 1},
+			},
+			CraftingTime:    2.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "stone_sword",
+			Name:        "Stone Sword",
+			Description: "A sturdy weapon for combat",
+			Inputs: []RecipeInput{
+				{ItemType: items.STONE_BLOCK, Quantity: 2},
+				{ItemType: items.STICK, Quantity: 1},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.STONE_SWORD, Quantity: 1},
+			},
+			CraftingTime:    3.0,
+			RequiredTool:    items.WOODEN_PICKAXE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "iron_ingot",
+			Name:        "Iron Ingot",
+			Description: "Smelted iron for crafting",
+			Inputs: []RecipeInput{
+				{ItemType: items.COAL, Quantity: 1},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.IRON_INGOT, Quantity: 1},
+			},
+			CraftingTime:    5.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_FURNACE,
+		},
+		{
+			ID:          "gold_ingot",
+			Name:        "Gold Ingot",
+			Description: "Smelted gold for crafting",
+			Inputs: []RecipeInput{
+				{ItemType: items.DIAMOND, Quantity: 1},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.GOLD_INGOT, Quantity: 1},
+			},
+			CraftingTime:    5.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_FURNACE,
+		},
+		{
+			ID:          "iron_sword",
+			Name:        "Iron Sword",
+			Description: "A strong weapon for serious combat",
+			Inputs: []RecipeInput{
+				{ItemType: items.IRON_INGOT, Quantity: 2},
+				{ItemType: items.STICK, Quantity: 1},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.IRON_SWORD, Quantity: 1},
+			},
+			CraftingTime:    5.0,
+			RequiredTool:    items.STONE_PICKAXE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "anvil",
+			Name:        "Anvil",
+			Description: "Advanced crafting station for metalworking",
+			Inputs: []RecipeInput{
+				{ItemType: items.IRON_INGOT, Quantity: 5},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.ANVIL, Quantity: 1},
+			},
+			CraftingTime:    6.0,
+			RequiredTool:    items.IRON_PICKAXE,
+			RequiredStation: STATION_WORKBENCH,
+		},
 	}
 
 	// Load default recipes

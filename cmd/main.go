@@ -51,6 +51,9 @@ func stringToBlockType(blockTypeStr string) blocks.BlockType {
 		"brick":       blocks.BRICK,
 		"plank":       blocks.PLANK,
 		"cactus":      blocks.CACTUS,
+		"workbench":   blocks.WORKBENCH,
+		"furnace":     blocks.FURNACE,
+		"anvil":       blocks.ANVIL,
 	}
 	if bt, ok := blockMap[blockTypeStr]; ok {
 		return bt
@@ -246,6 +249,12 @@ func NewGame() *Game {
 	g.inventory.AddItem(items.DIRT_BLOCK, 64)
 	g.inventory.AddItem(items.STONE_BLOCK, 64)
 	g.inventory.AddItem(items.GRASS_BLOCK, 64)
+	g.inventory.AddItem(items.WORKBENCH, 1)
+	g.inventory.AddItem(items.FURNACE, 1)
+	g.inventory.AddItem(items.WOODEN_PICKAXE, 1)
+	g.inventory.AddItem(items.STONE_PICKAXE, 1)
+	g.inventory.AddItem(items.COAL, 10)
+	g.inventory.AddItem(items.DIAMOND, 5)
 
 	// Initialize menu
 	g.menu = menu.NewMenu()
