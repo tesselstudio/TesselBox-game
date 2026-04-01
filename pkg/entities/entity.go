@@ -115,20 +115,20 @@ func (e *Entity) Clone() *Entity {
 		Tags:       make([]string, len(e.Tags)),
 		Metadata:   make(map[string]interface{}),
 	}
-	
+
 	// Copy tags
 	copy(clone.Tags, e.Tags)
-	
+
 	// Copy components
 	for compType, component := range e.Components {
 		clone.Components[compType] = component.Clone()
 	}
-	
+
 	// Copy metadata
 	for k, v := range e.Metadata {
 		clone.Metadata[k] = v
 	}
-	
+
 	return clone
 }
 
@@ -144,11 +144,11 @@ func FromJSON(data []byte) (*Entity, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Reconstruct components from JSON
 	entity.Components = make(map[string]Component)
 	// Component reconstruction would need to be implemented based on saved data
-	
+
 	return &entity, nil
 }
 
@@ -184,12 +184,12 @@ func (em *EntityManager) LoadTemplates(data []byte) error {
 	if err != nil {
 		return err
 	}
-	
+
 	for id, template := range templates {
 		template.ID = id
 		em.templates[id] = template
 	}
-	
+
 	return nil
 }
 
@@ -199,44 +199,44 @@ func (em *EntityManager) CreateEntityFromTemplate(templateID string, entityID st
 	if !exists {
 		return nil, fmt.Errorf("template not found: %s", templateID)
 	}
-	
+
 	entity := NewEntity(entityID, template.Type)
 	entity.Name = template.Name
 	entity.Tags = make([]string, len(template.Tags))
 	copy(entity.Tags, template.Tags)
-	
+
 	// Copy metadata
 	for k, v := range template.Metadata {
 		entity.Metadata[k] = v
 	}
-	
+
 	// Process inheritance
 	for _, parentID := range template.Inherits {
 		parent, err := em.CreateEntityFromTemplate(parentID, entityID+"_parent")
 		if err != nil {
 			return nil, fmt.Errorf("failed to process inheritance from %s: %v", parentID, err)
 		}
-		
+
 		// Merge parent components
 		for compType, component := range parent.Components {
 			if !entity.HasComponent(compType) {
 				entity.AddComponent(component.Clone())
 			}
 		}
-		
+
 		// Merge parent tags
 		for _, tag := range parent.Tags {
 			entity.AddTag(tag)
 		}
 	}
-	
+
 	// Create components from template
 	for compType, compData := range template.Components {
 		component, err := em.createComponentFromData(compType, compData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create component %s: %v", compType, err)
 		}
-		
+
 		// Merge with existing component if present
 		if existing, has := entity.GetComponent(compType); has {
 			existing.Merge(component)
@@ -244,7 +244,7 @@ func (em *EntityManager) CreateEntityFromTemplate(templateID string, entityID st
 			entity.AddComponent(component)
 		}
 	}
-	
+
 	return entity, nil
 }
 
@@ -254,23 +254,23 @@ func (em *EntityManager) createComponentFromData(compType string, data interface
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert data to YAML and back to unmarshal into component
 	yamlData, err := yaml.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	err = yaml.Unmarshal(yamlData, component)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	err = component.Validate()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return component, nil
 }
 

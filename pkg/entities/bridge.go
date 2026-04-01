@@ -20,7 +20,7 @@ func NewBridge() *Bridge {
 	if err := world.Initialize(); err != nil {
 		log.Printf("Warning: Failed to initialize entity world: %v", err)
 	}
-	
+
 	return &Bridge{world: world}
 }
 
@@ -68,11 +68,11 @@ func (b *Bridge) GetItemProperties(itemType items.ItemType) map[string]interface
 	// Fallback to old system
 	oldProps := items.GetItemProperties(itemType)
 	return map[string]interface{}{
-		"name":        oldProps.Name,
-		"stackSize":   oldProps.StackSize,
-		"durability":  oldProps.Durability,
-		"isTool":      oldProps.IsTool,
-		"toolPower":   oldProps.ToolPower,
+		"name":       oldProps.Name,
+		"stackSize":  oldProps.StackSize,
+		"durability": oldProps.Durability,
+		"isTool":     oldProps.IsTool,
+		"toolPower":  oldProps.ToolPower,
 	}
 }
 
@@ -89,7 +89,7 @@ func (b *Bridge) GetOrganismProperties(orgType organisms.OrganismType) map[strin
 	if orgName == "" {
 		return map[string]interface{}{"type": "unknown"}
 	}
-	
+
 	if props, err := b.world.GetOrganismProperties(orgName); err == nil {
 		if propMap, ok := props.(map[string]interface{}); ok {
 			return propMap

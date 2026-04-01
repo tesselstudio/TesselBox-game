@@ -9,58 +9,58 @@ type SoundEffect string
 
 const (
 	// Movement sounds
-	SFXFootstepGrass  SoundEffect = "footstep_grass"
-	SFXFootstepStone  SoundEffect = "footstep_stone"
-	SFXFootstepSand   SoundEffect = "footstep_sand"
-	SFXFootstepWater  SoundEffect = "footstep_water"
-	SFXJump           SoundEffect = "jump"
-	SFXLand           SoundEffect = "land"
-	
+	SFXFootstepGrass SoundEffect = "footstep_grass"
+	SFXFootstepStone SoundEffect = "footstep_stone"
+	SFXFootstepSand  SoundEffect = "footstep_sand"
+	SFXFootstepWater SoundEffect = "footstep_water"
+	SFXJump          SoundEffect = "jump"
+	SFXLand          SoundEffect = "land"
+
 	// Block interaction sounds
 	SFXBlockBreak     SoundEffect = "block_break"
 	SFXBlockPlace     SoundEffect = "block_place"
 	SFXBlockHit       SoundEffect = "block_hit"
 	SFXMiningComplete SoundEffect = "mining_complete"
-	
+
 	// Item sounds
 	SFXItemPickup     SoundEffect = "item_pickup"
 	SFXItemDrop       SoundEffect = "item_drop"
 	SFXInventoryOpen  SoundEffect = "inventory_open"
 	SFXInventoryClose SoundEffect = "inventory_close"
 	SFXHotbarSelect   SoundEffect = "hotbar_select"
-	
+
 	// Crafting sounds
-	SFXCraftingStart  SoundEffect = "crafting_start"
+	SFXCraftingStart    SoundEffect = "crafting_start"
 	SFXCraftingComplete SoundEffect = "crafting_complete"
-	SFXSmeltingStart  SoundEffect = "smelting_start"
+	SFXSmeltingStart    SoundEffect = "smelting_start"
 	SFXSmeltingComplete SoundEffect = "smelting_complete"
-	
+
 	// UI sounds
-	SFXUIClick        SoundEffect = "ui_click"
-	SFXUIHover        SoundEffect = "ui_hover"
-	SFXUIOpen         SoundEffect = "ui_open"
-	SFXUIClose        SoundEffect = "ui_close"
-	SFXMenuNavigate   SoundEffect = "menu_navigate"
-	SFXMenuSelect     SoundEffect = "menu_select"
-	
+	SFXUIClick      SoundEffect = "ui_click"
+	SFXUIHover      SoundEffect = "ui_hover"
+	SFXUIOpen       SoundEffect = "ui_open"
+	SFXUIClose      SoundEffect = "ui_close"
+	SFXMenuNavigate SoundEffect = "menu_navigate"
+	SFXMenuSelect   SoundEffect = "menu_select"
+
 	// Ambient sounds
-	SFXWind           SoundEffect = "wind"
-	SFXRain           SoundEffect = "rain"
-	SFXThunder        SoundEffect = "thunder"
-	SFXBirds          SoundEffect = "birds"
-	SFXWaterFlow      SoundEffect = "water_flow"
-	SFXFire           SoundEffect = "fire"
-	
+	SFXWind      SoundEffect = "wind"
+	SFXRain      SoundEffect = "rain"
+	SFXThunder   SoundEffect = "thunder"
+	SFXBirds     SoundEffect = "birds"
+	SFXWaterFlow SoundEffect = "water_flow"
+	SFXFire      SoundEffect = "fire"
+
 	// Combat sounds (if implemented)
-	SFXHit            SoundEffect = "hit"
-	SFXMiss           SoundEffect = "miss"
-	SFXCritical       SoundEffect = "critical"
-	
+	SFXHit      SoundEffect = "hit"
+	SFXMiss     SoundEffect = "miss"
+	SFXCritical SoundEffect = "critical"
+
 	// Weather sounds
-	SFXWeatherClear   SoundEffect = "weather_clear"
-	SFXWeatherRain    SoundEffect = "weather_rain"
-	SFXWeatherStorm   SoundEffect = "weather_storm"
-	SFXWeatherSnow    SoundEffect = "weather_snow"
+	SFXWeatherClear SoundEffect = "weather_clear"
+	SFXWeatherRain  SoundEffect = "weather_rain"
+	SFXWeatherStorm SoundEffect = "weather_storm"
+	SFXWeatherSnow  SoundEffect = "weather_snow"
 )
 
 // MusicTrack represents different background music tracks
@@ -81,22 +81,22 @@ const (
 // SoundLibrary manages game-specific sounds and their variations
 type SoundLibrary struct {
 	manager *AudioManager
-	
+
 	// Sound variations for more variety
 	footstepVariations map[SoundEffect][]string
 	miningVariations   map[SoundEffect][]string
-	
+
 	// Current context
-	currentBiome     string
-	currentWeather   string
-	isUnderground    bool
-	timeOfDay        string
+	currentBiome   string
+	currentWeather string
+	isUnderground  bool
+	timeOfDay      string
 }
 
 // NewSoundLibrary creates a new sound library
 func NewSoundLibrary(manager *AudioManager) *SoundLibrary {
 	return &SoundLibrary{
-		manager: manager,
+		manager:            manager,
 		footstepVariations: make(map[SoundEffect][]string),
 		miningVariations:   make(map[SoundEffect][]string),
 	}
@@ -107,7 +107,7 @@ func (sl *SoundLibrary) InitializeDefaultSounds() {
 	// Footstep variations
 	sl.footstepVariations[SFXFootstepGrass] = []string{
 		"footstep_grass_1",
-		"footstep_grass_2", 
+		"footstep_grass_2",
 		"footstep_grass_3",
 		"footstep_grass_4",
 	}
@@ -124,7 +124,7 @@ func (sl *SoundLibrary) InitializeDefaultSounds() {
 		"footstep_water_1",
 		"footstep_water_2",
 	}
-	
+
 	// Mining variations
 	sl.miningVariations[SFXBlockHit] = []string{
 		"block_hit_1",
@@ -137,7 +137,7 @@ func (sl *SoundLibrary) InitializeDefaultSounds() {
 // PlayFootstep plays a footstep sound based on the surface type
 func (sl *SoundLibrary) PlayFootstep(surfaceType string) {
 	var soundEffect SoundEffect
-	
+
 	switch surfaceType {
 	case "grass", "dirt", "farmland":
 		soundEffect = SFXFootstepGrass
@@ -150,7 +150,7 @@ func (sl *SoundLibrary) PlayFootstep(surfaceType string) {
 	default:
 		soundEffect = SFXFootstepStone // Default to stone
 	}
-	
+
 	variations, exists := sl.footstepVariations[soundEffect]
 	if exists && len(variations) > 0 {
 		sl.manager.PlayRandomSFX(variations)
@@ -242,7 +242,7 @@ func (sl *SoundLibrary) PlayCraftingSound(action string) {
 // PlayMusic plays background music based on context
 func (sl *SoundLibrary) PlayMusic(context string) {
 	var track MusicTrack
-	
+
 	switch context {
 	case "menu":
 		track = MusicMenu
@@ -267,7 +267,7 @@ func (sl *SoundLibrary) PlayMusic(context string) {
 	default:
 		track = MusicGameplay
 	}
-	
+
 	sl.manager.PlaySound(string(track))
 }
 
@@ -278,7 +278,7 @@ func (sl *SoundLibrary) PlayAmbientSound() {
 	sl.manager.StopSound(string(SFXRain))
 	sl.manager.StopSound(string(SFXBirds))
 	sl.manager.StopSound(string(SFXWaterFlow))
-	
+
 	// Play appropriate ambient sounds based on context
 	if sl.currentWeather == "rain" || sl.currentWeather == "storm" {
 		sl.manager.PlaySound(string(SFXRain))
@@ -288,7 +288,7 @@ func (sl *SoundLibrary) PlayAmbientSound() {
 	} else if sl.currentBiome == "forest" && sl.timeOfDay == "day" {
 		sl.manager.PlaySound(string(SFXBirds))
 	}
-	
+
 	// Always play wind in certain conditions
 	if sl.currentBiome == "mountains" || sl.currentBiome == "tundra" {
 		sl.manager.PlaySound(string(SFXWind))
@@ -301,7 +301,7 @@ func (sl *SoundLibrary) UpdateContext(biome, weather string, isUnderground bool,
 	sl.currentWeather = weather
 	sl.isUnderground = isUnderground
 	sl.timeOfDay = timeOfDay
-	
+
 	// Update ambient sounds based on new context
 	sl.PlayAmbientSound()
 }
@@ -339,12 +339,12 @@ func (sl *SoundLibrary) GetSoundEffectNames() []string {
 		SFXFire, SFXHit, SFXMiss, SFXCritical, SFXWeatherClear,
 		SFXWeatherRain, SFXWeatherStorm, SFXWeatherSnow,
 	}
-	
+
 	names := make([]string, len(effects))
 	for i, effect := range effects {
 		names[i] = string(effect)
 	}
-	
+
 	return names
 }
 
@@ -354,12 +354,12 @@ func (sl *SoundLibrary) GetMusicTrackNames() []string {
 		MusicMenu, MusicGameplay, MusicCreative, MusicNight,
 		MusicUnderground, MusicCombat, MusicBoss, MusicVictory, MusicDanger,
 	}
-	
+
 	names := make([]string, len(tracks))
 	for i, track := range tracks {
 		names[i] = string(track)
 	}
-	
+
 	return names
 }
 
@@ -367,22 +367,22 @@ func (sl *SoundLibrary) GetMusicTrackNames() []string {
 // This would typically load from embedded assets or files
 func (sl *SoundLibrary) LoadDefaultSoundEffects() {
 	log.Printf("Loading default sound effects...")
-	
+
 	// This would be implemented to load actual audio files
 	// For now, we'll just log what would be loaded
-	
+
 	soundEffects := sl.GetSoundEffectNames()
 	for _, effect := range soundEffects {
 		log.Printf("Would load sound effect: %s", effect)
 		// sl.manager.LoadSound(effect, audioData, AudioTypeSFX, 1.0, false)
 	}
-	
+
 	musicTracks := sl.GetMusicTrackNames()
 	for _, track := range musicTracks {
 		log.Printf("Would load music track: %s", track)
 		// sl.manager.LoadSound(track, audioData, AudioTypeMusic, 0.7, true)
 	}
-	
-	log.Printf("Sound library initialized with %d sound effects and %d music tracks", 
+
+	log.Printf("Sound library initialized with %d sound effects and %d music tracks",
 		len(soundEffects), len(musicTracks))
 }

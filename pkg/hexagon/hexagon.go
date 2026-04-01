@@ -53,7 +53,7 @@ func HexNeighbors(hex Hexagon) []Hexagon {
 		{-1, 1, 0},
 		{0, 1, -1},
 	}
-	
+
 	neighbors := make([]Hexagon, 6)
 	for i, dir := range directions {
 		neighbors[i] = HexAdd(hex, dir)
@@ -70,7 +70,7 @@ func HexDistance(a, b Hexagon) int {
 // Using pointy-top hexagons: x = size * sqrt(3) * (q + r/2), y = size * 3/2 * r
 func PixelToHex(x, y, size float64) (float64, float64) {
 	q := (math.Sqrt(3)/3.0*x - 1.0/3.0*y) / size
-	r := (2.0/3.0*y) / size
+	r := (2.0 / 3.0 * y) / size
 	return q, r
 }
 
@@ -79,15 +79,15 @@ func HexRound(q, r float64) Hexagon {
 	x := q
 	z := r
 	y := -x - z
-	
+
 	rx := round(x)
 	ry := round(y)
 	rz := round(z)
-	
+
 	xDiff := absFloat64(rx - x)
 	yDiff := absFloat64(ry - y)
 	zDiff := absFloat64(rz - z)
-	
+
 	if xDiff > yDiff && xDiff > zDiff {
 		rx = -ry - rz
 	} else if yDiff > zDiff {
@@ -95,7 +95,7 @@ func HexRound(q, r float64) Hexagon {
 	} else {
 		rz = -rx - ry
 	}
-	
+
 	return NewHexagonUnchecked(int(rx), int(ry), int(rz))
 }
 
@@ -129,7 +129,7 @@ type ChunkID struct {
 func HexToChunk(hex Hexagon, chunkSize int) ChunkID {
 	chunkX := hex.Q / chunkSize
 	chunkY := hex.R / chunkSize
-	
+
 	// Handle negative coordinates
 	if hex.Q < 0 && hex.Q%chunkSize != 0 {
 		chunkX--
@@ -137,7 +137,7 @@ func HexToChunk(hex Hexagon, chunkSize int) ChunkID {
 	if hex.R < 0 && hex.R%chunkSize != 0 {
 		chunkY--
 	}
-	
+
 	return ChunkID{X: chunkX, Y: chunkY}
 }
 
@@ -153,6 +153,7 @@ func abs(x int) int {
 func round(x float64) float64 {
 	return math.Floor(x + 0.5)
 }
+
 // absFloat64 returns the absolute value of a float64
 func absFloat64(x float64) float64 {
 	if x < 0 {

@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"plugin"
 	"strings"
@@ -251,13 +252,13 @@ func (pd *PluginDiscovery) loadPluginConfigJSON(path string, metadata *PluginMet
 // PluginMetadata contains metadata about a discovered plugin
 type PluginMetadata struct {
 	PluginInfo
-	Path       string        `yaml:"path"`
-	Type       string        `yaml:"type"` // "compiled" or "source"
-	Config     PluginConfig  `yaml:"config"`
-	Discovered time.Time     `yaml:"discovered"`
-	Loaded     bool          `yaml:"loaded"`
-	LoadTime   time.Time     `yaml:"loadTime,omitempty"`
-	Error      string        `yaml:"error,omitempty"`
+	Path       string       `yaml:"path"`
+	Type       string       `yaml:"type"` // "compiled" or "source"
+	Config     PluginConfig `yaml:"config"`
+	Discovered time.Time    `yaml:"discovered"`
+	Loaded     bool         `yaml:"loaded"`
+	LoadTime   time.Time    `yaml:"loadTime,omitempty"`
+	Error      string       `yaml:"error,omitempty"`
 }
 
 // ============================================================================
@@ -267,18 +268,18 @@ type PluginMetadata struct {
 // EnhancedPluginManager extends the basic PluginManager with advanced features
 type EnhancedPluginManager struct {
 	*PluginManager
-	discovery     *PluginDiscovery
-	configs       map[string]*PluginConfig
-	hotReload     bool
-	fileWatcher   *fsnotify.Watcher
-	reloadMutex   sync.Mutex
-	world         interface{} // Will be *world.World
+	discovery   *PluginDiscovery
+	configs     map[string]*PluginConfig
+	hotReload   bool
+	fileWatcher *fsnotify.Watcher
+	reloadMutex sync.Mutex
+	world       interface{} // Will be *world.World
 }
 
 // NewEnhancedPluginManager creates a new enhanced plugin manager
 func NewEnhancedPluginManager(entityManager *EntityManager, systemManager *SystemManager, eventBus *EventBus) *EnhancedPluginManager {
 	base := NewPluginManager(entityManager, systemManager, eventBus)
-	
+
 	epm := &EnhancedPluginManager{
 		PluginManager: base,
 		discovery:     NewPluginDiscovery(),
@@ -361,7 +362,7 @@ func (epm *EnhancedPluginManager) LoadPluginFromMetadata(metadata *PluginMetadat
 
 	// Create plugin API
 	api := NewPluginAPI(epm.PluginManager, metadata.Name)
-	
+
 	// Grant permissions
 	for _, permission := range metadata.Config.Permissions {
 		if permission == "*" {
@@ -431,11 +432,11 @@ func (epm *EnhancedPluginManager) loadSourcePlugin(metadata *PluginMetadata) (Pl
 
 	// Build the plugin as a shared library (.so file)
 	soPath := filepath.Join(tempDir, "plugin.so")
-	
+
 	// Use go build to create the plugin
 	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", soPath, mainGoPath)
 	cmd.Dir = metadata.Path
-	
+
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("failed to build plugin: %v\nOutput: %s", err, string(output))
 	}
@@ -569,9 +570,9 @@ func (epm *EnhancedPluginManager) handleFileChange(event fsnotify.Event) {
 	}
 
 	for _, metadata := range plugins {
-		if metadata.Path == event.Name || 
-		   strings.HasPrefix(event.Name, strings.TrimSuffix(metadata.Path, filepath.Ext(metadata.Path))) {
-			
+		if metadata.Path == event.Name ||
+			strings.HasPrefix(event.Name, strings.TrimSuffix(metadata.Path, filepath.Ext(metadata.Path))) {
+
 			// Check if auto-reload is enabled for this plugin
 			if metadata.Config.AutoReload && metadata.Loaded {
 				log.Printf("Auto-reloading plugin %s due to file change", metadata.Name)

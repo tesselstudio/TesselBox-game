@@ -41,7 +41,7 @@ var (
 			return make([]ebiten.Vertex, 6) // 6 vertices for hexagon
 		},
 	}
-	
+
 	indicesPool = sync.Pool{
 		New: func() interface{} {
 			return make([]uint16, 12) // 12 indices for hexagon triangles

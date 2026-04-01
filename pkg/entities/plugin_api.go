@@ -32,10 +32,10 @@ func NewPluginAPI(manager *PluginManager, pluginName string) *PluginAPI {
 		pluginName:     pluginName,
 		allowedActions: make(map[string]bool),
 	}
-	
+
 	// Initialize with basic safe permissions
 	api.initializeDefaultPermissions()
-	
+
 	return api
 }
 
@@ -49,7 +49,7 @@ func (api *PluginAPI) initializeDefaultPermissions() {
 		"template.get",
 		"system.get", // Read-only system access
 	}
-	
+
 	for _, perm := range safePermissions {
 		api.allowedActions[perm] = true
 	}
@@ -75,8 +75,8 @@ func (api *PluginAPI) CreateEntity(templateID string) (*Entity, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create entity from template %s: %v", templateID, err)
 	}
-	
-	log.Printf("Plugin %s created entity %d from template %s", api.pluginName, entity.ID, templateID)
+
+	log.Printf("Plugin %s created entity %s from template %s", api.pluginName, entity.ID, templateID)
 	return entity, nil
 }
 
@@ -93,7 +93,7 @@ func (api *PluginAPI) CreateCustomEntity(entityType string, components map[strin
 		Components: make(map[string]Component),
 		Tags:       []string{},
 	}
-	
+
 	// Add components
 	for compType, compData := range components {
 		component, err := api.entityManager.createComponentFromData(compType, compData)
@@ -231,7 +231,7 @@ func (api *PluginAPI) SubscribeToEvent(eventType string, handler EventHandler) e
 				log.Printf("Plugin %s event handler panicked for event %s: %v", api.pluginName, eventType, r)
 			}
 		}()
-		
+
 		// Add plugin context to event data
 		if event.Data == nil {
 			event.Data = make(map[string]interface{})
@@ -239,7 +239,7 @@ func (api *PluginAPI) SubscribeToEvent(eventType string, handler EventHandler) e
 		if dataMap, ok := event.Data.(map[string]interface{}); ok {
 			dataMap["handling_plugin"] = api.pluginName
 		}
-		
+
 		handler(event)
 	}
 
@@ -371,12 +371,12 @@ func (api *PluginAPI) hasPermission(permission string) bool {
 
 // PluginContext provides context for plugin operations
 type PluginContext struct {
-	PluginName    string
-	API           *PluginAPI
-	Cancel        context.CancelFunc
-	Done          <-chan struct{}
-	Timeout       time.Duration
-	MaxOperations int
+	PluginName     string
+	API            *PluginAPI
+	Cancel         context.CancelFunc
+	Done           <-chan struct{}
+	Timeout        time.Duration
+	MaxOperations  int
 	OperationCount int64
 }
 
@@ -384,12 +384,12 @@ type PluginContext struct {
 func (api *PluginAPI) CreateContext() *PluginContext {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &PluginContext{
-		PluginName:    api.pluginName,
-		API:           api,
-		Cancel:        cancel,
-		Done:          ctx.Done(),
-		Timeout:       30 * time.Second, // Default 30 second timeout
-		MaxOperations: 1000,            // Default max operations
+		PluginName:     api.pluginName,
+		API:            api,
+		Cancel:         cancel,
+		Done:           ctx.Done(),
+		Timeout:        30 * time.Second, // Default 30 second timeout
+		MaxOperations:  1000,             // Default max operations
 		OperationCount: 0,
 	}
 }
@@ -401,23 +401,23 @@ func (api *PluginAPI) CreateContext() *PluginContext {
 // EnhancedPlugin extends the basic Plugin interface with additional lifecycle methods
 type EnhancedPlugin interface {
 	Plugin
-	
+
 	// Enhanced lifecycle methods
 	OnLoad(api *PluginAPI) error
 	OnUnload(api *PluginAPI) error
 	OnReload(api *PluginAPI) error
-	
+
 	// Event handlers
 	OnGameStart(api *PluginAPI) error
 	OnGameStop(api *PluginAPI) error
 	OnPlayerJoin(api *PluginAPI, playerID string) error
 	OnPlayerLeave(api *PluginAPI, playerID string) error
-	
+
 	// Configuration
 	GetDefaultConfig() map[string]interface{}
 	ValidateConfig(config map[string]interface{}) error
 	OnConfigChange(api *PluginAPI, config map[string]interface{}) error
-	
+
 	// Permissions
 	GetRequiredPermissions() []string
 }

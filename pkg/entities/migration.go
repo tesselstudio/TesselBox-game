@@ -4,7 +4,7 @@ import (
 	"log"
 	"sync"
 	"time"
-	
+
 	"tesselbox/pkg/items"
 	"tesselbox/pkg/organisms"
 )
@@ -15,7 +15,7 @@ type MigrationManager struct {
 	enabled       bool
 	migrationStep int
 	mutex         sync.RWMutex
-	
+
 	// Migration statistics
 	oldSystemUsage map[string]int
 	newSystemUsage map[string]int
@@ -73,7 +73,7 @@ func (mm *MigrationManager) RecordOldSystemUsage(system string) {
 	if !mm.enabled {
 		return
 	}
-	
+
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
 	mm.oldSystemUsage[system]++
@@ -84,7 +84,7 @@ func (mm *MigrationManager) RecordNewSystemUsage(system string) {
 	if !mm.enabled {
 		return
 	}
-	
+
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
 	mm.newSystemUsage[system]++
@@ -94,28 +94,28 @@ func (mm *MigrationManager) RecordNewSystemUsage(system string) {
 func (mm *MigrationManager) GetMigrationProgress() map[string]interface{} {
 	mm.mutex.RLock()
 	defer mm.mutex.RUnlock()
-	
+
 	totalOldUsage := 0
 	for _, count := range mm.oldSystemUsage {
 		totalOldUsage += count
 	}
-	
+
 	totalNewUsage := 0
 	for _, count := range mm.newSystemUsage {
 		totalNewUsage += count
 	}
-	
+
 	progress := map[string]interface{}{
-		"migration_step":    mm.migrationStep,
-		"enabled":           mm.enabled,
-		"old_system_usage":  mm.oldSystemUsage,
-		"new_system_usage":  mm.newSystemUsage,
-		"total_old_usage":   totalOldUsage,
-		"total_new_usage":   totalNewUsage,
+		"migration_step":   mm.migrationStep,
+		"enabled":          mm.enabled,
+		"old_system_usage": mm.oldSystemUsage,
+		"new_system_usage": mm.newSystemUsage,
+		"total_old_usage":  totalOldUsage,
+		"total_new_usage":  totalNewUsage,
 		"migration_ratio":  float64(totalNewUsage) / float64(totalOldUsage+totalNewUsage),
-		"last_updated":      time.Now(),
+		"last_updated":     time.Now(),
 	}
-	
+
 	return progress
 }
 
@@ -124,10 +124,10 @@ func (mm *MigrationManager) ShouldUseNewSystem(feature string) bool {
 	if !mm.enabled {
 		return false
 	}
-	
+
 	mm.mutex.RLock()
 	defer mm.mutex.RUnlock()
-	
+
 	// Migration phases
 	switch mm.migrationStep {
 	case 0: // Old system only
@@ -152,15 +152,15 @@ func (mm *MigrationManager) Update(deltaTime float64) {
 	if !mm.enabled {
 		return
 	}
-	
+
 	// Update the bridge
 	mm.bridge.Update(deltaTime)
-	
+
 	// Periodically log migration progress
 	if time.Now().Unix()%60 == 0 { // Every minute
 		progress := mm.GetMigrationProgress()
-		log.Printf("Migration Progress: Step %d, Ratio %.2f%%", 
-			progress["migration_step"], 
+		log.Printf("Migration Progress: Step %d, Ratio %.2f%%",
+			progress["migration_step"],
 			progress["migration_ratio"].(float64)*100)
 	}
 }
@@ -169,11 +169,11 @@ func (mm *MigrationManager) Update(deltaTime float64) {
 func (mm *MigrationManager) Shutdown() error {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
-	
+
 	// Log final migration statistics
 	progress := mm.GetMigrationProgress()
 	log.Printf("Final Migration Statistics: %+v", progress)
-	
+
 	return mm.bridge.Shutdown()
 }
 
@@ -196,12 +196,12 @@ func GetGlobalMigrationManager() *MigrationManager {
 // MigrateBlockColor migrates block color queries
 func MigrateBlockColor(blockType string) (interface{}, error) {
 	mm := GetGlobalMigrationManager()
-	
+
 	if mm.ShouldUseNewSystem("blocks") {
 		mm.RecordNewSystemUsage("block_color")
 		return mm.bridge.GetBlockColor(blockType), nil
 	}
-	
+
 	mm.RecordOldSystemUsage("block_color")
 	// Fallback to old system would be here
 	return nil, nil
@@ -210,14 +210,14 @@ func MigrateBlockColor(blockType string) (interface{}, error) {
 // MigrateItemProperties migrates item property queries
 func MigrateItemProperties(itemType interface{}) (map[string]interface{}, error) {
 	mm := GetGlobalMigrationManager()
-	
+
 	if mm.ShouldUseNewSystem("items") {
 		mm.RecordNewSystemUsage("item_properties")
 		if item, ok := itemType.(items.ItemType); ok {
 			return mm.bridge.GetItemProperties(item), nil
 		}
 	}
-	
+
 	mm.RecordOldSystemUsage("item_properties")
 	// Fallback to old system would be here
 	return nil, nil
@@ -226,7 +226,7 @@ func MigrateItemProperties(itemType interface{}) (map[string]interface{}, error)
 // MigrateOrganismProperties migrates organism property queries
 func MigrateOrganismProperties(orgType interface{}) (map[string]interface{}, error) {
 	mm := GetGlobalMigrationManager()
-	
+
 	if mm.ShouldUseNewSystem("organisms") {
 		mm.RecordNewSystemUsage("organism_properties")
 		// Convert to proper type
@@ -234,7 +234,7 @@ func MigrateOrganismProperties(orgType interface{}) (map[string]interface{}, err
 			return mm.bridge.GetOrganismProperties(organisms.OrganismType(org)), nil
 		}
 	}
-	
+
 	mm.RecordOldSystemUsage("organism_properties")
 	// Fallback to old system would be here
 	return nil, nil
@@ -243,11 +243,11 @@ func MigrateOrganismProperties(orgType interface{}) (map[string]interface{}, err
 // CreateEntityUsingNewSystem creates entities using the new system
 func CreateEntityUsingNewSystem(entityType, entityID string, x, y, z float64, quantity int, playerID string) error {
 	mm := GetGlobalMigrationManager()
-	
+
 	if !mm.ShouldUseNewSystem(entityType) {
 		return nil // Don't create if migration step doesn't allow
 	}
-	
+
 	switch entityType {
 	case "blocks":
 		mm.RecordNewSystemUsage("create_block")
@@ -294,7 +294,7 @@ func ToggleMigrationCommand() {
 // InitializeMigration initializes the migration system
 func InitializeMigration() {
 	mm := GetGlobalMigrationManager()
-	log.Printf("Migration system initialized - Step: %d, Enabled: %v", 
+	log.Printf("Migration system initialized - Step: %d, Enabled: %v",
 		mm.GetMigrationStep(), mm.IsEnabled())
 }
 

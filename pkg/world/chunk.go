@@ -108,7 +108,7 @@ func (c *Chunk) AddHexagon(x, y float64, hexagon *Hexagon) {
 	hexagon.ChunkX = c.ChunkX
 	hexagon.ChunkY = c.ChunkY
 	key := [2]int{localCol, localRow}
-	
+
 	c.Hexagons[key] = hexagon
 	c.Modified = true
 }
