@@ -336,3 +336,592 @@ water:
     pattern: liquid
     ui: {}
     function: {}
+anvil:
+    id: anvil
+    name: Anvil
+    color:
+        - 192
+        - 192
+        - 192
+        - 255
+    hardness: 2.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+bookshelf:
+    id: bookshelf
+    name: Bookshelf
+    color:
+        - 139
+        - 90
+        - 43
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+chest:
+    id: chest
+    name: Chest
+    color:
+        - 139
+        - 90
+        - 19
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+chiseled_stone:
+    id: chiseled_stone
+    name: Chiseled Stone
+    color:
+        - 128
+        - 128
+        - 128
+        - 255
+    hardness: 1.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+cobblestone:
+    id: cobblestone
+    name: Cobblestone
+    color:
+        - 128
+        - 128
+        - 128
+        - 255
+    hardness: 1.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+crafting_table:
+    id: crafting_table
+    name: Crafting Table
+    color:
+        - 139
+        - 90
+        - 43
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+door:
+    id: door
+    name: Door
+    color:
+        - 139
+        - 90
+        - 43
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+fence:
+    id: fence
+    name: Fence
+    color:
+        - 139
+        - 90
+        - 43
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+furnace:
+    id: furnace
+    name: Furnace
+    color:
+        - 169
+        - 169
+        - 169
+        - 255
+    hardness: 1.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+gate:
+    id: gate
+    name: Gate
+    color:
+        - 139
+        - 90
+        - 43
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+gravel:
+    id: gravel
+    name: Gravel
+    color:
+        - 136
+        - 140
+        - 141
+        - 255
+    hardness: 0.6
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+hay_bale:
+    id: hay_bale
+    name: Hay Bale
+    color:
+        - 255
+        - 255
+        - 0
+        - 255
+    hardness: 0.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+ice:
+    id: ice
+    name: Ice
+    color:
+        - 175
+        - 223
+        - 255
+        - 200
+    hardness: 0.5
+    transparent: true
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+jukebox:
+    id: jukebox
+    name: Jukebox
+    color:
+        - 139
+        - 90
+        - 43
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+ladder:
+    id: ladder
+    name: Ladder
+    color:
+        - 139
+        - 90
+        - 43
+        - 255
+    hardness: 0.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+melon:
+    id: melon
+    name: Melon
+    color:
+        - 0
+        - 255
+        - 0
+        - 255
+    hardness: 0.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+mossy_cobblestone:
+    id: mossy_cobblestone
+    name: Mossy Cobblestone
+    color:
+        - 128
+        - 128
+        - 128
+        - 255
+    hardness: 1.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+mushroom_brown:
+    id: mushroom_brown
+    name: Brown Mushroom
+    color:
+        - 139
+        - 69
+        - 19
+        - 255
+    hardness: 0.1
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+mushroom_red:
+    id: mushroom_red
+    name: Red Mushroom
+    color:
+        - 255
+        - 0
+        - 0
+        - 255
+    hardness: 0.1
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+note_block:
+    id: note_block
+    name: Note Block
+    color:
+        - 139
+        - 90
+        - 43
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+obsidian:
+    id: obsidian
+    name: Obsidian
+    color:
+        - 27
+        - 23
+        - 23
+        - 255
+    hardness: 5.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+pumpkin:
+    id: pumpkin
+    name: Pumpkin
+    color:
+        - 255
+        - 140
+        - 0
+        - 255
+    hardness: 0.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+sandstone:
+    id: sandstone
+    name: Sandstone
+    color:
+        - 238
+        - 203
+        - 173
+        - 255
+    hardness: 0.8
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+snow:
+    id: snow
+    name: Snow
+    color:
+        - 255
+        - 255
+        - 255
+        - 255
+    hardness: 0.2
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+stone_bricks:
+    id: stone_bricks
+    name: Stone Bricks
+    color:
+        - 128
+        - 128
+        - 128
+        - 255
+    hardness: 1.5
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+tall_grass:
+    id: tall_grass
+    name: Tall Grass
+    color:
+        - 124
+        - 169
+        - 84
+        - 255
+    hardness: 0.1
+    transparent: true
+    solid: false
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+torch:
+    id: torch
+    name: Torch
+    color:
+        - 255
+        - 200
+        - 100
+        - 255
+    hardness: 0.1
+    transparent: true
+    solid: false
+    collectible: true
+    flammable: false
+    lightLevel: 14
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+window:
+    id: window
+    name: Window
+    color:
+        - 255
+        - 255
+        - 255
+        - 128
+    hardness: 0.5
+    transparent: true
+    solid: true
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+wool:
+    id: wool
+    name: Wool
+    color:
+        - 222
+        - 222
+        - 222
+        - 255
+    hardness: 0.3
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+workbench:
+    id: workbench
+    name: Workbench
+    color:
+        - 139
+        - 69
+        - 19
+        - 255
+    hardness: 1.0
+    transparent: false
+    solid: true
+    collectible: true
+    flammable: true
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}
+flower:
+    id: flower
+    name: Flower
+    color:
+        - 255
+        - 100
+        - 100
+        - 255
+    hardness: 0.1
+    transparent: true
+    solid: false
+    collectible: true
+    flammable: false
+    lightLevel: 0
+    gravity: false
+    viscosity: 0
+    pattern: solid
+    ui: {}
+    function: {}

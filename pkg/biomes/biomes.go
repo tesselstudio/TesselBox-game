@@ -99,9 +99,9 @@ func NewSimplexNoise(seed float64) *SimplexNoise {
 func (n *SimplexNoise) Noise2D(x, y float64) float64 {
 	// Simple value-based noise for demonstration
 	// In a full implementation, use a proper simplex/perlin noise library
-	return n.sineNoise(x*0.01+n.seed, y*0.01+n.seed) * 0.5 +
-		n.sineNoise(x*0.05+n.seed, y*0.05+n.seed) * 0.25 +
-		n.sineNoise(x*0.1+n.seed, y*0.1+n.seed) * 0.25
+	return n.sineNoise(x*0.01+n.seed, y*0.01+n.seed)*0.5 +
+		n.sineNoise(x*0.05+n.seed, y*0.05+n.seed)*0.25 +
+		n.sineNoise(x*0.1+n.seed, y*0.1+n.seed)*0.25
 }
 
 // sineNoise generates a simple sine-based noise
@@ -114,33 +114,33 @@ func GetBiomeAtPosition(x, y float64, noise *SimplexNoise) BiomeType {
 	temp := noise.Noise2D(x*0.01, y*0.01)
 	humid := noise.Noise2D(x*0.01+1000, y*0.01+1000)
 	elev := noise.Noise2D(x*0.005, y*0.005)
-	
+
 	// Normalize values to 0-1 range
 	temp = (temp + 1) / 2.0
 	humid = (humid + 1) / 2.0
 	elev = (elev + 1) / 2.0
-	
+
 	// Determine biome based on temperature, humidity, and elevation
 	if elev < 0.3 {
 		return OCEAN
 	}
-	
+
 	if elev > 0.7 {
 		return MOUNTAINS
 	}
-	
+
 	if temp > 0.7 && humid < 0.3 {
 		return DESERT
 	}
-	
+
 	if temp > 0.3 && temp < 0.7 && humid > 0.7 {
 		return SWAMP
 	}
-	
+
 	if humid > 0.5 && temp > 0.3 {
 		return FOREST
 	}
-	
+
 	return PLAINS
 }
 
@@ -153,11 +153,11 @@ func GetSurfaceHeightVariation(x, y float64, noise *SimplexNoise) float64 {
 func ShouldSpawnTree(x, y float64, noise *SimplexNoise) bool {
 	biome := GetBiomeAtPosition(x, y, noise)
 	props := BiomeDefinitions[biome]
-	
+
 	if props.TreeDensity <= 0 {
 		return false
 	}
-	
+
 	// Use noise to determine if tree should spawn
 	treeNoise := noise.Noise2D(x*0.1, y*0.1)
 	return treeNoise < props.TreeDensity
@@ -183,7 +183,7 @@ func GetBiomeUnderBlock(biome BiomeType) string {
 func ShouldSpawnOre(depth int, x, y float64, noise *SimplexNoise, oreType string) bool {
 	// Different ores spawn at different depths
 	var minDepth, maxDepth, frequency float64
-	
+
 	switch oreType {
 	case "coal_ore":
 		minDepth, maxDepth, frequency = 5, 50, 0.05
@@ -196,12 +196,12 @@ func ShouldSpawnOre(depth int, x, y float64, noise *SimplexNoise, oreType string
 	default:
 		return false
 	}
-	
+
 	depthFloat := float64(depth)
 	if depthFloat < minDepth || depthFloat > maxDepth {
 		return false
 	}
-	
+
 	oreNoise := noise.Noise2D(x*0.05, y*0.05)
 	return oreNoise < frequency
 }

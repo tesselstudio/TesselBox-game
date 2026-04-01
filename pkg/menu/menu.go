@@ -37,6 +37,8 @@ const (
 	ActionLogout
 	ActionOpenBlockLibrary
 	ActionSelectBlock
+	ActionOpenPluginManager
+	ActionOpenSkinEditor
 	ActionToggleSound
 	ActionToggleFullscreen
 	ActionChangeResolution
@@ -62,8 +64,8 @@ type Menu struct {
 	CreativeMode  bool   // Whether creative mode is enabled
 
 	// Scrolling for block library
-	ScrollOffset   int
-	VisibleItems   int
+	ScrollOffset    int
+	VisibleItems    int
 	MaxVisibleItems int
 
 	// Visual properties
@@ -79,12 +81,12 @@ type Menu struct {
 	rotationAngle float64
 
 	// Tooltip system
-	TooltipVisible   bool
-	TooltipText      string
+	TooltipVisible     bool
+	TooltipText        string
 	TooltipX, TooltipY int
-	TooltipTimer     float64
-	TooltipDelay     float64
-	TooltipAlpha     float64
+	TooltipTimer       float64
+	TooltipDelay       float64
+	TooltipAlpha       float64
 
 	// Transitions
 	fadeAlpha     float64
@@ -101,7 +103,7 @@ func NewMenu() *Menu {
 	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
 
 	menu := &Menu{
-		CurrentMenu:     MenuMain, // Start with main menu screen
+		CurrentMenu:     MenuMain,                       // Start with main menu screen
 		BackgroundColor: color.RGBA{15, 20, 35, 255},    // Darker blue background
 		AccentColor:     color.RGBA{120, 180, 255, 255}, // Brighter blue accent
 		HoverColor:      color.RGBA{180, 220, 255, 255}, // Light blue hover
@@ -149,6 +151,10 @@ func (m *Menu) SetMainMenu() {
 	if m.CreativeMode {
 		m.Items = append(m.Items, MenuItem{Text: "BLOCK LIBRARY", Action: ActionOpenBlockLibrary, Position: len(m.Items), Enabled: true,
 			Tooltip: "Browse and select blocks", Description: "Access all available block types for creative mode"})
+		m.Items = append(m.Items, MenuItem{Text: "PLUGIN MANAGER", Action: ActionOpenPluginManager, Position: len(m.Items), Enabled: true,
+			Tooltip: "Manage plugins and mods", Description: "Browse, install, and manage game plugins"})
+		m.Items = append(m.Items, MenuItem{Text: "SKIN EDITOR", Action: ActionOpenSkinEditor, Position: len(m.Items), Enabled: true,
+			Tooltip: "Customize player skin", Description: "Create and edit custom player skins"})
 	}
 
 	m.Items = append(m.Items, []MenuItem{
@@ -608,7 +614,7 @@ func (m *Menu) drawTooltip(screen *ebiten.Image) {
 	padding := 10
 	maxWidth := 300
 	lines := m.wrapText(m.TooltipText, maxWidth)
-	
+
 	lineHeight := 20
 	tooltipWidth := maxWidth + padding*2
 	tooltipHeight := len(lines)*lineHeight + padding*2
@@ -616,7 +622,7 @@ func (m *Menu) drawTooltip(screen *ebiten.Image) {
 	// Ensure tooltip stays on screen
 	tooltipX := m.TooltipX
 	tooltipY := m.TooltipY
-	
+
 	if tooltipX+tooltipWidth > 1280 {
 		tooltipX = 1280 - tooltipWidth - 10
 	}
@@ -633,7 +639,7 @@ func (m *Menu) drawTooltip(screen *ebiten.Image) {
 	// Draw tooltip background with alpha
 	bgColor := color.RGBA{40, 40, 50, uint8(m.TooltipAlpha * 200)}
 	borderColor := color.RGBA{120, 180, 255, uint8(m.TooltipAlpha * 255)}
-	
+
 	m.drawHexButton(screen, float64(tooltipX), float64(tooltipY), float64(tooltipWidth), float64(tooltipHeight), bgColor, borderColor)
 
 	// Draw tooltip text
@@ -645,7 +651,7 @@ func (m *Menu) drawTooltip(screen *ebiten.Image) {
 // updateTooltip updates the tooltip state based on hover
 func (m *Menu) updateTooltip(deltaTime float64) {
 	mx, my := ebiten.CursorPosition()
-	
+
 	// Check if hovering over any menu item
 	hoveringItem := false
 	for i, item := range m.Items {
@@ -661,26 +667,26 @@ func (m *Menu) updateTooltip(deltaTime float64) {
 		itemWidth := 450
 		centerX := screenWidth / 2
 		startX := centerX - itemWidth/2
-		
+
 		// Check if this item is visible
 		if i < m.ScrollOffset || i >= m.ScrollOffset+m.VisibleItems {
 			continue
 		}
-		
+
 		visibleIndex := i - m.ScrollOffset
 		itemY := startY + visibleIndex*itemHeight
 
 		// Check if mouse is hovering over this item
 		if mx >= startX && mx <= startX+itemWidth &&
 			my >= itemY && my <= itemY+itemHeight-10 {
-			
+
 			if !m.TooltipVisible || m.TooltipText != item.Tooltip {
 				m.TooltipTimer = 0.0
 				m.TooltipText = item.Tooltip
 				m.TooltipX = mx + 15
 				m.TooltipY = my - 30
 			}
-			
+
 			m.TooltipTimer += deltaTime
 			if m.TooltipTimer >= m.TooltipDelay {
 				m.TooltipVisible = true
@@ -689,12 +695,12 @@ func (m *Menu) updateTooltip(deltaTime float64) {
 					m.TooltipAlpha = min(1.0, m.TooltipAlpha+deltaTime*3)
 				}
 			}
-			
+
 			hoveringItem = true
 			break
 		}
 	}
-	
+
 	// Hide tooltip if not hovering
 	if !hoveringItem {
 		if m.TooltipVisible {
@@ -715,7 +721,7 @@ func (m *Menu) updateTooltip(deltaTime float64) {
 func (m *Menu) wrapText(text string, maxWidth int) []string {
 	words := []string{}
 	currentWord := ""
-	
+
 	for _, char := range text {
 		if char == ' ' {
 			if currentWord != "" {
@@ -729,17 +735,17 @@ func (m *Menu) wrapText(text string, maxWidth int) []string {
 	if currentWord != "" {
 		words = append(words, currentWord)
 	}
-	
+
 	lines := []string{}
 	currentLine := ""
-	
+
 	for _, word := range words {
 		testLine := currentLine
 		if testLine != "" {
 			testLine += " "
 		}
 		testLine += word
-		
+
 		// Rough estimate of text width (6 pixels per character)
 		if len(testLine)*6 > maxWidth {
 			if currentLine != "" {
@@ -752,10 +758,10 @@ func (m *Menu) wrapText(text string, maxWidth int) []string {
 			currentLine = testLine
 		}
 	}
-	
+
 	if currentLine != "" {
 		lines = append(lines, currentLine)
 	}
-	
+
 	return lines
 }

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"tesselbox/pkg/items"
 
-	"gopkg.in/yaml.v3"
 	"tesselbox/assets"
-)
 
+	"gopkg.in/yaml.v3"
+)
 
 // CraftingStation represents different crafting stations
 type CraftingStation int

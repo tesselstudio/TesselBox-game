@@ -6,10 +6,10 @@ import (
 	"tesselbox/pkg/hexagon"
 	"time"
 
-	"gopkg.in/yaml.v3"
 	"tesselbox/assets"
-)
 
+	"gopkg.in/yaml.v3"
+)
 
 // OrganismType represents the type of organism
 type OrganismType int

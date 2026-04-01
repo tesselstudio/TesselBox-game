@@ -1,13 +1,16 @@
 {
-  "version": "1.0",
-  "save_time": "2026-03-08T19:20:33.17053421Z",
+  "version": "2.0",
+  "save_time": "2026-03-31T11:29:30.839684604+01:00",
   "world_name": "test_autosave",
   "player_name": "autosave_player",
-  "seed": 1772997633018790174,
+  "seed": 1774952970687436879,
+  "game_mode": "",
   "player_x": 0,
   "player_y": 0,
   "player_vx": 0,
   "player_vy": 0,
+  "player_health": 0,
+  "player_max_health": 0,
   "selected_slot": 0,
   "inventory_slots": [
     {
@@ -36,9 +39,45 @@
       "durability": -1
     }
   ],
+  "hotbar_slots": [
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    },
+    {
+      "type": 0,
+      "quantity": 0,
+      "durability": -1
+    }
+  ],
   "camera_x": 0,
   "camera_y": 0,
+  "world_time": 0,
+  "weather": "",
   "in_menu": false,
   "in_game": true,
-  "in_crafting": false
+  "in_crafting": false,
+  "creative_mode": false,
+  "crafting_station": "",
+  "unlocked_recipes": null,
+  "blocks_placed": 0,
+  "blocks_destroyed": 0,
+  "items_crafted": 0,
+  "play_time_seconds": 0
 }

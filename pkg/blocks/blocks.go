@@ -3,13 +3,14 @@ package blocks
 import (
 	"image/color"
 	"log"
+	"math"
 	"math/rand"
+
+	"tesselbox/assets"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"gopkg.in/yaml.v3"
-	"tesselbox/assets"
 )
-
 
 // LiquidType represents the type of liquid
 type LiquidType int
@@ -21,18 +22,17 @@ const (
 
 // LiquidProperties defines the properties of a liquid type
 type LiquidProperties struct {
-	Type         LiquidType
-	Name         string
-	Color        color.RGBA
-	Density      float64  // How heavy the liquid is
-	Viscosity    float64  // How thick/runny the liquid is (0-1)
-	FlowSpeed    float64  // How fast the liquid flows
-	LightLevel   int      // Light emission level
-	Transparent  bool
-	Gravity      bool
-	SpreadRate   int      // How far liquid spreads horizontally
+	Type        LiquidType
+	Name        string
+	Color       color.RGBA
+	Density     float64 // How heavy the liquid is
+	Viscosity   float64 // How thick/runny the liquid is (0-1)
+	FlowSpeed   float64 // How fast the liquid flows
+	LightLevel  int     // Light emission level
+	Transparent bool
+	Gravity     bool
+	SpreadRate  int // How far liquid spreads horizontally
 }
-
 
 // BlockType represents the type of a block
 type BlockType int
@@ -43,6 +43,7 @@ const (
 	GRASS
 	STONE
 	SAND
+	WATER
 	LOG
 	LEAVES
 	COAL_ORE
@@ -143,25 +144,25 @@ func init() {
 		Name:        "Water",
 		Color:       color.RGBA{64, 164, 223, 180},
 		Density:     1.0,
-		Viscosity:   0.3,  // Quite runny
-		FlowSpeed:   2.0,  // Flows moderately fast
+		Viscosity:   0.3, // Quite runny
+		FlowSpeed:   2.0, // Flows moderately fast
 		LightLevel:  0,
 		Transparent: true,
 		Gravity:     true,
-		SpreadRate:  7,    // Spreads up to 7 blocks horizontally
+		SpreadRate:  7, // Spreads up to 7 blocks horizontally
 	}
-	
+
 	LiquidDefinitions[LAVA_LIQUID] = &LiquidProperties{
 		Type:        LAVA_LIQUID,
 		Name:        "Lava",
 		Color:       color.RGBA{255, 100, 0, 200},
-		Density:     3.0,  // Much heavier than water
-		Viscosity:   0.8,  // Thick and slow
-		FlowSpeed:   0.5,  // Flows slowly
-		LightLevel:  12,   // Emits light
+		Density:     3.0, // Much heavier than water
+		Viscosity:   0.8, // Thick and slow
+		FlowSpeed:   0.5, // Flows slowly
+		LightLevel:  12,  // Emits light
 		Transparent: false,
 		Gravity:     true,
-		SpreadRate:  3,    // Doesn't spread as far
+		SpreadRate:  3, // Doesn't spread as far
 	}
 }
 
@@ -171,6 +172,7 @@ var BlockTypeMap = map[string]BlockType{
 	"grass":       GRASS,
 	"stone":       STONE,
 	"sand":        SAND,
+	"water":       WATER,
 	"log":         LOG,
 	"leaves":      LEAVES,
 	"coal_ore":    COAL_ORE,
@@ -186,34 +188,34 @@ var BlockTypeMap = map[string]BlockType{
 	"furnace":     FURNACE,
 	"anvil":       ANVIL,
 	// New blocks
-	"gravel":           GRAVEL,
-	"sandstone":       SANDSTONE,
-	"obsidian":        OBSIDIAN,
-	"ice":             ICE,
-	"snow":            SNOW,
-	"torch":           TORCH,
-	"crafting_table":  CRAFTING_TABLE,
-	"chest":           CHEST,
-	"ladder":          LADDER,
-	"fence":           FENCE,
-	"gate":            GATE,
-	"door":            DOOR,
-	"window":          WINDOW,
-	"flower":          FLOWER,
-	"tall_grass":      TALL_GRASS,
-	"mushroom_red":    MUSHROOM_RED,
-	"mushroom_brown":  MUSHROOM_BROWN,
-	"wool":            WOOL,
-	"bookshelf":       BOOKSHELF,
-	"jukebox":         JUKEBOX,
-	"note_block":      NOTE_BLOCK,
-	"pumpkin":         PUMPKIN,
-	"melon":           MELON,
-	"hay_bale":        HAY_BALE,
-	"cobblestone":     COBBLESTONE,
+	"gravel":            GRAVEL,
+	"sandstone":         SANDSTONE,
+	"obsidian":          OBSIDIAN,
+	"ice":               ICE,
+	"snow":              SNOW,
+	"torch":             TORCH,
+	"crafting_table":    CRAFTING_TABLE,
+	"chest":             CHEST,
+	"ladder":            LADDER,
+	"fence":             FENCE,
+	"gate":              GATE,
+	"door":              DOOR,
+	"window":            WINDOW,
+	"flower":            FLOWER,
+	"tall_grass":        TALL_GRASS,
+	"mushroom_red":      MUSHROOM_RED,
+	"mushroom_brown":    MUSHROOM_BROWN,
+	"wool":              WOOL,
+	"bookshelf":         BOOKSHELF,
+	"jukebox":           JUKEBOX,
+	"note_block":        NOTE_BLOCK,
+	"pumpkin":           PUMPKIN,
+	"melon":             MELON,
+	"hay_bale":          HAY_BALE,
+	"cobblestone":       COBBLESTONE,
 	"mossy_cobblestone": MOSSY_COBBLESTONE,
-	"stone_bricks":    STONE_BRICKS,
-	"chiseled_stone":  CHISELED_STONE,
+	"stone_bricks":      STONE_BRICKS,
+	"chiseled_stone":    CHISELED_STONE,
 }
 
 // LoadBlocks loads block definitions from YAML files
@@ -236,7 +238,7 @@ func loadBlocksFromEmbedded() {
 		loadDefaultBlocks()
 		return
 	}
-	
+
 	var blocks map[string]*BlockJSON
 	if err := yaml.Unmarshal(data, &blocks); err != nil {
 		log.Printf("Warning: Failed to parse blocks.yaml: %v", err)
@@ -244,7 +246,7 @@ func loadBlocksFromEmbedded() {
 		loadDefaultBlocks()
 		return
 	}
-	
+
 	// Validate loaded blocks
 	if len(blocks) == 0 {
 		log.Printf("Warning: No valid blocks found in blocks.yaml")
@@ -252,7 +254,7 @@ func loadBlocksFromEmbedded() {
 		loadDefaultBlocks()
 		return
 	}
-	
+
 	loadedCount := 0
 	for id, b := range blocks {
 		// Validate block data
@@ -260,9 +262,15 @@ func loadBlocksFromEmbedded() {
 			log.Printf("Warning: Invalid block data for %s, skipping", id)
 			continue
 		}
-		
+
+		blockType, exists := BlockTypeMap[id]
+		if !exists {
+			log.Printf("Warning: Block type '%s' not found in BlockTypeMap, skipping", id)
+			continue
+		}
+
 		props := &BlockProperties{
-			ID:          BlockTypeMap[id],
+			ID:          blockType,
 			Name:        b.Name,
 			Color:       color.RGBA{b.Color[0], b.Color[1], b.Color[2], b.Color[3]},
 			Hardness:    validateHardness(b.Hardness),
@@ -275,7 +283,7 @@ func loadBlocksFromEmbedded() {
 			Viscosity:   validateViscosity(b.Viscosity),
 			Pattern:     b.Pattern,
 		}
-		
+
 		if len(b.TopColor) == 4 {
 			props.TopColor = color.RGBA{b.TopColor[0], b.TopColor[1], b.TopColor[2], b.TopColor[3]}
 		}
@@ -296,7 +304,7 @@ func loadBlocksFromEmbedded() {
 		BlockDefinitions[id] = props
 		loadedCount++
 	}
-	
+
 	if loadedCount == 0 {
 		log.Printf("Warning: No valid blocks could be loaded from blocks.yaml")
 		log.Printf("Loading default block configurations...")
@@ -680,7 +688,7 @@ func loadDefaultBlocks() {
 		BlockDefinitions[id] = props
 		loadedCount++
 	}
-	
+
 	log.Printf("Successfully loaded %d default block configurations", loadedCount)
 }
 
@@ -765,12 +773,12 @@ func IsValidLiquid(liquidType LiquidType) bool {
 
 // LiquidPhysics represents the physics state of a liquid cell
 type LiquidPhysics struct {
-	LiquidType   LiquidType
-	Level        float64  // 0.0 to 1.0 (empty to full)
-	Flowing      bool     // Whether this liquid is actively flowing
-	Source       bool     // Whether this is a source block
-	UpdateTime   float64  // Last time this liquid was updated
-	Pressure     float64  // Liquid pressure for physics calculations
+	LiquidType LiquidType
+	Level      float64 // 0.0 to 1.0 (empty to full)
+	Flowing    bool    // Whether this liquid is actively flowing
+	Source     bool    // Whether this is a source block
+	UpdateTime float64 // Last time this liquid was updated
+	Pressure   float64 // Liquid pressure for physics calculations
 }
 
 // UpdateLiquidPhysics updates liquid flow based on gravity and terrain
@@ -779,7 +787,7 @@ func UpdateLiquidPhysics(liquid *LiquidPhysics, deltaTime float64, neighbors []*
 	if props == nil {
 		return
 	}
-	
+
 	// Apply gravity
 	if props.Gravity && liquid.Level > 0.0 {
 		// Check if liquid can flow down
@@ -790,30 +798,30 @@ func UpdateLiquidPhysics(liquid *LiquidPhysics, deltaTime float64, neighbors []*
 				break
 			}
 		}
-		
+
 		if canFlowDown {
 			// Calculate flow rate based on viscosity
 			flowRate := props.FlowSpeed * deltaTime * (1.0 - props.Viscosity)
-			liquid.Level = max(0.0, liquid.Level-flowRate)
+			liquid.Level = math.Max(0.0, liquid.Level-flowRate)
 			liquid.Flowing = true
 		}
 	}
-	
+
 	// Horizontal spreading
 	if liquid.Level > 0.0 && !liquid.Source {
 		// Spread to adjacent cells based on pressure and viscosity
 		spreadAmount := (liquid.Level * props.FlowSpeed * deltaTime) / float64(props.SpreadRate)
 		spreadAmount *= (1.0 - props.Viscosity) // More viscous liquids spread less
-		
-		liquid.Level = max(0.0, liquid.Level-spreadAmount)
+
+		liquid.Level = math.Max(0.0, liquid.Level-spreadAmount)
 		if spreadAmount > 0.01 {
 			liquid.Flowing = true
 		}
 	}
-	
+
 	// Update time
 	liquid.UpdateTime += deltaTime
-	
+
 	// Stop flowing if level is too low
 	if liquid.Level < 0.01 {
 		liquid.Level = 0.0
@@ -827,27 +835,27 @@ func CalculateLiquidShape(liquid *LiquidPhysics, terrainHeight float64) []float6
 	if props == nil || liquid.Level <= 0.0 {
 		return []float64{}
 	}
-	
+
 	// Basic liquid shape - can be enhanced for more realistic rendering
 	shape := make([]float64, 8) // 4 points for a quad
-	
+
 	// Calculate liquid surface height based on level and viscosity
 	surfaceHeight := terrainHeight + (liquid.Level * 0.8) // Liquid doesn't fill completely
-	
+
 	// Adjust for viscosity (thicker liquids have flatter surfaces)
 	if props.Viscosity > 0.5 {
 		surfaceHeight = terrainHeight + (liquid.Level * 0.9)
 	}
-	
+
 	// Simple quad shape - can be replaced with more complex liquid mesh
-	shape[0] = 0.0 // x1
+	shape[0] = 0.0           // x1
 	shape[1] = surfaceHeight // y1
-	shape[2] = 1.0 // x2
+	shape[2] = 1.0           // x2
 	shape[3] = surfaceHeight // y2
-	shape[4] = 1.0 // x3
+	shape[4] = 1.0           // x3
 	shape[5] = terrainHeight // y3
-	shape[6] = 0.0 // x4
+	shape[6] = 0.0           // x4
 	shape[7] = terrainHeight // y4
-	
+
 	return shape
 }

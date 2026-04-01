@@ -16,13 +16,16 @@ import (
 	"tesselbox/pkg/audio"
 	"tesselbox/pkg/blocks"
 	"tesselbox/pkg/crafting"
+	"tesselbox/pkg/entities"
 	"tesselbox/pkg/gametime"
 	"tesselbox/pkg/hexagon"
 	"tesselbox/pkg/input"
 	"tesselbox/pkg/items"
 	"tesselbox/pkg/menu"
 	"tesselbox/pkg/player"
+	"tesselbox/pkg/plugins"
 	"tesselbox/pkg/save"
+	"tesselbox/pkg/skin"
 	"tesselbox/pkg/weather"
 	"tesselbox/pkg/world"
 
@@ -39,6 +42,7 @@ func stringToBlockType(blockTypeStr string) blocks.BlockType {
 		"grass":       blocks.GRASS,
 		"stone":       blocks.STONE,
 		"sand":        blocks.SAND,
+		"water":       blocks.WATER,
 		"log":         blocks.LOG,
 		"leaves":      blocks.LEAVES,
 		"coal_ore":    blocks.COAL_ORE,
@@ -54,34 +58,34 @@ func stringToBlockType(blockTypeStr string) blocks.BlockType {
 		"furnace":     blocks.FURNACE,
 		"anvil":       blocks.ANVIL,
 		// New blocks
-		"gravel":           blocks.GRAVEL,
-		"sandstone":       blocks.SANDSTONE,
-		"obsidian":        blocks.OBSIDIAN,
-		"ice":             blocks.ICE,
-		"snow":            blocks.SNOW,
-		"torch":           blocks.TORCH,
-		"crafting_table":  blocks.CRAFTING_TABLE,
-		"chest":           blocks.CHEST,
-		"ladder":          blocks.LADDER,
-		"fence":           blocks.FENCE,
-		"gate":            blocks.GATE,
-		"door":            blocks.DOOR,
-		"window":          blocks.WINDOW,
-		"flower":          blocks.FLOWER,
-		"tall_grass":      blocks.TALL_GRASS,
-		"mushroom_red":    blocks.MUSHROOM_RED,
-		"mushroom_brown":  blocks.MUSHROOM_BROWN,
-		"wool":            blocks.WOOL,
-		"bookshelf":       blocks.BOOKSHELF,
-		"jukebox":         blocks.JUKEBOX,
-		"note_block":      blocks.NOTE_BLOCK,
-		"pumpkin":         blocks.PUMPKIN,
-		"melon":           blocks.MELON,
-		"hay_bale":        blocks.HAY_BALE,
-		"cobblestone":     blocks.COBBLESTONE,
+		"gravel":            blocks.GRAVEL,
+		"sandstone":         blocks.SANDSTONE,
+		"obsidian":          blocks.OBSIDIAN,
+		"ice":               blocks.ICE,
+		"snow":              blocks.SNOW,
+		"torch":             blocks.TORCH,
+		"crafting_table":    blocks.CRAFTING_TABLE,
+		"chest":             blocks.CHEST,
+		"ladder":            blocks.LADDER,
+		"fence":             blocks.FENCE,
+		"gate":              blocks.GATE,
+		"door":              blocks.DOOR,
+		"window":            blocks.WINDOW,
+		"flower":            blocks.FLOWER,
+		"tall_grass":        blocks.TALL_GRASS,
+		"mushroom_red":      blocks.MUSHROOM_RED,
+		"mushroom_brown":    blocks.MUSHROOM_BROWN,
+		"wool":              blocks.WOOL,
+		"bookshelf":         blocks.BOOKSHELF,
+		"jukebox":           blocks.JUKEBOX,
+		"note_block":        blocks.NOTE_BLOCK,
+		"pumpkin":           blocks.PUMPKIN,
+		"melon":             blocks.MELON,
+		"hay_bale":          blocks.HAY_BALE,
+		"cobblestone":       blocks.COBBLESTONE,
 		"mossy_cobblestone": blocks.MOSSY_COBBLESTONE,
-		"stone_bricks":    blocks.STONE_BRICKS,
-		"chiseled_stone":  blocks.CHISELED_STONE,
+		"stone_bricks":      blocks.STONE_BRICKS,
+		"chiseled_stone":    blocks.CHISELED_STONE,
 	}
 	if bt, ok := blockMap[blockTypeStr]; ok {
 		return bt
@@ -124,7 +128,10 @@ type Game struct {
 	craftingSystem *crafting.CraftingSystem
 	craftingUI     *crafting.CraftingUI
 	menu           *menu.Menu
-	pluginManager  interface{} // Will be *entities.EnhancedPluginManager
+	pluginManager  *entities.PluginManager
+	pluginUI       *plugins.PluginUI
+	pluginInstaller *plugins.PluginInstaller
+	skinEditor     *skin.SkinEditor
 	inputManager   *input.InputManager
 
 	// Save system
@@ -138,8 +145,8 @@ type Game struct {
 	weatherSystem *weather.WeatherSystem
 
 	// Audio system
-	audioManager  *audio.AudioManager
-	soundLibrary  *audio.SoundLibrary
+	audioManager *audio.AudioManager
+	soundLibrary *audio.SoundLibrary
 
 	// Footstep audio tracking
 	lastFootstepTime time.Time
@@ -149,16 +156,16 @@ type Game struct {
 	droppedItems []*DroppedItem
 
 	// Object pools for rendering optimization
-	vertexPool [][]ebiten.Vertex
+	vertexPool  [][]ebiten.Vertex
 	indicesPool [][]uint16
-	poolIndex int
+	poolIndex   int
 
 	// Camera
 	cameraX, cameraY float64
 
 	// Mouse
-	mouseX, mouseY   int
-	hoveredBlockName string
+	mouseX, mouseY       int
+	hoveredBlockName     string
 	leftMouseWasPressed  bool
 	rightMouseWasPressed bool
 
@@ -166,6 +173,8 @@ type Game struct {
 	inMenu       bool
 	inGame       bool
 	inCrafting   bool
+	inPluginUI   bool
+	inSkinEditor bool
 	CreativeMode bool
 
 	// Command system
@@ -188,15 +197,15 @@ func NewGame() *Game {
 	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
 
 	g := &Game{
-		world:         world.NewWorld("default"), // Default world name
-		player:        player.NewPlayer(0, 0), // Temporary position, will be updated
-		inventory:     items.NewInventory(32),
-		selectedBlock: "dirt", // Default to dirt in creative mode
-		CreativeMode:  true,   // Enable creative mode by default
-		cameraX:       0,
-		cameraY:       0,
-		lastTime:      time.Now(),
-		whiteImage:    whiteImage,
+		world:                world.NewWorld("default"), // Default world name
+		player:               player.NewPlayer(0, 0),    // Temporary position, will be updated
+		inventory:            items.NewInventory(32),
+		selectedBlock:        "dirt", // Default to dirt in creative mode
+		CreativeMode:         true,   // Enable creative mode by default
+		cameraX:              0,
+		cameraY:              0,
+		lastTime:             time.Now(),
+		whiteImage:           whiteImage,
 		leftMouseWasPressed:  false,
 		rightMouseWasPressed: false,
 	}
@@ -250,8 +259,8 @@ func NewGame() *Game {
 
 	// Validate essential game assets
 	essentialAssets := map[string]int{
-		"items":  len(items.ItemDefinitions),
-		"blocks": len(blocks.BlockDefinitions),
+		"items":   len(items.ItemDefinitions),
+		"blocks":  len(blocks.BlockDefinitions),
 		"recipes": g.craftingSystem.GetRecipeCount(),
 	}
 
@@ -295,15 +304,30 @@ func NewGame() *Game {
 	g.menu = menu.NewMenu()
 	g.menu.CreativeMode = g.CreativeMode // Set creative mode in menu
 
+	// Initialize plugin system
+	log.Printf("Initializing plugin system...")
+	g.pluginManager = entities.NewPluginManager(nil, nil, nil) // Will be properly integrated later
+	if g.pluginManager == nil {
+		log.Printf("Warning: Plugin manager initialization failed")
+	}
+	g.pluginUI = plugins.NewPluginUI(g.pluginManager)
+	g.pluginInstaller = plugins.NewPluginInstaller(g.pluginManager)
+	log.Printf("Plugin system initialized")
+
+	// Initialize skin editor
+	log.Printf("Initializing skin editor...")
+	g.skinEditor = skin.NewSkinEditor()
+	log.Printf("Skin editor initialized")
+
 	// Initialize save system
 	playerName := "player"
 	g.saveManager = save.NewSaveManager("default", playerName)
 
+	// Initialize day/night cycle (10 minute days for gameplay) - must be done before autoSaver
+	g.dayNightCycle = gametime.NewDayNightCycle(600.0)
+
 	// Initialize auto-saver with 5-minute interval
 	g.autoSaver = save.NewAutoSaver(g.saveManager, g.createSaveState(), 5*time.Minute)
-
-	// Initialize day/night cycle (10 minute days for gameplay)
-	g.dayNightCycle = gametime.NewDayNightCycle(600.0)
 
 	// Initialize weather system
 	g.weatherSystem = weather.NewWeatherSystem()
@@ -311,7 +335,7 @@ func NewGame() *Game {
 	// Initialize audio system
 	g.audioManager = audio.NewAudioManager()
 	g.soundLibrary = audio.NewSoundLibrary(g.audioManager)
-	
+
 	// Load audio files with validation
 	log.Printf("Loading audio system...")
 	loader := audio.NewAudioLoader(g.audioManager)
@@ -324,10 +348,10 @@ func NewGame() *Game {
 	} else {
 		log.Printf("Audio system loaded successfully")
 	}
-	
+
 	// Initialize sound library
 	g.soundLibrary.InitializeDefaultSounds()
-	
+
 	// Validate audio system
 	loadedSounds := g.audioManager.GetLoadedSounds()
 	if len(loadedSounds) == 0 {
@@ -373,6 +397,40 @@ func (g *Game) Update() error {
 		// Handle escape to close crafting
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			g.inCrafting = false
+		}
+		return nil
+	}
+
+	// Handle plugin UI
+	if g.inPluginUI {
+		if err := g.pluginUI.Update(); err != nil {
+			return err
+		}
+
+		// Handle escape to close plugin UI
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.inPluginUI = false
+		}
+		return nil
+	}
+
+	// Handle skin editor
+	if g.inSkinEditor {
+		if err := g.skinEditor.Update(); err != nil {
+			log.Printf("Skin editor update error: %v", err)
+		}
+
+		// Handle escape to close skin editor
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			// Auto-save skin before exiting
+			if err := g.skinEditor.SaveSkin(); err != nil {
+				log.Printf("Failed to save skin on exit: %v", err)
+			}
+			g.inSkinEditor = false
+			g.inMenu = true
+			g.inGame = false
+			g.menu.SetMainMenu()
+			g.playUISound("close")
 		}
 		return nil
 	}
@@ -442,12 +500,12 @@ func (g *Game) Update() error {
 func (g *Game) handleMenuAction(action menu.MenuAction) {
 	// Play UI click sound for most actions
 	g.playUISound("click")
-	
+
 	switch action {
 	case menu.ActionStartGame:
 		g.inMenu = false
 		g.inGame = true
-		
+
 		// Find a suitable spawn position and set player position
 		// Spawn in area where terrain is actually generated (negative coordinates)
 		spawnX, spawnY := g.world.FindSpawnPosition(-2000, -2000)
@@ -463,6 +521,17 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 
 	case menu.ActionOpenBlockLibrary:
 		g.menu.SetBlockLibraryMenu()
+
+	case menu.ActionOpenPluginManager:
+		g.inMenu = false
+		g.inPluginUI = true
+		g.playUISound("open")
+
+	case menu.ActionOpenSkinEditor:
+		g.inMenu = false
+		g.inSkinEditor = true
+		g.inGame = false
+		g.playUISound("open")
 
 	case menu.ActionSelectBlock:
 		g.selectedBlock = g.menu.SelectedBlock
@@ -524,6 +593,19 @@ func (g *Game) handleGameInput() {
 		g.menu.SetBlockLibraryMenu()
 	}
 
+	// Open plugin manager (P key)
+	if inpututil.IsKeyJustPressed(ebiten.KeyP) {
+		g.inPluginUI = true
+		g.inGame = false
+		g.playUISound("open")
+	}
+
+	// Open skin editor (S key) - only in creative mode and not during gameplay
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) && g.CreativeMode && !g.inGame {
+		g.inSkinEditor = true
+		g.playUISound("open")
+	}
+
 	// Interact with crafting stations
 	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
 		g.interactWithStation()
@@ -542,7 +624,7 @@ func (g *Game) handleGameInput() {
 			log.Println("Game loaded successfully")
 		}
 	}
-	
+
 	// Quick save (F5)
 	if inpututil.IsKeyJustPressed(ebiten.KeyF5) {
 		if err := g.SaveGame(); err != nil {
@@ -551,7 +633,7 @@ func (g *Game) handleGameInput() {
 			log.Println("Game saved successfully")
 		}
 	}
-	
+
 	// Backup save (F6)
 	if inpututil.IsKeyJustPressed(ebiten.KeyF6) {
 		if g.saveManager != nil {
@@ -562,16 +644,16 @@ func (g *Game) handleGameInput() {
 			}
 		}
 	}
-	
+
 	// Save info (F7)
 	if inpututil.IsKeyJustPressed(ebiten.KeyF7) {
 		if g.saveManager != nil {
 			if info, err := g.saveManager.GetSaveInfo(); err != nil {
 				log.Printf("Failed to get save info: %v", err)
 			} else {
-				log.Printf("Save Info - World: %s, Player: %s, Mode: %s, Play Time: %.1f min", 
+				log.Printf("Save Info - World: %s, Player: %s, Mode: %s, Play Time: %.1f min",
 					info.WorldName, info.PlayerName, info.GameMode, info.PlayTime/60)
-				log.Printf("Stats - Blocks Placed: %d, Destroyed: %d, Items Crafted: %d", 
+				log.Printf("Stats - Blocks Placed: %d, Destroyed: %d, Items Crafted: %d",
 					info.BlocksPlaced, info.BlocksDestroyed, info.ItemsCrafted)
 			}
 		}
@@ -600,7 +682,7 @@ func (g *Game) handleGameInput() {
 	// Mouse input for mining and placement
 	staticLeftPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
 	staticRightPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
-	
+
 	// Track previous state to detect "just pressed"
 	if !g.leftMouseWasPressed && staticLeftPressed {
 		// Left mouse just pressed - start mining
@@ -614,7 +696,7 @@ func (g *Game) handleGameInput() {
 		// Right mouse just pressed - place block
 		g.handleBlockPlacement()
 	}
-	
+
 	// Update state
 	g.leftMouseWasPressed = staticLeftPressed
 	g.rightMouseWasPressed = staticRightPressed
@@ -666,15 +748,15 @@ func (g *Game) handleGameInput() {
 		g.inventory.ConsolidateItems()
 		log.Printf("Inventory sorted and consolidated")
 	}
-	
+
 	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
 		// I: Show inventory stats
 		stats := g.inventory.GetInventoryStats()
-		log.Printf("Inventory: %d/%d slots used, %d items, %d types", 
-			stats["used_slots"], stats["total_slots"], 
+		log.Printf("Inventory: %d/%d slots used, %d items, %d types",
+			stats["used_slots"], stats["total_slots"],
 			stats["total_items"], stats["unique_types"])
 	}
-	
+
 	if inpututil.IsKeyJustPressed(ebiten.KeyC) && ebiten.IsKeyPressed(ebiten.KeyControl) {
 		// Ctrl+C: Consolidate items only
 		g.inventory.ConsolidateItems()
@@ -851,15 +933,15 @@ func (g *Game) dropItem() {
 	if g.inventory.RemoveItem(1) {
 		// Get player position to drop item in front of player
 		playerX, playerY := g.player.GetCenter()
-		
+
 		// Drop item slightly in front of player based on facing direction
 		dropX := playerX + 30.0 // Drop in front of player
 		dropY := playerY - 10.0 // Slightly above player center
-		
+
 		// Add some random velocity for natural dropping motion
 		vx := float64(rand.Intn(100)-50) / 100.0 * 2.0 // Random horizontal velocity
-		vy := -2.0 // Upward velocity for arc motion
-		
+		vy := -2.0                                     // Upward velocity for arc motion
+
 		// Create dropped item entity
 		droppedItem := &DroppedItem{
 			Type:     selectedItem.Type,
@@ -870,7 +952,7 @@ func (g *Game) dropItem() {
 			VY:       vy,
 			Lifetime: time.Now().Add(5 * time.Minute), // Items disappear after 5 minutes
 		}
-		
+
 		// Add to dropped items list
 		g.droppedItems = append(g.droppedItems, droppedItem)
 	}
@@ -1131,10 +1213,10 @@ func (g *Game) handleBlockPlacement() {
 	if chunk == nil {
 		return
 	}
-	
+
 	// Get chunk world position
 	worldX, worldY := chunk.GetWorldPosition()
-	
+
 	// Calculate local row/col using the same formula as world generation
 	localRow := int((mouseWorldY - worldY) / world.HexVSpacing)
 	var localCol int
@@ -1143,7 +1225,7 @@ func (g *Game) handleBlockPlacement() {
 	} else {
 		localCol = int((mouseWorldX - worldX - world.HexWidth) / world.HexWidth)
 	}
-	
+
 	// Convert back to world coordinates using the same formula as world generation
 	var placeX, placeY float64
 	if localRow%2 == 0 {
@@ -1180,17 +1262,17 @@ func (g *Game) handleBlockPlacement() {
 func (g *Game) canPlaceBlockAt(x, y float64) bool {
 	// Use the coordinates directly since we're now using snapped hexagon centers
 	centerX, centerY := x, y
-	
+
 	// Get the chunk directly and check the exact hexagon position
 	chunkX, chunkY := g.world.GetChunkCoords(centerX, centerY)
 	chunk := g.world.GetChunk(chunkX, chunkY)
 	if chunk == nil {
 		return false
 	}
-	
+
 	// Use the same calculation as chunk.GetHexagon for exact lookup
 	worldX, worldY := chunk.GetWorldPosition()
-	
+
 	localRow := int((centerY - worldY) / world.HexVSpacing)
 	localCol := int((centerX - worldX - world.HexWidth/2) / world.HexWidth)
 	if localRow%2 == 0 {
@@ -1198,10 +1280,10 @@ func (g *Game) canPlaceBlockAt(x, y float64) bool {
 	} else {
 		localCol = int((centerX - worldX) / world.HexWidth)
 	}
-	
+
 	key := [2]int{localCol, localRow}
 	existingHex := chunk.Hexagons[key]
-	
+
 	if existingHex != nil {
 		return false // Cannot place on existing block
 	}
@@ -1265,27 +1347,27 @@ func (g *Game) drawMiningProgress(screen *ebiten.Image) {
 // updateDroppedItems updates physics for all dropped items
 func (g *Game) updateDroppedItems(deltaTime float64) {
 	gravity := 9.8 * 50.0 // Scale gravity for pixel space
-	friction := 0.98       // Air friction
-	
+	friction := 0.98      // Air friction
+
 	// Update items in reverse order to safely remove expired items
 	for i := len(g.droppedItems) - 1; i >= 0; i-- {
 		item := g.droppedItems[i]
-		
+
 		// Check if item has expired
 		if time.Now().After(item.Lifetime) {
 			g.droppedItems = append(g.droppedItems[:i], g.droppedItems[i+1:]...)
 			continue
 		}
-		
+
 		// Apply physics
 		item.VY += gravity * deltaTime // Apply gravity
-		item.VX *= friction           // Apply friction
+		item.VX *= friction            // Apply friction
 		item.VY *= friction
-		
+
 		// Update position
 		item.X += item.VX * deltaTime
 		item.Y += item.VY * deltaTime
-		
+
 		// Simple ground collision - check if item hit ground
 		groundY := float64(1000) // Simple ground level for now
 		if item.Y > groundY {
@@ -1293,7 +1375,7 @@ func (g *Game) updateDroppedItems(deltaTime float64) {
 			item.VY = 0
 			item.VX *= 0.8 // Ground friction
 		}
-		
+
 		// Check for player pickup (proximity check)
 		playerX, playerY := g.player.GetCenter()
 		distance := math.Sqrt((item.X-playerX)*(item.X-playerX) + (item.Y-playerY)*(item.Y-playerY))
@@ -1320,6 +1402,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawGameScene(screen)
 		// Draw crafting UI overlay
 		g.craftingUI.Draw(screen)
+		return
+	}
+
+	if g.inPluginUI {
+		// Draw game in background
+		g.drawGameScene(screen)
+		// Draw plugin UI overlay
+		g.pluginUI.Draw(screen)
+		return
+	}
+
+	if g.inSkinEditor {
+		// Draw skin editor (full screen)
+		g.skinEditor.Draw(screen)
 		return
 	}
 
@@ -1407,12 +1503,12 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 
 		// Prepare vertices for all blocks in this color group using object pools
 		totalVertices := len(groupBlocks) * 6 // 6 vertices per hexagon
-		
+
 		// Get pooled slices and reset them
 		poolIdx := g.poolIndex % len(g.vertexPool)
 		vertices := g.vertexPool[poolIdx][:0] // Reset length but keep capacity
 		indices := g.indicesPool[poolIdx][:0] // Reset length but keep capacity
-		
+
 		// Ensure capacity is sufficient
 		if cap(vertices) < totalVertices {
 			vertices = make([]ebiten.Vertex, 0, totalVertices)
@@ -1420,7 +1516,7 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 		if cap(indices) < totalVertices {
 			indices = make([]uint16, 0, totalVertices)
 		}
-		
+
 		g.poolIndex++ // Rotate through pools
 
 		baseIndex := uint16(0)
@@ -1633,6 +1729,19 @@ func (g *Game) drawUI(screen *ebiten.Image) {
 	if g.hoveredBlockName != "" {
 		ebitenutil.DebugPrintAt(screen, strings.Title(g.hoveredBlockName), g.mouseX+10, g.mouseY-20)
 	}
+
+	// Draw selected block info (Creative Mode)
+	if g.CreativeMode {
+		selectedBlockText := fmt.Sprintf("Selected: %s", strings.Title(g.selectedBlock))
+		ebitenutil.DebugPrintAt(screen, selectedBlockText, 10, ScreenHeight-100)
+		
+		// Draw instructions
+		instructions := "Press B to open block library"
+		ebitenutil.DebugPrintAt(screen, instructions, 10, ScreenHeight-80)
+		
+		placementInstructions := "Right Click to place, Left Click to break"
+		ebitenutil.DebugPrintAt(screen, placementInstructions, 10, ScreenHeight-60)
+	}
 }
 
 // drawDebugInfo draws debug information
@@ -1660,33 +1769,33 @@ func (g *Game) drawDroppedItems(screen *ebiten.Image) {
 		// Calculate screen position
 		screenX := item.X - g.cameraX
 		screenY := item.Y - g.cameraY
-		
+
 		// Skip if off screen
 		if screenX < -50 || screenX > ScreenWidth+50 || screenY < -50 || screenY > ScreenHeight+50 {
 			continue
 		}
-		
+
 		// Get item properties for color
 		itemProps := items.GetItemProperties(item.Type)
 		if itemProps == nil {
 			continue
 		}
-		
+
 		// Draw item as a small square with item color
 		itemSize := 16.0
 		halfSize := itemSize / 2.0
-		
+
 		// Create simple rectangle representation
 		color := g.colorToRGB(int(itemProps.IconColor.R), int(itemProps.IconColor.G), int(itemProps.IconColor.B))
 		ebitenutil.DrawRect(screen, screenX-halfSize, screenY-halfSize, itemSize, itemSize, color)
-		
+
 		// Draw border
 		borderColor := g.colorToRGB(0, 0, 0)
 		ebitenutil.DrawRect(screen, screenX-halfSize, screenY-halfSize, itemSize, 1, borderColor)
 		ebitenutil.DrawRect(screen, screenX-halfSize, screenY-halfSize+itemSize-1, itemSize, 1, borderColor)
 		ebitenutil.DrawRect(screen, screenX-halfSize, screenY-halfSize, 1, itemSize, borderColor)
 		ebitenutil.DrawRect(screen, screenX-halfSize+itemSize-1, screenY-halfSize, 1, itemSize, borderColor)
-		
+
 		// Draw quantity if > 1
 		if item.Quantity > 1 {
 			quantityStr := fmt.Sprintf("%d", item.Quantity)
@@ -1743,43 +1852,42 @@ func (g *Game) drawBlock(screen *ebiten.Image, block *world.Hexagon) {
 		damageRatio = block.Health / block.MaxHealth
 	}
 
+	// Get block color with multi-color variations
+	biome := "forest" // This would come from world biome system
+	depth := float64(blockR) / 1000.0 // Simple depth calculation
+	blockColor := blocks.GlobalBlockAppearance.GetBlockColor(blockKey, int(block.X), int(block.Y), biome, depth)
+	
+	// Apply damage darkening
+	blockColor = color.RGBA{
+		R: uint8(float64(blockColor.R) * damageRatio),
+		G: uint8(float64(blockColor.G) * damageRatio),
+		B: uint8(float64(blockColor.B) * damageRatio),
+		A: blockColor.A,
+	}
+
+	// Apply hover effect
+	if isHovered {
+		blockColor.R = uint8(minFloat32(255, float32(blockColor.R)+50))
+		blockColor.G = uint8(minFloat32(255, float32(blockColor.G)+50))
+		blockColor.B = uint8(minFloat32(255, float32(blockColor.B)+50))
+	}
+
+	// Use the multi-color system for rendering
 	if props.Pattern == "striped" || props.Pattern == "" { // Default to solid if empty
-		// Draw as solid or striped
-		color1 := props.Color
-		color2 := props.Color
+		// Draw as solid or striped with multi-color support
+		color1 := blockColor
+		color2 := blockColor
+		
+		// Create darker shade for pattern
 		if props.TopColor.A > 0 {
 			color2 = props.TopColor
 		} else {
-			// Darker shade
 			color2 = color.RGBA{
-				R: uint8(float64(props.Color.R) * 0.7),
-				G: uint8(float64(props.Color.G) * 0.7),
-				B: uint8(float64(props.Color.B) * 0.7),
-				A: props.Color.A,
+				R: uint8(float64(blockColor.R) * 0.7),
+				G: uint8(float64(blockColor.G) * 0.7),
+				B: uint8(float64(blockColor.B) * 0.7),
+				A: blockColor.A,
 			}
-		}
-
-		// Apply damage darkening
-		color1 = color.RGBA{
-			R: uint8(float64(color1.R) * damageRatio),
-			G: uint8(float64(color1.G) * damageRatio),
-			B: uint8(float64(color1.B) * damageRatio),
-			A: color1.A,
-		}
-		color2 = color.RGBA{
-			R: uint8(float64(color2.R) * damageRatio),
-			G: uint8(float64(color2.G) * damageRatio),
-			B: uint8(float64(color2.B) * damageRatio),
-			A: color2.A,
-		}
-
-		if isHovered {
-			color1.R = uint8(minFloat32(255, float32(color1.R)+50))
-			color1.G = uint8(minFloat32(255, float32(color1.G)+50))
-			color1.B = uint8(minFloat32(255, float32(color1.B)+50))
-			color2.R = uint8(minFloat32(255, float32(color2.R)+50))
-			color2.G = uint8(minFloat32(255, float32(color2.G)+50))
-			color2.B = uint8(minFloat32(255, float32(color2.B)+50))
 		}
 
 		switch props.Pattern {
@@ -1881,13 +1989,20 @@ func (g *Game) drawPlayer(screen *ebiten.Image) {
 	screenX := g.player.X - g.cameraX
 	screenY := g.player.Y - g.cameraY
 
-	// Draw player body
-	bodyColor := g.colorToRGB(255, 100, 100)
-	ebitenutil.DrawRect(screen, screenX, screenY, float64(g.player.Width), float64(g.player.Height), bodyColor)
+	// Draw player using custom skin renderer
+	if g.skinEditor != nil && g.skinEditor.GetSkinData() != nil {
+		renderer := skin.NewPlayerRenderer(g.skinEditor.GetSkinData())
+		renderer.SetScale(1.0)
+		renderer.Draw(screen, screenX+float64(g.player.Width)/2, screenY+float64(g.player.Height)/2)
+	} else {
+		// Fallback to simple colored rectangles
+		bodyColor := g.colorToRGB(255, 100, 100)
+		ebitenutil.DrawRect(screen, screenX, screenY, float64(g.player.Width), float64(g.player.Height), bodyColor)
 
-	// Draw player head (simple representation)
-	headColor := g.colorToRGB(255, 200, 150)
-	ebitenutil.DrawRect(screen, screenX+10, screenY+5, 20, 20, headColor)
+		// Draw player head (simple representation)
+		headColor := g.colorToRGB(255, 200, 150)
+		ebitenutil.DrawRect(screen, screenX+10, screenY+5, 20, 20, headColor)
+	}
 }
 
 // Layout defines the game's layout
@@ -2049,7 +2164,7 @@ func (g *Game) createSaveState() *save.GameState {
 	if g.CreativeMode {
 		gameMode = "creative"
 	}
-	
+
 	return &save.GameState{
 		World:      g.world,
 		Player:     g.player,
@@ -2059,19 +2174,19 @@ func (g *Game) createSaveState() *save.GameState {
 		InMenu:     g.inMenu,
 		InGame:     g.inGame,
 		InCrafting: g.inCrafting,
-		
+
 		// Enhanced game state
 		CreativeMode:    g.CreativeMode,
 		GameMode:        gameMode,
 		WorldTime:       g.dayNightCycle.GameTime, // Use the GameTime field directly
-		Weather:         "clear", // TODO: Implement weather system
-		PlayerHealth:    100.0, // TODO: Implement player health
+		Weather:         "clear",                  // TODO: Implement weather system
+		PlayerHealth:    100.0,                    // TODO: Implement player health
 		PlayerMaxHealth: 100.0,
-		
+
 		// Crafting state
-		CraftingStation:  "", // TODO: Track current crafting station
-		UnlockedRecipes:  []string{}, // TODO: Track unlocked recipes
-		
+		CraftingStation: "",         // TODO: Track current crafting station
+		UnlockedRecipes: []string{}, // TODO: Track unlocked recipes
+
 		// Statistics (TODO: Implement tracking)
 		BlocksPlaced:    0,
 		BlocksDestroyed: 0,
@@ -2135,12 +2250,12 @@ func (g *Game) getSurfaceTypeAtPlayer() string {
 	// Check the block directly under the player
 	playerX, playerY := g.player.GetCenter()
 	groundY := playerY + g.player.Height/2 + 5 // Slightly below player center
-	
+
 	hex := g.world.GetHexagonAt(playerX, groundY)
 	if hex == nil || hex.BlockType == blocks.AIR {
 		return "air" // In air, no footstep sound
 	}
-	
+
 	// Convert block type to surface type
 	switch hex.BlockType {
 	case blocks.GRASS:
@@ -2191,24 +2306,24 @@ func (g *Game) updateAudioContext() {
 	if g.player.Y < -500 {
 		biome = "underground"
 	}
-	
+
 	// Get weather from weather system
 	weather := "clear" // Default weather
 	if g.weatherSystem != nil {
 		// This would need to be implemented in weather system
 		// weather = g.weatherSystem.GetCurrentWeather()
 	}
-	
+
 	// Determine if underground
 	isUnderground := g.player.Y < 0
-	
+
 	// Determine time of day
 	timeOfDay := "day"
 	if g.dayNightCycle != nil {
 		// This would need to be implemented in day/night cycle
 		// timeOfDay = g.dayNightCycle.GetTimeOfDay()
 	}
-	
+
 	g.soundLibrary.UpdateContext(biome, weather, isUnderground, timeOfDay)
 }
 
@@ -2227,7 +2342,7 @@ func main() {
 	ebiten.SetWindowSize(ScreenWidth, ScreenHeight)
 	ebiten.SetWindowTitle("Tesselbox v2.0 - Hexagon Sandbox")
 	ebiten.SetTPS(FPS)
-	
+
 	// Enable input
 	ebiten.SetCursorMode(ebiten.CursorModeVisible)
 

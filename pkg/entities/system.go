@@ -3,7 +3,6 @@ package entities
 import (
 	"log"
 	"time"
-
 )
 
 // System represents a game system that processes entities
@@ -16,7 +15,7 @@ type System interface {
 
 // SystemManager manages all game systems
 type SystemManager struct {
-	systems map[string]System
+	systems  map[string]System
 	entities map[string]*Entity
 	eventBus *EventBus
 }
@@ -24,7 +23,7 @@ type SystemManager struct {
 // NewSystemManager creates a new system manager
 func NewSystemManager() *SystemManager {
 	return &SystemManager{
-		systems: make(map[string]System),
+		systems:  make(map[string]System),
 		entities: make(map[string]*Entity),
 		eventBus: NewEventBus(),
 	}
@@ -69,7 +68,7 @@ func (sm *SystemManager) Update(deltaTime float64) {
 		start := time.Now()
 		system.Process(deltaTime, entityList)
 		duration := time.Since(start)
-		
+
 		if duration > time.Millisecond*10 {
 			log.Printf("System %s took %v to process", system.GetName(), duration)
 		}
@@ -145,18 +144,18 @@ func (sm *SystemManager) GetEventBus() *EventBus {
 
 // RenderSystem handles rendering of entities
 type RenderSystem struct {
-	name string
+	name               string
 	requiredComponents []string
 }
 
 func NewRenderSystem() *RenderSystem {
 	return &RenderSystem{
-		name: "render",
+		name:               "render",
 		requiredComponents: []string{"render"},
 	}
 }
 
-func (rs *RenderSystem) GetName() string { return rs.name }
+func (rs *RenderSystem) GetName() string                 { return rs.name }
 func (rs *RenderSystem) GetRequiredComponents() []string { return rs.requiredComponents }
 func (rs *RenderSystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("render")
@@ -180,20 +179,20 @@ func (rs *RenderSystem) Process(deltaTime float64, entities []*Entity) {
 
 // PhysicsSystem handles physics simulation
 type PhysicsSystem struct {
-	name string
+	name               string
 	requiredComponents []string
-	gravity float64
+	gravity            float64
 }
 
 func NewPhysicsSystem(gravity float64) *PhysicsSystem {
 	return &PhysicsSystem{
-		name: "physics",
+		name:               "physics",
 		requiredComponents: []string{"physics"},
-		gravity: gravity,
+		gravity:            gravity,
 	}
 }
 
-func (ps *PhysicsSystem) GetName() string { return ps.name }
+func (ps *PhysicsSystem) GetName() string                 { return ps.name }
 func (ps *PhysicsSystem) GetRequiredComponents() []string { return ps.requiredComponents }
 func (ps *PhysicsSystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("physics")
@@ -222,18 +221,18 @@ func (ps *PhysicsSystem) Process(deltaTime float64, entities []*Entity) {
 
 // BehaviorSystem handles AI and entity behaviors
 type BehaviorSystem struct {
-	name string
+	name               string
 	requiredComponents []string
 }
 
 func NewBehaviorSystem() *BehaviorSystem {
 	return &BehaviorSystem{
-		name: "behavior",
+		name:               "behavior",
 		requiredComponents: []string{"behavior"},
 	}
 }
 
-func (bs *BehaviorSystem) GetName() string { return bs.name }
+func (bs *BehaviorSystem) GetName() string                 { return bs.name }
 func (bs *BehaviorSystem) GetRequiredComponents() []string { return bs.requiredComponents }
 func (bs *BehaviorSystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("behavior")
@@ -276,18 +275,18 @@ func (bs *BehaviorSystem) processNeutralBehavior(entity *Entity, behavior *Behav
 
 // InventorySystem handles inventory management
 type InventorySystem struct {
-	name string
+	name               string
 	requiredComponents []string
 }
 
 func NewInventorySystem() *InventorySystem {
 	return &InventorySystem{
-		name: "inventory",
+		name:               "inventory",
 		requiredComponents: []string{"inventory"},
 	}
 }
 
-func (is *InventorySystem) GetName() string { return is.name }
+func (is *InventorySystem) GetName() string                 { return is.name }
 func (is *InventorySystem) GetRequiredComponents() []string { return is.requiredComponents }
 func (is *InventorySystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("inventory")
@@ -316,31 +315,31 @@ func (is *InventorySystem) Process(deltaTime float64, entities []*Entity) {
 
 // CraftingSystem handles crafting operations
 type CraftingSystem struct {
-	name string
+	name               string
 	requiredComponents []string
-	recipes map[string]*CraftingRecipe
+	recipes            map[string]*CraftingRecipe
 }
 
 type CraftingRecipe struct {
-	ID       string
-	Name     string
-	Inputs   map[string]int
-	Outputs  map[string]int
+	ID           string
+	Name         string
+	Inputs       map[string]int
+	Outputs      map[string]int
 	RequiredTool string
 	CraftingTime time.Duration
-	Category string
-	Tier     int
+	Category     string
+	Tier         int
 }
 
 func NewCraftingSystem() *CraftingSystem {
 	return &CraftingSystem{
-		name: "crafting",
+		name:               "crafting",
 		requiredComponents: []string{"crafting"},
-		recipes: make(map[string]*CraftingRecipe),
+		recipes:            make(map[string]*CraftingRecipe),
 	}
 }
 
-func (cs *CraftingSystem) GetName() string { return cs.name }
+func (cs *CraftingSystem) GetName() string                 { return cs.name }
 func (cs *CraftingSystem) GetRequiredComponents() []string { return cs.requiredComponents }
 func (cs *CraftingSystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("crafting")
@@ -403,18 +402,18 @@ func (cs *CraftingSystem) CanCraft(entity *Entity, recipeID string) bool {
 
 // ToolSystem handles tool operations and durability
 type ToolSystem struct {
-	name string
+	name               string
 	requiredComponents []string
 }
 
 func NewToolSystem() *ToolSystem {
 	return &ToolSystem{
-		name: "tool",
+		name:               "tool",
 		requiredComponents: []string{"tool"},
 	}
 }
 
-func (ts *ToolSystem) GetName() string { return ts.name }
+func (ts *ToolSystem) GetName() string                 { return ts.name }
 func (ts *ToolSystem) GetRequiredComponents() []string { return ts.requiredComponents }
 func (ts *ToolSystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("tool")
@@ -472,18 +471,18 @@ func (ts *ToolSystem) UseTool(entity *Entity, targetBlockType string) bool {
 
 // CombatSystem handles combat mechanics
 type CombatSystem struct {
-	name string
+	name               string
 	requiredComponents []string
 }
 
 func NewCombatSystem() *CombatSystem {
 	return &CombatSystem{
-		name: "combat",
+		name:               "combat",
 		requiredComponents: []string{"combat"},
 	}
 }
 
-func (cs *CombatSystem) GetName() string { return cs.name }
+func (cs *CombatSystem) GetName() string                 { return cs.name }
 func (cs *CombatSystem) GetRequiredComponents() []string { return cs.requiredComponents }
 func (cs *CombatSystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("combat")

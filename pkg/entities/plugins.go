@@ -24,16 +24,16 @@ type Plugin interface {
 
 // PluginInfo contains metadata about a plugin
 type PluginInfo struct {
-	Name        string   `yaml:"name"`
-	Version     string   `yaml:"version"`
-	Description string   `yaml:"description"`
-	Author      string   `yaml:"author"`
-	Website     string   `yaml:"website,omitempty"`
-	License     string   `yaml:"license"`
+	Name         string   `yaml:"name"`
+	Version      string   `yaml:"version"`
+	Description  string   `yaml:"description"`
+	Author       string   `yaml:"author"`
+	Website      string   `yaml:"website,omitempty"`
+	License      string   `yaml:"license"`
 	Dependencies []string `yaml:"dependencies,omitempty"`
-	MinVersion  string   `yaml:"minVersion,omitempty"`
-	MaxVersion  string   `yaml:"maxVersion,omitempty"`
-	Enabled     bool     `yaml:"enabled"`
+	MinVersion   string   `yaml:"minVersion,omitempty"`
+	MaxVersion   string   `yaml:"maxVersion,omitempty"`
+	Enabled      bool     `yaml:"enabled"`
 }
 
 // PluginManager manages loading and unloading of plugins
@@ -198,7 +198,7 @@ func (pm *PluginManager) GetPlugin(pluginName string) (Plugin, bool) {
 func (pm *PluginManager) ListPlugins() []string {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	
+
 	plugins := make([]string, 0, len(pm.plugins))
 	for name := range pm.plugins {
 		plugins = append(plugins, name)
@@ -210,7 +210,7 @@ func (pm *PluginManager) ListPlugins() []string {
 func (pm *PluginManager) GetPluginInfo(pluginName string) (*PluginInfo, error) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	
+
 	info, exists := pm.pluginInfo[pluginName]
 	if !exists {
 		return nil, fmt.Errorf("plugin %s not found", pluginName)
@@ -251,43 +251,43 @@ func (pm *PluginManager) UnloadAllPlugins() error {
 
 // BasePlugin provides a base implementation for plugins
 type BasePlugin struct {
-	name        string
-	version     string
-	description string
-	author      string
-	initialized bool
-	components  []Component
-	systems     []System
-	templates   map[string]*EntityTemplate
+	name         string
+	version      string
+	description  string
+	author       string
+	initialized  bool
+	components   []Component
+	systems      []System
+	templates    map[string]*EntityTemplate
 	dependencies []string
 }
 
 // NewBasePlugin creates a new base plugin
 func NewBasePlugin(name, version, description, author string) *BasePlugin {
 	return &BasePlugin{
-		name:        name,
-		version:     version,
-		description: description,
-		author:      author,
-		initialized: false,
-		components:  make([]Component, 0),
-		systems:     make([]System, 0),
-		templates:   make(map[string]*EntityTemplate),
+		name:         name,
+		version:      version,
+		description:  description,
+		author:       author,
+		initialized:  false,
+		components:   make([]Component, 0),
+		systems:      make([]System, 0),
+		templates:    make(map[string]*EntityTemplate),
 		dependencies: make([]string, 0),
 	}
 }
 
-func (bp *BasePlugin) GetName() string { return bp.name }
-func (bp *BasePlugin) GetVersion() string { return bp.version }
-func (bp *BasePlugin) GetDescription() string { return bp.description }
-func (bp *BasePlugin) GetAuthor() string { return bp.author }
+func (bp *BasePlugin) GetName() string           { return bp.name }
+func (bp *BasePlugin) GetVersion() string        { return bp.version }
+func (bp *BasePlugin) GetDescription() string    { return bp.description }
+func (bp *BasePlugin) GetAuthor() string         { return bp.author }
 func (bp *BasePlugin) GetDependencies() []string { return bp.dependencies }
 
 func (bp *BasePlugin) Initialize(manager *PluginManager) error {
 	if bp.initialized {
 		return fmt.Errorf("plugin %s is already initialized", bp.name)
 	}
-	
+
 	bp.initialized = true
 	log.Printf("Initialized plugin: %s", bp.name)
 	return nil
@@ -297,14 +297,14 @@ func (bp *BasePlugin) Shutdown() error {
 	if !bp.initialized {
 		return fmt.Errorf("plugin %s is not initialized", bp.name)
 	}
-	
+
 	bp.initialized = false
 	log.Printf("Shutdown plugin: %s", bp.name)
 	return nil
 }
 
-func (bp *BasePlugin) GetComponents() []Component { return bp.components }
-func (bp *BasePlugin) GetSystems() []System { return bp.systems }
+func (bp *BasePlugin) GetComponents() []Component               { return bp.components }
+func (bp *BasePlugin) GetSystems() []System                     { return bp.systems }
 func (bp *BasePlugin) GetTemplates() map[string]*EntityTemplate { return bp.templates }
 
 // AddComponent adds a component to the plugin
@@ -343,15 +343,15 @@ func NewMagicPlugin() *MagicPlugin {
 		"Adds magic components and systems to the game",
 		"TesselBox Team",
 	)
-	
+
 	plugin := &MagicPlugin{BasePlugin: base}
-	
+
 	// Add magic components
 	plugin.AddComponent(&MagicComponent{})
-	
+
 	// Add magic system
 	plugin.AddSystem(NewMagicSystem())
-	
+
 	// Add magic templates
 	plugin.AddTemplate("magic_wand", &EntityTemplate{
 		ID:   "magic_wand",
@@ -366,22 +366,22 @@ func NewMagicPlugin() *MagicPlugin {
 				"scale":   0.8,
 			},
 			"tool": map[string]interface{}{
-				"type":      "tool",
-				"toolType":  "magic",
-				"power":     8.0,
+				"type":       "tool",
+				"toolType":   "magic",
+				"power":      8.0,
 				"efficiency": 4.0,
 				"durability": 100,
-				"effective": []string{"all"},
+				"effective":  []string{"all"},
 			},
 			"magic": map[string]interface{}{
-				"type":        "magic",
-				"manaCost":    10,
-				"spellPower":  15,
-				"spells":      []string{"fireball", "teleport"},
+				"type":       "magic",
+				"manaCost":   10,
+				"spellPower": 15,
+				"spells":     []string{"fireball", "teleport"},
 			},
 		},
 	})
-	
+
 	return plugin
 }
 
@@ -427,18 +427,18 @@ func (c *MagicComponent) Validate() error {
 
 // MagicSystem handles magic-related logic
 type MagicSystem struct {
-	name string
+	name               string
 	requiredComponents []string
 }
 
 func NewMagicSystem() *MagicSystem {
 	return &MagicSystem{
-		name: "magic",
+		name:               "magic",
 		requiredComponents: []string{"magic"},
 	}
 }
 
-func (ms *MagicSystem) GetName() string { return ms.name }
+func (ms *MagicSystem) GetName() string                 { return ms.name }
 func (ms *MagicSystem) GetRequiredComponents() []string { return ms.requiredComponents }
 func (ms *MagicSystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("magic")
@@ -470,15 +470,15 @@ func NewTechPlugin() *TechPlugin {
 		"Adds technology components and systems to the game",
 		"TesselBox Team",
 	)
-	
+
 	plugin := &TechPlugin{BasePlugin: base}
-	
+
 	// Add tech components
 	plugin.AddComponent(&TechComponent{})
-	
+
 	// Add tech system
 	plugin.AddSystem(NewTechSystem())
-	
+
 	return plugin
 }
 
@@ -528,18 +528,18 @@ func (c *TechComponent) Validate() error {
 
 // TechSystem handles technology-related logic
 type TechSystem struct {
-	name string
+	name               string
 	requiredComponents []string
 }
 
 func NewTechSystem() *TechSystem {
 	return &TechSystem{
-		name: "tech",
+		name:               "tech",
 		requiredComponents: []string{"tech"},
 	}
 }
 
-func (ts *TechSystem) GetName() string { return ts.name }
+func (ts *TechSystem) GetName() string                 { return ts.name }
 func (ts *TechSystem) GetRequiredComponents() []string { return ts.requiredComponents }
 func (ts *TechSystem) Matches(entity *Entity) bool {
 	return entity.HasComponent("tech")
@@ -573,11 +573,11 @@ func NewPluginFactory() *PluginFactory {
 	factory := &PluginFactory{
 		creators: make(map[string]func() Plugin),
 	}
-	
+
 	// Register built-in plugins
 	factory.RegisterCreator("magic", func() Plugin { return NewMagicPlugin() })
 	factory.RegisterCreator("tech", func() Plugin { return NewTechPlugin() })
-	
+
 	return factory
 }
 

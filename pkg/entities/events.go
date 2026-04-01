@@ -13,46 +13,46 @@ type EventType string
 
 const (
 	// Entity events
-	EventEntityAdded    EventType = "entity_added"
-	EventEntityRemoved  EventType = "entity_removed"
-	EventEntityUpdated  EventType = "entity_updated"
-	
+	EventEntityAdded   EventType = "entity_added"
+	EventEntityRemoved EventType = "entity_removed"
+	EventEntityUpdated EventType = "entity_updated"
+
 	// Component events
-	EventComponentAdded EventType = "component_added"
+	EventComponentAdded   EventType = "component_added"
 	EventComponentRemoved EventType = "component_removed"
 	EventComponentUpdated EventType = "component_updated"
-	
+
 	// Interaction events
-	EventBlockPlaced    EventType = "block_placed"
-	EventBlockBroken    EventType = "block_broken"
-	EventItemUsed       EventType = "item_used"
-	EventItemCrafted    EventType = "item_crafted"
-	
+	EventBlockPlaced EventType = "block_placed"
+	EventBlockBroken EventType = "block_broken"
+	EventItemUsed    EventType = "item_used"
+	EventItemCrafted EventType = "item_crafted"
+
 	// Combat events
-	EventAttack         EventType = "attack"
-	EventDamage         EventType = "damage"
-	EventDeath          EventType = "death"
-	EventHeal           EventType = "heal"
-	
+	EventAttack EventType = "attack"
+	EventDamage EventType = "damage"
+	EventDeath  EventType = "death"
+	EventHeal   EventType = "heal"
+
 	// System events
-	EventSystemStarted  EventType = "system_started"
-	EventSystemStopped  EventType = "system_stopped"
-	
+	EventSystemStarted EventType = "system_started"
+	EventSystemStopped EventType = "system_stopped"
+
 	// World events
-	EventWorldLoaded    EventType = "world_loaded"
-	EventWorldSaved     EventType = "world_saved"
-	EventChunkLoaded    EventType = "chunk_loaded"
-	EventChunkUnloaded  EventType = "chunk_unloaded"
+	EventWorldLoaded   EventType = "world_loaded"
+	EventWorldSaved    EventType = "world_saved"
+	EventChunkLoaded   EventType = "chunk_loaded"
+	EventChunkUnloaded EventType = "chunk_unloaded"
 )
 
 // Event represents a game event
 type Event struct {
-	Type      EventType       `json:"type"`
-	Timestamp time.Time       `json:"timestamp"`
-	Source    string          `json:"source"`
-	Data      interface{}     `json:"data"`
-	Priority  int             `json:"priority"`
-	Cancelled bool            `json:"-"`
+	Type      EventType   `json:"type"`
+	Timestamp time.Time   `json:"timestamp"`
+	Source    string      `json:"source"`
+	Data      interface{} `json:"data"`
+	Priority  int         `json:"priority"`
+	Cancelled bool        `json:"-"`
 }
 
 // EventHandler represents an event handler function
@@ -83,7 +83,7 @@ func NewEventBus() *EventBus {
 func (eb *EventBus) Subscribe(eventType EventType, handler EventHandler) {
 	eb.mutex.Lock()
 	defer eb.mutex.Unlock()
-	
+
 	eb.subscribers[eventType] = append(eb.subscribers[eventType], handler)
 	log.Printf("Subscribed to event: %s", eventType)
 }
@@ -92,7 +92,7 @@ func (eb *EventBus) Subscribe(eventType EventType, handler EventHandler) {
 func (eb *EventBus) Unsubscribe(eventType EventType, handler EventHandler) {
 	eb.mutex.Lock()
 	defer eb.mutex.Unlock()
-	
+
 	handlers := eb.subscribers[eventType]
 	for i, h := range handlers {
 		if reflect.ValueOf(h).Pointer() == reflect.ValueOf(handler).Pointer() {
@@ -108,7 +108,7 @@ func (eb *EventBus) Publish(eventType EventType, data interface{}) {
 	if !eb.enabled {
 		return
 	}
-	
+
 	event := Event{
 		Type:      eventType,
 		Timestamp: time.Now(),
@@ -117,9 +117,9 @@ func (eb *EventBus) Publish(eventType EventType, data interface{}) {
 		Priority:  0,
 		Cancelled: false,
 	}
-	
+
 	eb.mutex.Lock()
-	
+
 	// Add to queue
 	if len(eb.eventQueue) < eb.maxQueue {
 		eb.eventQueue = append(eb.eventQueue, event)
@@ -128,9 +128,9 @@ func (eb *EventBus) Publish(eventType EventType, data interface{}) {
 		eb.mutex.Unlock()
 		return
 	}
-	
+
 	eb.mutex.Unlock()
-	
+
 	// Process immediately for now (could be moved to batch processing)
 	eb.processEvent(event)
 }
@@ -140,7 +140,7 @@ func (eb *EventBus) PublishWithSource(eventType EventType, source string, data i
 	if !eb.enabled {
 		return
 	}
-	
+
 	event := Event{
 		Type:      eventType,
 		Timestamp: time.Now(),
@@ -149,7 +149,7 @@ func (eb *EventBus) PublishWithSource(eventType EventType, source string, data i
 		Priority:  0,
 		Cancelled: false,
 	}
-	
+
 	eb.processEvent(event)
 }
 
@@ -158,7 +158,7 @@ func (eb *EventBus) PublishWithPriority(eventType EventType, source string, data
 	if !eb.enabled {
 		return
 	}
-	
+
 	event := Event{
 		Type:      eventType,
 		Timestamp: time.Now(),
@@ -167,7 +167,7 @@ func (eb *EventBus) PublishWithPriority(eventType EventType, source string, data
 		Priority:  priority,
 		Cancelled: false,
 	}
-	
+
 	eb.processEvent(event)
 }
 
@@ -176,12 +176,12 @@ func (eb *EventBus) processEvent(event Event) {
 	eb.mutex.RLock()
 	handlers := eb.subscribers[event.Type]
 	eb.mutex.RUnlock()
-	
+
 	for _, handler := range handlers {
 		if event.Cancelled {
 			break
 		}
-		
+
 		// Run handler in goroutine to avoid blocking
 		go func(h EventHandler) {
 			defer func() {
@@ -201,7 +201,7 @@ func (eb *EventBus) ProcessBatch() {
 	copy(events, eb.eventQueue)
 	eb.eventQueue = eb.eventQueue[:0] // Clear queue
 	eb.mutex.Unlock()
-	
+
 	// Sort by priority (higher priority first)
 	for i := 0; i < len(events)-1; i++ {
 		for j := i + 1; j < len(events); j++ {
@@ -210,7 +210,7 @@ func (eb *EventBus) ProcessBatch() {
 			}
 		}
 	}
-	
+
 	// Process events
 	for _, event := range events {
 		eb.processEvent(event)
@@ -242,7 +242,7 @@ func (eb *EventBus) IsEnabled() bool {
 func (eb *EventBus) Clear() {
 	eb.mutex.Lock()
 	defer eb.mutex.Unlock()
-	
+
 	eb.subscribers = make(map[EventType][]EventHandler)
 	eb.eventQueue = eb.eventQueue[:0]
 }
@@ -260,31 +260,31 @@ func (eb *EventBus) GetQueueSize() int {
 
 // EntityEvent represents entity-related event data
 type EntityEvent struct {
-	Entity    *Entity `json:"entity"`
-	Component string  `json:"component,omitempty"`
+	Entity    *Entity     `json:"entity"`
+	Component string      `json:"component,omitempty"`
 	OldValue  interface{} `json:"oldValue,omitempty"`
 	NewValue  interface{} `json:"newValue,omitempty"`
 }
 
 // BlockEvent represents block-related event data
 type BlockEvent struct {
-	BlockType string  `json:"blockType"`
+	BlockType string `json:"blockType"`
 	Position  struct {
 		X float64 `json:"x"`
 		Y float64 `json:"y"`
 		Z float64 `json:"z"`
 	} `json:"position"`
-	PlayerID  string `json:"playerId,omitempty"`
-	ToolUsed  string `json:"toolUsed,omitempty"`
+	PlayerID string `json:"playerId,omitempty"`
+	ToolUsed string `json:"toolUsed,omitempty"`
 }
 
 // ItemEvent represents item-related event data
 type ItemEvent struct {
-	ItemType   string `json:"itemType"`
-	Quantity   int    `json:"quantity"`
-	PlayerID   string `json:"playerId,omitempty"`
-	TargetID   string `json:"targetId,omitempty"`
-	Success    bool   `json:"success"`
+	ItemType string `json:"itemType"`
+	Quantity int    `json:"quantity"`
+	PlayerID string `json:"playerId,omitempty"`
+	TargetID string `json:"targetId,omitempty"`
+	Success  bool   `json:"success"`
 }
 
 // CombatEvent represents combat-related event data
@@ -390,9 +390,9 @@ func CreateWorldEvent(worldName string, x, y int, chunkData interface{}) WorldEv
 
 // EventListener provides a convenient way to listen to multiple events
 type EventListener struct {
-	bus       *EventBus
-	handlers  map[EventType]EventHandler
-	active    bool
+	bus      *EventBus
+	handlers map[EventType]EventHandler
+	active   bool
 }
 
 // NewEventListener creates a new event listener
@@ -409,7 +409,7 @@ func (el *EventListener) Listen(eventType EventType, handler EventHandler) {
 	if !el.active {
 		return
 	}
-	
+
 	el.handlers[eventType] = handler
 	el.bus.Subscribe(eventType, handler)
 }
@@ -419,7 +419,7 @@ func (el *EventListener) StopListening() {
 	if !el.active {
 		return
 	}
-	
+
 	el.active = false
 	for eventType, handler := range el.handlers {
 		el.bus.Unsubscribe(eventType, handler)
@@ -438,11 +438,11 @@ func (el *EventListener) IsActive() bool {
 
 // EventFilter filters events based on criteria
 type EventFilter struct {
-	sourceFilter  map[string]bool
-	typeFilter    map[EventType]bool
-	priorityMin   int
-	priorityMax   int
-	customFilter  func(Event) bool
+	sourceFilter map[string]bool
+	typeFilter   map[EventType]bool
+	priorityMin  int
+	priorityMax  int
+	customFilter func(Event) bool
 }
 
 // NewEventFilter creates a new event filter
@@ -488,24 +488,24 @@ func (ef *EventFilter) Matches(event Event) bool {
 			return false
 		}
 	}
-	
+
 	// Check type filter
 	if len(ef.typeFilter) > 0 {
 		if !ef.typeFilter[event.Type] {
 			return false
 		}
 	}
-	
+
 	// Check priority filter
 	if event.Priority < ef.priorityMin || event.Priority > ef.priorityMax {
 		return false
 	}
-	
+
 	// Check custom filter
 	if ef.customFilter != nil && !ef.customFilter(event) {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -515,12 +515,12 @@ func (ef *EventFilter) Matches(event Event) bool {
 
 // EventLogger logs events to console or file
 type EventLogger struct {
-	bus        *EventBus
-	filter     *EventFilter
-	logLevel   int
+	bus          *EventBus
+	filter       *EventFilter
+	logLevel     int
 	logToConsole bool
-	logToFile   bool
-	filePath    string
+	logToFile    bool
+	filePath     string
 }
 
 // NewEventLogger creates a new event logger
@@ -541,7 +541,7 @@ func (el *EventLogger) Start() {
 			el.logEvent(event)
 		}
 	}
-	
+
 	// Subscribe to all event types
 	eventTypes := []EventType{
 		EventEntityAdded, EventEntityRemoved, EventEntityUpdated,
@@ -551,7 +551,7 @@ func (el *EventLogger) Start() {
 		EventSystemStarted, EventSystemStopped,
 		EventWorldLoaded, EventWorldSaved, EventChunkLoaded, EventChunkUnloaded,
 	}
-	
+
 	for _, eventType := range eventTypes {
 		el.bus.Subscribe(eventType, handler)
 	}
@@ -570,11 +570,11 @@ func (el *EventLogger) SetFilter(filter *EventFilter) {
 // logEvent logs a single event
 func (el *EventLogger) logEvent(event Event) {
 	message := fmt.Sprintf("[%s] %s from %s", event.Timestamp.Format("15:04:05"), event.Type, event.Source)
-	
+
 	if el.logToConsole {
 		log.Println(message)
 	}
-	
+
 	// File logging would be implemented here
 	if el.logToFile && el.filePath != "" {
 		// Write to file

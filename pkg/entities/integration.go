@@ -3,19 +3,18 @@ package entities
 import (
 	"fmt"
 	"log"
-
 )
 
 // GameWorld represents the integrated game world using the new entity system
 type GameWorld struct {
-	entityManager      *EntityManager
-	systemManager      *SystemManager
-	pluginManager      *PluginManager
-	enhancedPluginMgr  *EnhancedPluginManager
-	configManager      *PluginConfigManager
-	dataLoader         *DataLoader
-	eventBus           *EventBus
-	initialized        bool
+	entityManager     *EntityManager
+	systemManager     *SystemManager
+	pluginManager     *PluginManager
+	enhancedPluginMgr *EnhancedPluginManager
+	configManager     *PluginConfigManager
+	dataLoader        *DataLoader
+	eventBus          *EventBus
+	initialized       bool
 }
 
 // NewGameWorld creates a new integrated game world
@@ -191,14 +190,14 @@ func (gw *GameWorld) setupEventListeners() {
 	// Block events
 	gw.eventBus.Subscribe(EventBlockPlaced, func(event Event) {
 		if blockEvent, ok := event.Data.(BlockEvent); ok {
-			log.Printf("Block placed: %s at (%.1f, %.1f, %.1f)", 
+			log.Printf("Block placed: %s at (%.1f, %.1f, %.1f)",
 				blockEvent.BlockType, blockEvent.Position.X, blockEvent.Position.Y, blockEvent.Position.Z)
 		}
 	})
 
 	gw.eventBus.Subscribe(EventBlockBroken, func(event Event) {
 		if blockEvent, ok := event.Data.(BlockEvent); ok {
-			log.Printf("Block broken: %s at (%.1f, %.1f, %.1f)", 
+			log.Printf("Block broken: %s at (%.1f, %.1f, %.1f)",
 				blockEvent.BlockType, blockEvent.Position.X, blockEvent.Position.Y, blockEvent.Position.Z)
 		}
 	})
@@ -219,7 +218,7 @@ func (gw *GameWorld) setupEventListeners() {
 	// Combat events
 	gw.eventBus.Subscribe(EventAttack, func(event Event) {
 		if combatEvent, ok := event.Data.(CombatEvent); ok {
-			log.Printf("Attack: %s -> %s (%.1f damage)", 
+			log.Printf("Attack: %s -> %s (%.1f damage)",
 				combatEvent.AttackerID, combatEvent.TargetID, combatEvent.Damage)
 		}
 	})
@@ -297,7 +296,7 @@ func (gw *GameWorld) CreateBlock(blockType string, x, y, z float64) (*Entity, er
 	gw.systemManager.AddEntity(entity)
 
 	// Publish event
-	gw.eventBus.PublishWithSource(EventBlockPlaced, "world", 
+	gw.eventBus.PublishWithSource(EventBlockPlaced, "world",
 		CreateBlockEvent(blockType, x, y, z, "", ""))
 
 	return entity, nil
@@ -332,7 +331,7 @@ func (gw *GameWorld) CreateItem(itemType string, quantity int, playerID string) 
 	gw.systemManager.AddEntity(entity)
 
 	// Publish event
-	gw.eventBus.PublishWithSource(EventItemCrafted, "world", 
+	gw.eventBus.PublishWithSource(EventItemCrafted, "world",
 		CreateItemEvent(itemType, quantity, playerID, "", true))
 
 	return entity, nil
@@ -359,7 +358,7 @@ func (gw *GameWorld) CreateOrganism(organismType string, x, y, z float64) (*Enti
 	gw.systemManager.AddEntity(entity)
 
 	// Publish event
-	gw.eventBus.PublishWithSource(EventEntityAdded, "world", 
+	gw.eventBus.PublishWithSource(EventEntityAdded, "world",
 		CreateEntityEvent(entity, "", nil, nil))
 
 	return entity, nil
@@ -561,13 +560,13 @@ func (gw *GameWorld) GetStatistics() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"initialized":       true,
-		"total_entities":    len(entities),
-		"entity_types":      typeCounts,
-		"component_counts":  componentCounts,
-		"tag_counts":        tagCounts,
-		"loaded_plugins":    gw.pluginManager.ListPlugins(),
-		"loaded_templates":  gw.entityManager.ListTemplates(),
+		"initialized":      true,
+		"total_entities":   len(entities),
+		"entity_types":     typeCounts,
+		"component_counts": componentCounts,
+		"tag_counts":       tagCounts,
+		"loaded_plugins":   gw.pluginManager.ListPlugins(),
+		"loaded_templates": gw.entityManager.ListTemplates(),
 	}
 }
 

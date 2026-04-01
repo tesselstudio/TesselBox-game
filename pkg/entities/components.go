@@ -15,18 +15,18 @@ import (
 
 // RenderComponent handles visual properties
 type RenderComponent struct {
-	Type        string    `yaml:"type"`
-	Color       color.RGBA `yaml:"color"`
-	TopColor    color.RGBA `yaml:"topColor,omitempty"`
-	SideColor   color.RGBA `yaml:"sideColor,omitempty"`
+	Type        string       `yaml:"type"`
+	Color       color.RGBA   `yaml:"color"`
+	TopColor    color.RGBA   `yaml:"topColor,omitempty"`
+	SideColor   color.RGBA   `yaml:"sideColor,omitempty"`
 	Colors      []color.RGBA `yaml:"colors,omitempty"`
-	Pattern     string    `yaml:"pattern"`
-	Texture     string    `yaml:"texture,omitempty"`
-	Visible     bool      `yaml:"visible"`
-	LightLevel  int       `yaml:"lightLevel"`
-	Transparent bool      `yaml:"transparent"`
-	Scale       float64   `yaml:"scale"`
-	Animated    bool      `yaml:"animated"`
+	Pattern     string       `yaml:"pattern"`
+	Texture     string       `yaml:"texture,omitempty"`
+	Visible     bool         `yaml:"visible"`
+	LightLevel  int          `yaml:"lightLevel"`
+	Transparent bool         `yaml:"transparent"`
+	Scale       float64      `yaml:"scale"`
+	Animated    bool         `yaml:"animated"`
 }
 
 func (c *RenderComponent) GetType() string { return "render" }
@@ -138,16 +138,16 @@ func (c *PhysicsComponent) Validate() error {
 
 // InventoryComponent handles inventory and stacking
 type InventoryComponent struct {
-	Type         string                 `yaml:"type"`
-	StackSize    int                    `yaml:"stackSize"`
-	MaxDurability int                    `yaml:"maxDurability"`
-	CurrentDurability int                `yaml:"currentDurability"`
-	Container    bool                   `yaml:"container"`
-	Slots        int                    `yaml:"slots"`
-	Contents     map[string]int         `yaml:"contents,omitempty"`
-	Weight       float64                `yaml:"weight"`
-	Categories   []string               `yaml:"categories"`
-	Properties   map[string]interface{} `yaml:"properties,omitempty"`
+	Type              string                 `yaml:"type"`
+	StackSize         int                    `yaml:"stackSize"`
+	MaxDurability     int                    `yaml:"maxDurability"`
+	CurrentDurability int                    `yaml:"currentDurability"`
+	Container         bool                   `yaml:"container"`
+	Slots             int                    `yaml:"slots"`
+	Contents          map[string]int         `yaml:"contents,omitempty"`
+	Weight            float64                `yaml:"weight"`
+	Categories        []string               `yaml:"categories"`
+	Properties        map[string]interface{} `yaml:"properties,omitempty"`
 }
 
 func (c *InventoryComponent) GetType() string { return "inventory" }
@@ -389,15 +389,15 @@ func (c *CraftingComponent) Validate() error {
 
 // ToolComponent handles tool properties and effectiveness
 type ToolComponent struct {
-	Type         string                 `yaml:"type"`
-	ToolType     string                 `yaml:"toolType"`
-	Power        float64                `yaml:"power"`
-	Efficiency   float64                `yaml:"efficiency"`
-	Durability   int                    `yaml:"durability"`
-	MaxDurability int                   `yaml:"maxDurability"`
-	Effective    []string               `yaml:"effective"`
-	Enchantments []string               `yaml:"enchantments,omitempty"`
-	Properties   map[string]interface{} `yaml:"properties,omitempty"`
+	Type          string                 `yaml:"type"`
+	ToolType      string                 `yaml:"toolType"`
+	Power         float64                `yaml:"power"`
+	Efficiency    float64                `yaml:"efficiency"`
+	Durability    int                    `yaml:"durability"`
+	MaxDurability int                    `yaml:"maxDurability"`
+	Effective     []string               `yaml:"effective"`
+	Enchantments  []string               `yaml:"enchantments,omitempty"`
+	Properties    map[string]interface{} `yaml:"properties,omitempty"`
 }
 
 func (c *ToolComponent) GetType() string { return "tool" }
@@ -584,20 +584,20 @@ func GenerateProceduralTexture(colors []color.RGBA, seed int64) *ebiten.Image {
 	if len(colors) == 0 {
 		return nil
 	}
-	
+
 	const size = 64
 	img := ebiten.NewImage(size, size)
-	
+
 	// Use seed for deterministic generation
 	rng := NewSimpleRNG(seed)
-	
+
 	for x := 0; x < size; x++ {
 		for y := 0; y < size; y++ {
 			idx := rng.Intn(len(colors))
 			img.Set(x, y, colors[idx])
 		}
 	}
-	
+
 	return img
 }
 

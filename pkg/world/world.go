@@ -37,7 +37,7 @@ type World struct {
 
 	// Spatial hash for optimized collision detection
 	spatialHash map[[2]int][]*Hexagon // Cell coordinates -> list of hexagons
-	
+
 	// Noise generator for terrain generation (cached for performance)
 	noiseGenerator *biomes.SimplexNoise
 }
@@ -56,7 +56,7 @@ func NewWorld(worldName string) *World {
 		WorldName:   worldName,
 		spatialHash: make(map[[2]int][]*Hexagon),
 	}
-	
+
 	// Initialize noise generator for terrain generation
 	world.noiseGenerator = biomes.NewSimplexNoise(float64(seed))
 
@@ -396,31 +396,31 @@ func (w *World) GetNearbyHexagons(x, y, radius float64) []*Hexagon {
 func (w *World) GetHexagonAt(x, y float64) *Hexagon {
 	chunkX, chunkY := w.GetChunkCoords(x, y)
 	chunk := w.GetChunk(chunkX, chunkY)
-	
+
 	// First try exact position
 	hex := chunk.GetHexagon(x, y)
 	if hex != nil {
 		return hex
 	}
-	
+
 	// If no exact match, search nearby hexagons within tolerance
 	tolerance := 30.0 // pixels - roughly half hexagon size
 	nearbyHexagons := w.GetNearbyHexagons(x, y, tolerance)
-	
+
 	var closestHex *Hexagon
 	minDistance := math.MaxFloat64
-	
+
 	for _, nearbyHex := range nearbyHexagons {
 		dx := nearbyHex.X - x
 		dy := nearbyHex.Y - y
 		distance := math.Sqrt(dx*dx + dy*dy)
-		
+
 		if distance < minDistance {
 			minDistance = distance
 			closestHex = nearbyHex
 		}
 	}
-	
+
 	return closestHex
 }
 
@@ -514,19 +514,19 @@ func (w *World) GetVisibleBlocks(cameraX, cameraY float64) []*Hexagon {
 	// Calculate visible area with some padding for smoother edge transitions
 	visibleWidth := 1280.0 + 200.0 // ScreenWidth + padding
 	visibleHeight := 720.0 + 200.0 // ScreenHeight + padding
-	
+
 	// Convert to world coordinates
 	halfWidth := visibleWidth / 2.0
 	halfHeight := visibleHeight / 2.0
-	
+
 	left := cameraX - halfWidth
 	right := cameraX + halfWidth
 	top := cameraY - halfHeight
 	bottom := cameraY + halfHeight
-	
+
 	// Get blocks in the visible area
 	allBlocks := w.GetNearbyHexagons(cameraX, cameraY, float64(RenderDistance)*GetChunkWidth())
-	
+
 	// Filter blocks that are actually visible (frustum culling)
 	var visibleBlocks []*Hexagon
 	for _, hex := range allBlocks {
@@ -534,7 +534,7 @@ func (w *World) GetVisibleBlocks(cameraX, cameraY float64) []*Hexagon {
 			visibleBlocks = append(visibleBlocks, hex)
 		}
 	}
-	
+
 	return visibleBlocks
 }
 
@@ -722,7 +722,7 @@ func (w *World) FindSpawnPosition(centerX, centerY float64) (float64, float64) {
 	// Search radius for finding suitable spawn
 	searchRadius := 500.0
 	stepSize := 50.0
-	
+
 	// Check in a spiral pattern around the center
 	for radius := 0.0; radius <= searchRadius; radius += stepSize {
 		if radius == 0 {
@@ -737,27 +737,27 @@ func (w *World) FindSpawnPosition(centerX, centerY float64) (float64, float64) {
 				angle := float64(i) / float64(steps) * 2 * math.Pi
 				checkX := centerX + math.Cos(angle)*radius
 				checkY := centerY + math.Sin(angle)*radius
-				
+
 				if spawnX, spawnY := w.checkPositionForSpawn(checkX, checkY); spawnX != 0 || spawnY != 0 {
 					return spawnX, spawnY
 				}
 			}
 		}
 	}
-	
+
 	// Fallback: generate terrain at center position and return guaranteed safe spawn
 	w.GetChunksInRange(centerX, centerY)
-	
+
 	// Find ground level at center position
 	var groundY float64 = centerY + 400 // Start searching from typical terrain height
-	for checkY := centerY + 300; checkY <= centerY + 600; checkY += 10.0 {
+	for checkY := centerY + 300; checkY <= centerY+600; checkY += 10.0 {
 		hex := w.GetHexagonAt(centerX, checkY)
 		if hex != nil && hex.BlockType != blocks.AIR {
 			groundY = checkY
 			break
 		}
 	}
-	
+
 	return centerX, groundY - 50 // Spawn 50 pixels above ground
 }
 
@@ -765,20 +765,20 @@ func (w *World) FindSpawnPosition(centerX, centerY float64) (float64, float64) {
 func (w *World) checkPositionForSpawn(x, y float64) (float64, float64) {
 	// Ensure chunks are loaded around this position
 	w.GetChunksInRange(x, y)
-	
+
 	// Check for solid ground below this position
 	// Look for a solid block within a reasonable distance below (based on world generation heights)
 	maxGroundCheck := 600.0 // Up to ocean depth
 	minGroundCheck := 300.0 // Start around typical terrain height
-	
-	for checkY := y + minGroundCheck; checkY <= y + maxGroundCheck; checkY += 10.0 {
+
+	for checkY := y + minGroundCheck; checkY <= y+maxGroundCheck; checkY += 10.0 {
 		hex := w.GetHexagonAt(x, checkY)
 		if hex != nil && hex.BlockType != blocks.AIR {
 			// Found solid ground, spawn 50 pixels above it
 			return x, checkY - 50
 		}
 	}
-	
+
 	// No suitable ground found
 	return 0, 0
 }

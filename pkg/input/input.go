@@ -4,18 +4,19 @@ import (
 	"encoding/json"
 	"log"
 
+	"tesselbox/assets"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"tesselbox/assets"
 )
 
 // KeyBinding represents a keyboard or mouse binding
 type KeyBinding struct {
-	Key       ebiten.Key `json:"key,omitempty"`
-	Mouse     int       `json:"mouse,omitempty"` // 0=left, 1=right, 2=middle
-	IsMouse   bool      `json:"is_mouse"`
-	Action    string    `json:"action"`
-	Modifier  ebiten.Key `json:"modifier,omitempty"`
+	Key      ebiten.Key `json:"key,omitempty"`
+	Mouse    int        `json:"mouse,omitempty"` // 0=left, 1=right, 2=middle
+	IsMouse  bool       `json:"is_mouse"`
+	Action   string     `json:"action"`
+	Modifier ebiten.Key `json:"modifier,omitempty"`
 }
 
 // InputConfig holds all key bindings
@@ -27,28 +28,28 @@ type InputConfig struct {
 func DefaultInputConfig() *InputConfig {
 	return &InputConfig{
 		Bindings: map[string]KeyBinding{
-			"move_left":   {Key: ebiten.KeyA, Action: "move_left"},
-			"move_right":  {Key: ebiten.KeyD, Action: "move_right"},
-			"move_up":     {Key: ebiten.KeyW, Action: "move_up"},
-			"move_down":   {Key: ebiten.KeyS, Action: "move_down"},
-			"jump":        {Key: ebiten.KeySpace, Action: "jump"},
-			"mine":        {Mouse: 0, IsMouse: true, Action: "mine"},
-			"place":       {Mouse: 1, IsMouse: true, Action: "place"},
-			"drop":        {Key: ebiten.KeyQ, Action: "drop"},
-			"inventory":   {Key: ebiten.KeyE, Action: "inventory"},
-			"crafting":    {Key: ebiten.KeyC, Action: "crafting"},
-			"hotbar_1":    {Key: ebiten.Key1, Action: "hotbar_1"},
-			"hotbar_2":    {Key: ebiten.Key2, Action: "hotbar_2"},
-			"hotbar_3":    {Key: ebiten.Key3, Action: "hotbar_3"},
-			"hotbar_4":    {Key: ebiten.Key4, Action: "hotbar_4"},
-			"hotbar_5":    {Key: ebiten.Key5, Action: "hotbar_5"},
-			"hotbar_6":    {Key: ebiten.Key6, Action: "hotbar_6"},
-			"hotbar_7":    {Key: ebiten.Key7, Action: "hotbar_7"},
-			"hotbar_8":    {Key: ebiten.Key8, Action: "hotbar_8"},
-			"hotbar_9":    {Key: ebiten.Key9, Action: "hotbar_9"},
-			"chat":        {Key: ebiten.KeyT, Action: "chat"},
-			"command":     {Key: ebiten.KeySlash, Action: "command"},
-			"menu":        {Key: ebiten.KeyEscape, Action: "menu"},
+			"move_left":  {Key: ebiten.KeyA, Action: "move_left"},
+			"move_right": {Key: ebiten.KeyD, Action: "move_right"},
+			"move_up":    {Key: ebiten.KeyW, Action: "move_up"},
+			"move_down":  {Key: ebiten.KeyS, Action: "move_down"},
+			"jump":       {Key: ebiten.KeySpace, Action: "jump"},
+			"mine":       {Mouse: 0, IsMouse: true, Action: "mine"},
+			"place":      {Mouse: 1, IsMouse: true, Action: "place"},
+			"drop":       {Key: ebiten.KeyQ, Action: "drop"},
+			"inventory":  {Key: ebiten.KeyE, Action: "inventory"},
+			"crafting":   {Key: ebiten.KeyC, Action: "crafting"},
+			"hotbar_1":   {Key: ebiten.Key1, Action: "hotbar_1"},
+			"hotbar_2":   {Key: ebiten.Key2, Action: "hotbar_2"},
+			"hotbar_3":   {Key: ebiten.Key3, Action: "hotbar_3"},
+			"hotbar_4":   {Key: ebiten.Key4, Action: "hotbar_4"},
+			"hotbar_5":   {Key: ebiten.Key5, Action: "hotbar_5"},
+			"hotbar_6":   {Key: ebiten.Key6, Action: "hotbar_6"},
+			"hotbar_7":   {Key: ebiten.Key7, Action: "hotbar_7"},
+			"hotbar_8":   {Key: ebiten.Key8, Action: "hotbar_8"},
+			"hotbar_9":   {Key: ebiten.Key9, Action: "hotbar_9"},
+			"chat":       {Key: ebiten.KeyT, Action: "chat"},
+			"command":    {Key: ebiten.KeySlash, Action: "command"},
+			"menu":       {Key: ebiten.KeyEscape, Action: "menu"},
 		},
 	}
 }
@@ -63,10 +64,10 @@ func NewInputManager() *InputManager {
 	im := &InputManager{
 		config: DefaultInputConfig(),
 	}
-	
+
 	// Try to load custom config
 	im.LoadConfig()
-	
+
 	return im
 }
 
@@ -77,13 +78,13 @@ func (im *InputManager) LoadConfig() error {
 		log.Printf("No custom input config found, using defaults")
 		return err
 	}
-	
+
 	var config InputConfig
 	if err := json.Unmarshal(data, &config); err != nil {
 		log.Printf("Error parsing input config: %v", err)
 		return err
 	}
-	
+
 	im.config = &config
 	log.Printf("Loaded custom input configuration")
 	return nil
@@ -95,7 +96,7 @@ func (im *InputManager) IsActionPressed(action string) bool {
 	if !exists {
 		return false
 	}
-	
+
 	if binding.IsMouse {
 		return ebiten.IsMouseButtonPressed(ebiten.MouseButton(binding.Mouse))
 	} else {
@@ -109,7 +110,7 @@ func (im *InputManager) IsActionJustPressed(action string) bool {
 	if !exists {
 		return false
 	}
-	
+
 	if binding.IsMouse {
 		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButton(binding.Mouse))
 	} else {
@@ -123,7 +124,7 @@ func (im *InputManager) GetKeyForAction(action string) string {
 	if !exists {
 		return "Unbound"
 	}
-	
+
 	if binding.IsMouse {
 		switch binding.Mouse {
 		case 0:
