@@ -1,6 +1,7 @@
 package pkg_entities
 
 import (
+	"image/color"
 	"testing"
 
 	"tesselbox/pkg/entities"
@@ -13,7 +14,7 @@ func TestRenderComponent(t *testing.T) {
 	// Test component creation
 	component := &entities.RenderComponent{
 		Type:  "render",
-		Color: []uint8{255, 0, 0, 255},
+		Color: color.RGBA{255, 0, 0, 255},
 		Scale: 1.5,
 	}
 
@@ -31,7 +32,7 @@ func TestRenderComponent(t *testing.T) {
 	// Test invalid component
 	invalidComponent := &entities.RenderComponent{
 		Type:  "render",
-		Color: []uint8{255, 0, 0, 255},
+		Color: color.RGBA{255, 0, 0, 255},
 		Scale: -1.0, // Invalid scale
 	}
 	err = invalidComponent.Validate()
@@ -42,10 +43,10 @@ func TestPhysicsComponent(t *testing.T) {
 	helper := internal.NewTestHelper(t)
 
 	component := &entities.PhysicsComponent{
-		Type:      "physics",
-		VelocityX: 5.0,
-		VelocityY: 2.0,
-		Mass:      10.0,
+		Type:     "physics",
+		Hardness: 5.0,
+		Density:  2.0,
+		Mass:     10.0,
 	}
 
 	// Test component type
@@ -61,8 +62,8 @@ func TestPhysicsComponent(t *testing.T) {
 
 	// Test invalid mass
 	invalidComponent := &entities.PhysicsComponent{
-		Type:  "physics",
-		Mass:  -1.0, // Invalid mass
+		Type: "physics",
+		Mass: -1.0, // Invalid mass
 	}
 	err = invalidComponent.Validate()
 	helper.AssertError(err, "Invalid physics component should error")
@@ -74,7 +75,7 @@ func TestInventoryComponent(t *testing.T) {
 	component := &entities.InventoryComponent{
 		Type:     "inventory",
 		Slots:    10,
-		Items:    make(map[string]int),
+		Contents: make(map[string]int),
 	}
 
 	// Test component type
@@ -91,7 +92,7 @@ func TestInventoryComponent(t *testing.T) {
 	// Test invalid slots
 	invalidComponent := &entities.InventoryComponent{
 		Type:  "inventory",
-		Slots:  -1, // Invalid slots
+		Slots: -1, // Invalid slots
 	}
 	err = invalidComponent.Validate()
 	helper.AssertError(err, "Invalid inventory component should error")
@@ -103,19 +104,19 @@ func TestComponentMerge(t *testing.T) {
 	// Test merging render components
 	base := &entities.RenderComponent{
 		Type:  "render",
-		Color: []uint8{255, 0, 0, 255},
+		Color: color.RGBA{255, 0, 0, 255},
 		Scale: 1.0,
 	}
 
 	merge := &entities.RenderComponent{
 		Type:  "render",
-		Color: []uint8{0, 255, 0, 255},
+		Color: color.RGBA{0, 255, 0, 255},
 		Scale: 2.0,
 	}
 
 	base.Merge(merge)
 	helper.AssertEqual(2.0, base.Scale, "Scale should be merged")
-	helper.AssertEqual([]uint8{0, 255, 0, 255}, base.Color, "Color should be merged")
+	helper.AssertEqual(color.RGBA{0, 255, 0, 255}, base.Color, "Color should be merged")
 }
 
 func TestComponentRegistry(t *testing.T) {
@@ -126,8 +127,9 @@ func TestComponentRegistry(t *testing.T) {
 	entities.RegisterComponent("test_render", component)
 
 	// Test component retrieval
-	retrieved := entities.GetComponentType("test_render")
+	retrieved, err := entities.CreateComponent("test_render")
 	helper.AssertNotNil(retrieved, "Registered component should be retrievable")
+	helper.AssertNoError(err, "Component creation should not error")
 
 	// Test component creation from type
 	instance := retrieved.Clone()
@@ -144,7 +146,7 @@ func TestComponentValidation(t *testing.T) {
 			name: "valid render component",
 			component: &entities.RenderComponent{
 				Type:  "render",
-				Color: []uint8{255, 255, 255, 255},
+				Color: color.RGBA{255, 255, 255, 255},
 				Scale: 1.0,
 			},
 			shouldError: false,
@@ -153,7 +155,7 @@ func TestComponentValidation(t *testing.T) {
 			name: "invalid render scale",
 			component: &entities.RenderComponent{
 				Type:  "render",
-				Color: []uint8{255, 255, 255, 255},
+				Color: color.RGBA{255, 255, 255, 255},
 				Scale: -1.0,
 			},
 			shouldError: true,
@@ -161,20 +163,20 @@ func TestComponentValidation(t *testing.T) {
 		{
 			name: "valid physics component",
 			component: &entities.PhysicsComponent{
-				Type:      "physics",
-				VelocityX: 0,
-				VelocityY: 0,
-				Mass:      1.0,
+				Type:     "physics",
+				Hardness: 0,
+				Density:  0,
+				Mass:     1.0,
 			},
 			shouldError: false,
 		},
 		{
 			name: "invalid physics mass",
 			component: &entities.PhysicsComponent{
-				Type:  "physics",
-				VelocityX: 0,
-				VelocityY: 0,
-				Mass:      -1.0,
+				Type:     "physics",
+				Hardness: 0,
+				Density:  0,
+				Mass:     -1.0,
 			},
 			shouldError: true,
 		},

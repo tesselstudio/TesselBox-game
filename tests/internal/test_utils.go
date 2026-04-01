@@ -1,46 +1,50 @@
 package internal
 
 import (
+	"fmt"
+	"image/color"
+	"strconv"
 	"testing"
 	"time"
 
+	"tesselbox/pkg/blocks"
 	"tesselbox/pkg/entities"
 	"tesselbox/pkg/world"
 )
 
 // MockEntityManager provides a mock entity manager for testing
 type MockEntityManager struct {
-	entities map[uint64]*entities.Entity
-	nextID  uint64
+	entities map[string]*entities.Entity
+	nextID   uint64
 }
 
 func NewMockEntityManager() *MockEntityManager {
 	return &MockEntityManager{
-		entities: make(map[uint64]*entities.Entity),
+		entities: make(map[string]*entities.Entity),
 		nextID:   1,
 	}
 }
 
 func (m *MockEntityManager) CreateEntity(entityType string) *entities.Entity {
-	id := m.nextID
+	id := strconv.FormatUint(m.nextID, 10)
 	m.nextID++
-	
+
 	entity := &entities.Entity{
 		ID:   id,
 		Type: entityType,
 		Tags: []string{},
 	}
-	
+
 	m.entities[id] = entity
 	return entity
 }
 
-func (m *MockEntityManager) GetEntity(id uint64) (*entities.Entity, bool) {
+func (m *MockEntityManager) GetEntity(id string) (*entities.Entity, bool) {
 	entity, exists := m.entities[id]
 	return entity, exists
 }
 
-func (m *MockEntityManager) RemoveEntity(id uint64) {
+func (m *MockEntityManager) RemoveEntity(id string) {
 	delete(m.entities, id)
 }
 
@@ -91,7 +95,7 @@ func (m *MockWorld) AddBlock(x, y float64, blockType string) {
 	m.blocks[key] = &world.Hexagon{
 		X:         x,
 		Y:         y,
-		BlockType:  world.STONE, // Simplified for testing
+		BlockType: blocks.STONE, // Simplified for testing
 	}
 }
 
@@ -137,6 +141,13 @@ func (th *TestHelper) AssertNotEqual(expected, actual interface{}, message strin
 	}
 }
 
+// AssertNotNil fails the test if value is nil
+func (th *TestHelper) AssertNotNil(value interface{}, message string) {
+	if value == nil {
+		th.t.Fatalf("%s: expected not nil, got nil", message)
+	}
+}
+
 // AssertTrue fails the test if condition is false
 func (th *TestHelper) AssertTrue(condition bool, message string) {
 	if !condition {
@@ -154,18 +165,18 @@ func (th *TestHelper) AssertFalse(condition bool, message string) {
 // CreateTestEntity creates a test entity with basic components
 func CreateTestEntity(id uint64, entityType string) *entities.Entity {
 	entity := &entities.Entity{
-		ID:   id,
+		ID:   strconv.FormatUint(id, 10),
 		Type: entityType,
 		Tags: []string{"test"},
 	}
-	
+
 	// Add basic components for testing
 	entity.AddComponent(&entities.RenderComponent{
 		Type:  "render",
-		Color: []uint8{255, 0, 0, 255},
+		Color: color.RGBA{255, 0, 0, 255},
 		Scale: 1.0,
 	})
-	
+
 	return entity
 }
 
@@ -175,18 +186,18 @@ func CreateTestComponent(componentType string) entities.Component {
 	case "render":
 		return &entities.RenderComponent{
 			Type:  "render",
-			Color: []uint8{255, 255, 255, 255},
+			Color: color.RGBA{255, 255, 255, 255},
 			Scale: 1.0,
 		}
 	case "physics":
 		return &entities.PhysicsComponent{
 			Type:     "physics",
-			VelocityX: 0,
-			VelocityY: 0,
+			Hardness: 1.0,
+			Density:  1.0,
 			Mass:     1.0,
 		}
 	default:
-		return &entities.BaseComponent{
+		return &entities.RenderComponent{
 			Type: componentType,
 		}
 	}
