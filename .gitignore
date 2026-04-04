@@ -121,3 +121,54 @@ worlds/cache/
 
 # Package manager lock files (Go)
 go.mod.sum
+
+# Additional development files
+*.orig
+*.rej
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db?
+
+# Test coverage files
+coverage.out
+coverage.html
+*.cover
+
+# Environment files
+.envrc
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Local configuration
+config/local.json
+config/development.json
+config/production.json
+
+# Build artifacts
+*.test
+*.exe~
+*.dll~
+*.so~
+*.dylib~
+
+# Go race detector output
+race.log
+
+# Go benchmark output
+bench.out
+benchmark.txt
+
+# Go vet output
+vet.out
+
+# Memory profiling
+mem.prof
+cpu.prof
+
+# Go mod cache
+go.mod.cache
