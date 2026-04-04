@@ -21,8 +21,23 @@ Experience TesselBox, a captivating open-source game engine built in Go. Dive in
 
 TesselBox offers a captivating experience in an open-source, hexagonal sandbox environment with advanced systems. Players can engage in mining, building, and exploring vast, procedurally generated landscapes with dynamic weather, day/night cycles, and rich audio systems. The game's core features include building unique structures on a hexagonal grid, discovering new terrains through procedural generation, unearthing resources while exploring the world, creating custom content through a powerful plugin system, designing custom player skins, and experiencing immersive environmental systems.
 
-### Features
+### 🌍 World Selection System
+TesselBox features a complete Minecraft-style world management system that allows players to:
+- **Browse Existing Worlds**: View all saved worlds with metadata (name, seed, game mode, last saved time)
+- **Create New Worlds**: Generate fresh worlds with custom names, seeds, and game modes
+- **Delete Unwanted Worlds**: Remove worlds from the save list
+- **Game Mode Selection**: Choose between Creative and Survival modes
+- **Seed Sharing**: Copy and share world seeds for identical terrain generation
 
+### 🌱 Enhanced Seed Generation
+The game includes a comprehensive seed system for consistent world generation:
+- **Deterministic Generation**: Same seed always produces identical worlds
+- **Seed Customization**: Set specific seeds or generate random ones
+- **Known Seeds Library**: Quick access to popular seeds (12345, 67890, 42, 1337, etc.)
+- **Seed Sharing**: Copy seeds to share with friends for identical world experiences
+- **World Consistency**: Proper seed usage throughout terrain generation, ore placement, and organism spawning
+
+### Features
 -   **Hexagonal World-Building**: Craft unique structures in a distinct hexagonal grid, offering natural movement patterns and strategic depth.
 -   **Procedural Generation**: Discover new and exciting terrains with every play, ensuring limitless and diverse exploration.
 -   **Mining & Exploration**: Unearth resources and uncover the secrets of the world as you explore its vast landscapes.
@@ -37,6 +52,13 @@ TesselBox offers a captivating experience in an open-source, hexagonal sandbox e
 -   **Input Management**: Configurable controls with action mapping and input device support.
 -   **Entity-Component Architecture**: Modern ECS system for efficient entity management and game logic.
 -   **Open Source**: Join our community and contribute to the evolution of TesselBox!
+
+### 🛡️ Survival Mode
+- **Basic Implementation**: Survival mode toggle is available (`/survival` command)
+- **Creative/Survival Toggle**: Switch between creative building and survival challenges
+- **Mode Persistence**: Game mode selection is saved with each world
+- **Current Status**: Basic framework exists, but core survival mechanics (health, hunger, stamina) are planned for future implementation
+- **Development Focus**: Currently prioritizing world generation and creative building features
 
 ## 🎮 Controls
 
@@ -82,6 +104,19 @@ TesselBox offers a captivating experience in an open-source, hexagonal sandbox e
 - **F11** - Toggle fullscreen (if supported)
 - **F5** - Quick save
 - **F9** - Quick load
+
+### 🌍 World Selection Controls
+- **Arrow Keys** - Navigate world list and menu options
+- **Enter/Space** - Select world or confirm action
+- **Escape** - Go back to previous menu
+- **Mouse Click** - Direct selection of worlds and menu items
+- **B Key** - Create new world from world selection menu
+
+### 🌱 Seed System Controls
+- **Up/Down Arrows** - Cycle through preset world names or known seeds
+- **Enter** - Confirm world creation with current settings
+- **Random Seed** - Generate new random seed for unique world
+- **Copy/Paste** - Share seeds with other players
 
 ## 💡 Gameplay Tips
 
