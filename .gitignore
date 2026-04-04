@@ -82,3 +82,42 @@ logs/
 # Build tools directories
 snap/
 node_modules/
+
+# Additional Go-specific files
+go.work.sum
+
+# Debug and profiling files
+*.prof
+*.pprof
+*.trace
+
+# Backup files created during development
+*_backup.go
+*_broken.go
+menu_backup.go
+menu_broken.go
+
+# Temporary files from our work
+action_constants.txt
+menu_constants.txt
+
+# Audio and media cache
+*.wav
+*.mp3
+*.ogg
+audio/cache/
+
+# Plugin development
+plugins/temp/
+plugins/*.tmp
+
+# Skin editor temp files
+skins/temp/
+skins/*.tmp
+
+# World generation cache
+worlds/cache/
+*.cache
+
+# Package manager lock files (Go)
+go.mod.sum
