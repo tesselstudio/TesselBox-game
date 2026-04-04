@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"tesselbox/pkg/items"
@@ -413,6 +414,7 @@ type AutoSaver struct {
 	lastSave    time.Time
 	enabled     bool
 	stopChan    chan bool
+	mutex       sync.RWMutex // Fixed: Add mutex for thread safety
 }
 
 // NewAutoSaver creates a new auto-saver
@@ -428,6 +430,9 @@ func NewAutoSaver(saveManager *SaveManager, gameState *GameState, interval time.
 
 // Start starts the auto-saver
 func (as *AutoSaver) Start() {
+	as.mutex.Lock()
+	defer as.mutex.Unlock()
+	
 	if as.enabled {
 		return
 	}
@@ -437,6 +442,9 @@ func (as *AutoSaver) Start() {
 
 // Stop stops the auto-saver
 func (as *AutoSaver) Stop() {
+	as.mutex.Lock()
+	defer as.mutex.Unlock()
+	
 	if !as.enabled {
 		return
 	}
@@ -451,6 +459,9 @@ func (as *AutoSaver) SetInterval(interval time.Duration) {
 
 // ForceSave forces an immediate save
 func (as *AutoSaver) ForceSave() error {
+	as.mutex.RLock()
+	defer as.mutex.RUnlock()
+	
 	as.lastSave = time.Now()
 	return as.saveManager.SaveGame(as.gameState)
 }
@@ -463,7 +474,11 @@ func (as *AutoSaver) autoSaveLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			if as.enabled {
+			as.mutex.RLock()
+			enabled := as.enabled
+			as.mutex.RUnlock()
+			
+			if enabled {
 				if err := as.ForceSave(); err != nil {
 					// Log error but continue running
 					fmt.Printf("Auto-save failed: %v\n", err)

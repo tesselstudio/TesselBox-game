@@ -6,7 +6,6 @@ import (
 	"math"
 	"tesselbox/pkg/blocks"
 	"tesselbox/pkg/hexagon"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -21,8 +20,8 @@ const (
 	MenuMain
 	MenuSettings
 	MenuBlockLibrary
-	MenuWorldSelect
-	MenuCreateWorld
+MenuSelectWorld
+MenuCreateWorld
 )
 
 // MenuAction represents an action to be taken by the menu
@@ -39,27 +38,17 @@ const (
 	ActionBack
 	ActionLogout
 	ActionOpenBlockLibrary
+ActionSelectWorld
+ActionCreateNewWorld
+ActionDeleteWorld
+ActionBackToWorldSelect
 	ActionSelectBlock
 	ActionOpenPluginManager
 	ActionOpenSkinEditor
 	ActionToggleSound
 	ActionToggleFullscreen
 	ActionChangeResolution
-	ActionSelectWorld
-	ActionCreateNewWorld
-	ActionDeleteWorld
-	ActionBackToWorldSelect
 )
-
-// WorldInfo represents information about a saved world
-type WorldInfo struct {
-	Name      string
-	LastSaved string
-	CreatedAt string
-	Seed      int64
-	GameMode  string
-	Exists    bool
-}
 
 // MenuItem represents a menu option
 type MenuItem struct {
@@ -79,16 +68,6 @@ type Menu struct {
 	SelectedItem  int
 	SelectedBlock string // For block library menu
 	CreativeMode  bool   // Whether creative mode is enabled
-
-	// World selection data
-	Worlds        []WorldInfo
-	SelectedWorld int
-
-	// Create world data
-	NewWorldName string
-	NewWorldSeed int64
-	NewWorldMode string
-	SelectedMode int
 
 	// Scrolling for block library
 	ScrollOffset    int
@@ -177,6 +156,10 @@ func (m *Menu) SetMainMenu() {
 
 	if m.CreativeMode {
 		m.Items = append(m.Items, MenuItem{Text: "BLOCK LIBRARY", Action: ActionOpenBlockLibrary, Position: len(m.Items), Enabled: true,
+ActionSelectWorld
+ActionCreateNewWorld
+ActionDeleteWorld
+ActionBackToWorldSelect
 			Tooltip: "Browse and select blocks", Description: "Access all available block types for creative mode"})
 		m.Items = append(m.Items, MenuItem{Text: "PLUGIN MANAGER", Action: ActionOpenPluginManager, Position: len(m.Items), Enabled: true,
 			Tooltip: "Manage plugins and mods", Description: "Browse, install, and manage game plugins"})
@@ -196,6 +179,8 @@ func (m *Menu) SetMainMenu() {
 // SetBlockLibraryMenu sets up the block library menu
 func (m *Menu) SetBlockLibraryMenu() {
 	m.CurrentMenu = MenuBlockLibrary
+MenuSelectWorld
+MenuCreateWorld
 	m.Title = "BLOCK LIBRARY"
 	m.Items = []MenuItem{}
 	m.SelectedBlock = ""
@@ -255,6 +240,8 @@ func (m *Menu) Update() MenuAction {
 	// Handle ESC key for returning to main menu
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		if m.CurrentMenu == MenuBlockLibrary || m.CurrentMenu == MenuSettings {
+MenuSelectWorld
+MenuCreateWorld
 			return ActionBack
 		}
 	}
@@ -267,6 +254,8 @@ func (m *Menu) Update() MenuAction {
 		}
 		// Handle scrolling for block library
 		if m.CurrentMenu == MenuBlockLibrary && len(m.Items) > m.MaxVisibleItems {
+MenuSelectWorld
+MenuCreateWorld
 			if m.SelectedItem < m.ScrollOffset {
 				m.ScrollOffset = m.SelectedItem
 			} else if m.SelectedItem >= m.ScrollOffset+m.MaxVisibleItems {
@@ -283,6 +272,8 @@ func (m *Menu) Update() MenuAction {
 		}
 		// Handle scrolling for block library
 		if m.CurrentMenu == MenuBlockLibrary && len(m.Items) > m.MaxVisibleItems {
+MenuSelectWorld
+MenuCreateWorld
 			if m.SelectedItem < m.ScrollOffset {
 				m.ScrollOffset = m.SelectedItem
 			} else if m.SelectedItem >= m.ScrollOffset+m.MaxVisibleItems {
@@ -293,6 +284,8 @@ func (m *Menu) Update() MenuAction {
 
 	// Handle mouse wheel scrolling for block library
 	if m.CurrentMenu == MenuBlockLibrary && len(m.Items) > m.MaxVisibleItems {
+MenuSelectWorld
+MenuCreateWorld
 		_, scrollY := ebiten.Wheel()
 		if scrollY > 0 {
 			// Scroll up
@@ -325,6 +318,8 @@ func (m *Menu) Update() MenuAction {
 	// Handle selection
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		if m.CurrentMenu == MenuBlockLibrary {
+MenuSelectWorld
+MenuCreateWorld
 			// Select the block
 			m.SelectedBlock = m.Items[m.SelectedItem].Text
 			return ActionSelectBlock
@@ -376,6 +371,8 @@ func (m *Menu) handleMouseClick(mx, my int) MenuAction {
 			m.SelectedItem = i
 			if item.Enabled {
 				if m.CurrentMenu == MenuBlockLibrary {
+MenuSelectWorld
+MenuCreateWorld
 					m.SelectedBlock = item.Text
 					return ActionSelectBlock
 				} else {
@@ -541,6 +538,8 @@ func (m *Menu) drawMenuItems(screen *ebiten.Image) {
 
 	// Draw scroll indicators if needed
 	if m.CurrentMenu == MenuBlockLibrary && len(m.Items) > m.MaxVisibleItems {
+MenuSelectWorld
+MenuCreateWorld
 		// Draw up arrow if not at top
 		if m.ScrollOffset > 0 {
 			ebitenutil.DebugPrintAt(screen, "▲", centerX-5, startY-30)
@@ -791,152 +790,4 @@ func (m *Menu) wrapText(text string, maxWidth int) []string {
 	}
 
 	return lines
-}
-
-// SetWorldSelectMenu sets up world selection menu
-func (m *Menu) SetWorldSelectMenu() {
-	m.CurrentMenu = MenuWorldSelect
-	m.Title = "SELECT WORLD"
-
-	// Load world list
-	worlds, err := m.loadWorldList()
-	if err != nil {
-		worlds = []WorldInfo{}
-	}
-
-	m.Worlds = worlds
-	m.SelectedWorld = 0
-
-	// Create menu items
-	m.Items = []MenuItem{}
-	for i, world := range worlds {
-		if world.Exists {
-			m.Items = append(m.Items, MenuItem{
-				Text:     world.Name,
-				Action:   ActionSelectWorld,
-				Position: i,
-				Enabled:  true,
-				Tooltip: fmt.Sprintf("Last saved: %s\\nCreated: %s\\nSeed: %d\\nMode: %s",
-					world.LastSaved, world.CreatedAt, world.Seed, world.GameMode),
-			})
-		} else {
-			m.Items = append(m.Items, MenuItem{
-				Text:     world.Name,
-				Action:   ActionSelectWorld,
-				Position: i,
-				Enabled:  false,
-				Tooltip:  "New world - will be created when selected",
-			})
-		}
-	}
-
-	// Add navigation items
-	m.Items = append(m.Items, MenuItem{
-		Text:     "CREATE NEW WORLD",
-		Action:   ActionCreateNewWorld,
-		Position: len(worlds),
-		Enabled:  true,
-		Tooltip:  "Create a brand new world",
-	})
-
-	m.Items = append(m.Items, MenuItem{
-		Text:     "BACK",
-		Action:   ActionBack,
-		Position: len(worlds) + 1,
-		Enabled:  true,
-		Tooltip:  "Return to main menu",
-	})
-
-	m.SelectedItem = 0
-}
-
-// UpdateCreateWorldMenu handles input for world creation
-func (m *Menu) UpdateCreateWorldMenu() MenuAction {
-	// Handle keyboard input
-	if inpututil.IsKeyJustPressed(ebiten.KeyUp) {
-		m.SelectedItem--
-		if m.SelectedItem < 0 {
-			m.SelectedItem = 4
-		}
-	}
-
-	if inpututil.IsKeyJustPressed(ebiten.KeyDown) {
-		m.SelectedItem++
-		if m.SelectedItem > 4 {
-			m.SelectedItem = 0
-		}
-	}
-
-	// Update menu items
-	m.updateCreateWorldItems()
-
-	// Handle selection
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		return ActionCreateNewWorld
-	}
-
-	// Handle back
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		return ActionBackToWorldSelect
-	}
-
-	return ActionNone
-}
-
-// editWorldName handles text input for world name
-func (m *Menu) editWorldName() {
-	presetNames := []string{"New World", "My World", "Survival Island", "Creative Paradise", "Hexagon World"}
-	for i, name := range presetNames {
-		if name == m.NewWorldName {
-			nextIndex := (i + 1) % len(presetNames)
-			m.NewWorldName = presetNames[nextIndex]
-			break
-		}
-	}
-}
-
-// editSeed handles seed input and randomization
-func (m *Menu) editSeed() {
-	if m.NewWorldSeed < 0 {
-		m.NewWorldSeed = time.Now().Unix() % 1000000
-	} else {
-		knownSeeds := []int64{12345, 67890, 42, 1337, 9001, 31415926}
-		for i, seed := range knownSeeds {
-			if seed == m.NewWorldSeed {
-				nextIndex := (i + 1) % len(knownSeeds)
-				m.NewWorldSeed = knownSeeds[nextIndex]
-				break
-			}
-		}
-	}
-}
-
-// updateCreateWorldItems updates the menu items display
-func (m *Menu) updateCreateWorldItems() {
-	m.Items = []MenuItem{
-		{Text: fmt.Sprintf("Name: %s", m.NewWorldName), Action: ActionNone, Position: 0, Enabled: true, Tooltip: "Current: " + m.NewWorldName},
-		{Text: fmt.Sprintf("Seed: %d", m.NewWorldSeed), Action: ActionNone, Position: 1, Enabled: true, Tooltip: "Current: " + fmt.Sprintf("%d", m.NewWorldSeed)},
-		{Text: fmt.Sprintf("Mode: %s", m.NewWorldMode), Action: ActionNone, Position: 2, Enabled: true, Tooltip: "Current: " + m.NewWorldMode},
-		{Text: "CREATE WORLD", Action: ActionCreateNewWorld, Position: 3, Enabled: true, Tooltip: "Create and enter world"},
-		{Text: "BACK", Action: ActionBackToWorldSelect, Position: 4, Enabled: true, Tooltip: "Return to world selection"},
-	}
-	m.SelectedItem = 3
-}
-
-// loadWorldList loads the list of saved worlds
-func (m *Menu) loadWorldList() ([]WorldInfo, error) {
-	// For now, return basic info - in a full implementation,
-	// this would read from world metadata files
-	worlds := []WorldInfo{
-		{
-			Name:      "New World",
-			LastSaved: "Never",
-			CreatedAt: time.Now().Format("2006-01-02"),
-			Seed:      time.Now().Unix() % 1000000,
-			GameMode:  "Creative",
-			Exists:    false,
-		},
-	}
-
-	return worlds, nil
 }

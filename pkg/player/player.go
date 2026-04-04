@@ -95,7 +95,7 @@ func (p *Player) Update(deltaTime float64) {
 
 	// Apply gravity (framerate independent) - skip if flying
 	if !p.IsFlying {
-		p.VY += Gravity * deltaTime * 60 * 60 // Proper scaling for consistent gravity
+		p.VY += Gravity * deltaTime * 60.0 // Fixed: Use proper delta time scaling
 	}
 
 	// Handle vertical movement when flying
@@ -129,7 +129,7 @@ func (p *Player) Update(deltaTime float64) {
 
 	// Jump with delta time
 	if p.Jumping && p.OnGround {
-		p.VY = JumpForce * 60 // Scale jump force to match gravity scaling
+		p.VY = JumpForce * 60.0 // Fixed: Use float for consistency
 		p.OnGround = false
 	}
 
@@ -155,24 +155,30 @@ func (p *Player) UpdateWithCollision(deltaTime float64, checkCollision func(floa
 	// Get player bounds
 	minX, minY, maxX, maxY := p.GetBounds()
 
-	// Check vertical collision (ground detection) - increased height for better ground detection
-	bottomLeftCollision := checkCollision(minX, maxY, maxX, maxY+10)
-	bottomRightCollision := checkCollision(minX+p.Width/2, maxY, maxX, maxY+10)
+	// Check vertical collision (ground detection) - check from player's feet downward
+	feetY := maxY              // Player's feet position
+	groundCheckDistance := 5.0 // How far below feet to check
 
-	if bottomLeftCollision || bottomRightCollision {
-		// We hit the ground - snap to it
-		p.VY = 0
-		p.OnGround = true
+	bottomLeftCollision := checkCollision(minX, feetY, maxX, feetY+groundCheckDistance)
+	bottomRightCollision := checkCollision(minX+p.Width/2, feetY, maxX, feetY+groundCheckDistance)
+	bottomCenterCollision := checkCollision(minX+p.Width/2, feetY, maxX, feetY+groundCheckDistance)
 
-		// Find the exact ground position by checking from current position upward
-		groundY := p.Y
-		for checkY := p.Y + p.Height; checkY > p.Y-10; checkY-- {
-			if !checkCollision(minX, checkY, maxX, checkY+1) {
-				groundY = checkY - p.Height
-				break
+	if bottomLeftCollision || bottomRightCollision || bottomCenterCollision {
+		// We hit the ground - stop falling and snap to ground
+		if p.VY > 0 { // Only if moving downward
+			p.VY = 0
+			p.OnGround = true
+
+			// Find exact ground position
+			groundY := p.Y
+			for checkY := feetY; checkY <= feetY+groundCheckDistance; checkY += 1.0 {
+				if checkCollision(minX, checkY, maxX, checkY+1) {
+					groundY = checkY - p.Height
+					break
+				}
 			}
+			p.Y = groundY
 		}
-		p.Y = groundY
 	} else {
 		// No ground below - player is falling
 		p.OnGround = false

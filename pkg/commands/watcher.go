@@ -158,7 +158,7 @@ func (pw *PluginWatcher) handleModifiedPlugin(path string) {
 	name := filepath.Base(path)
 
 	// Check if plugin is loaded
-	plugins := pw.pluginManager.GetLoadedPlugins()
+	plugins := pw.pluginManager.ListPlugins()
 	isLoaded := false
 	for _, p := range plugins {
 		if p == name {

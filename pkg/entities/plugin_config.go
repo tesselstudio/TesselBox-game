@@ -377,17 +377,6 @@ func CreateSecurityPluginConfig() *PluginConfig {
 	}
 }
 
-// ============================================================================
-// Configuration Migration
-// ============================================================================
-
-// MigrateConfig migrates old plugin configurations to new format
-func (pcm *PluginConfigManager) MigrateConfig(oldConfigPath string) error {
-	// This would handle migration from old config formats
-	// Implementation depends on the old format
-	return fmt.Errorf("config migration not implemented yet")
-}
-
 // ExportConfig exports all configurations to a single file
 func (pcm *PluginConfigManager) ExportConfig(exportPath string) error {
 	exportData := map[string]interface{}{

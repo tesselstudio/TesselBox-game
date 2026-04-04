@@ -125,14 +125,14 @@ type Game struct {
 	selectedBlock string // For creative mode block selection
 
 	// Systems
-	craftingSystem *crafting.CraftingSystem
-	craftingUI     *crafting.CraftingUI
-	menu           *menu.Menu
-	pluginManager  *entities.PluginManager
-	pluginUI       *plugins.PluginUI
+	craftingSystem  *crafting.CraftingSystem
+	craftingUI      *crafting.CraftingUI
+	menu            *menu.Menu
+	pluginManager   *entities.EnhancedPluginManager
+	pluginUI        *plugins.PluginUI
 	pluginInstaller *plugins.PluginInstaller
-	skinEditor     *skin.SkinEditor
-	inputManager   *input.InputManager
+	skinEditor      *skin.SkinEditor
+	inputManager    *input.InputManager
 
 	// Save system
 	saveManager *save.SaveManager
@@ -197,8 +197,8 @@ func NewGame() *Game {
 	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
 
 	g := &Game{
-		world:                world.NewWorld("default"), // Default world name
-		player:               player.NewPlayer(0, 0),    // Temporary position, will be updated
+		world:                world.NewWorld("default"),  // Default world name
+		player:               player.NewPlayer(400, 300), // Start at ground level
 		inventory:            items.NewInventory(32),
 		selectedBlock:        "dirt", // Default to dirt in creative mode
 		CreativeMode:         true,   // Enable creative mode by default
@@ -220,9 +220,35 @@ func NewGame() *Game {
 	g.poolIndex = 0
 
 	// Find a suitable spawn position and set player position
-	// Spawn in area where terrain is actually generated (negative coordinates)
-	spawnX, spawnY := g.world.FindSpawnPosition(-2000, -2000)
+	// Spawn at origin where terrain should be generated
+	spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
+
+	// Find actual ground level and spawn above it
+	groundY := spawnY
+	for checkY := spawnY; checkY < spawnY+1000; checkY += 30 {
+		hex := g.world.GetHexagonAt(spawnX, checkY)
+		if hex != nil && hex.BlockType != blocks.AIR {
+			blockKey := getBlockKeyFromType(hex.BlockType)
+			def := blocks.BlockDefinitions[blockKey]
+			if def != nil && def.Solid {
+				groundY = checkY
+				break
+			}
+		}
+	}
+
+	// Spawn 200 pixels above ground (terrain is much lower than expected)
+	if groundY > spawnY {
+		spawnY = groundY - 200
+	}
+
 	g.player.SetPosition(spawnX, spawnY)
+
+	// Ensure chunks are loaded around spawn position
+	g.world.GetChunksInRange(spawnX, spawnY)
+
+	// Debug: Log spawn position
+	log.Printf("Player spawned at: (%.1f, %.1f)", spawnX, spawnY)
 
 	// Initialize crafting system
 	g.craftingSystem = crafting.NewCraftingSystem()
@@ -302,16 +328,19 @@ func NewGame() *Game {
 
 	// Initialize menu
 	g.menu = menu.NewMenu()
-	g.menu.CreativeMode = g.CreativeMode // Set creative mode in menu
 
 	// Initialize plugin system
 	log.Printf("Initializing plugin system...")
-	g.pluginManager = entities.NewPluginManager(nil, nil, nil) // Will be properly integrated later
+	// Create entity manager and system manager first
+	entityManager := entities.NewEntityManager()
+	systemManager := entities.NewSystemManager()
+	eventBus := entities.NewEventBus()
+
+	g.pluginManager = entities.NewEnhancedPluginManager(entityManager, systemManager, eventBus)
 	if g.pluginManager == nil {
 		log.Printf("Warning: Plugin manager initialization failed")
 	}
-	g.pluginUI = plugins.NewPluginUI(g.pluginManager)
-	g.pluginInstaller = plugins.NewPluginInstaller(g.pluginManager)
+	// Note: pluginUI and pluginInstaller may need to be updated to work with EnhancedPluginManager
 	log.Printf("Plugin system initialized")
 
 	// Initialize skin editor
@@ -320,14 +349,18 @@ func NewGame() *Game {
 	log.Printf("Skin editor initialized")
 
 	// Initialize save system
+	worldName := "default"
 	playerName := "player"
-	g.saveManager = save.NewSaveManager("default", playerName)
+	g.saveManager = save.NewSaveManager(worldName, playerName)
 
 	// Initialize day/night cycle (10 minute days for gameplay) - must be done before autoSaver
 	g.dayNightCycle = gametime.NewDayNightCycle(600.0)
 
+	// Create initial save state for auto-saver
+	saveState := g.createSaveState()
+
 	// Initialize auto-saver with 5-minute interval
-	g.autoSaver = save.NewAutoSaver(g.saveManager, g.createSaveState(), 5*time.Minute)
+	g.autoSaver = save.NewAutoSaver(g.saveManager, saveState, 5*time.Minute)
 
 	// Initialize weather system
 	g.weatherSystem = weather.NewWeatherSystem()
@@ -342,9 +375,14 @@ func NewGame() *Game {
 	if err := loader.LoadAllAudio(); err != nil {
 		log.Printf("Warning: Failed to load audio files: %v", err)
 		assetLoadErrors = append(assetLoadErrors, "Audio loading failed")
+		// Clean up any partially loaded resources before loading placeholders
+		g.audioManager.Cleanup()
 		// Load placeholder sounds if real audio files are missing
-		loader.LoadPlaceholderSounds()
-		log.Printf("Loaded placeholder audio sounds")
+		if err := loader.LoadPlaceholderSounds(); err != nil {
+			log.Printf("Warning: Failed to load placeholder sounds: %v", err)
+		} else {
+			log.Printf("Loaded placeholder audio sounds")
+		}
 	} else {
 		log.Printf("Audio system loaded successfully")
 	}
@@ -383,7 +421,15 @@ func (g *Game) Update() error {
 
 	// Handle menu state
 	if g.inMenu {
-		action := g.menu.Update()
+		var action menu.MenuAction
+		switch g.menu.CurrentMenu {
+		case menu.MenuWorldSelect:
+			action = g.menu.UpdateCreateWorldMenu()
+		case menu.MenuCreateWorld:
+			action = g.menu.UpdateCreateWorldMenu()
+		default:
+			action = g.menu.Update()
+		}
 		g.handleMenuAction(action)
 		return nil
 	}
@@ -466,9 +512,15 @@ func (g *Game) Update() error {
 
 		// Apply collision-aware position update
 		nearbyHexagons := g.world.GetNearbyHexagons(g.player.X, g.player.Y, 300)
+
 		g.player.UpdateWithCollision(deltaTime, func(minX, minY, maxX, maxY float64) bool {
 			for _, hex := range nearbyHexagons {
-				def := blocks.BlockDefinitions[getBlockKeyFromType(hex.BlockType)]
+				if hex == nil {
+					continue // Fixed: Add nil check for hexagon
+				}
+
+				blockKey := getBlockKeyFromType(hex.BlockType)
+				def := blocks.BlockDefinitions[blockKey]
 				if def == nil || !def.Solid {
 					continue
 				}
@@ -478,7 +530,8 @@ func (g *Game) Update() error {
 				hexMaxX := hex.X + hex.Size
 				hexMaxY := hex.Y + hex.Size
 
-				if !(maxX < hexMinX || minX > hexMaxX || maxY < hexMinY || minY > hexMaxY) {
+				collision := !(maxX < hexMinX || minX > hexMaxX || maxY < hexMinY || minY > hexMaxY)
+				if collision {
 					return true
 				}
 			}
@@ -507,20 +560,52 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 		g.inGame = true
 
 		// Find a suitable spawn position and set player position
-		// Spawn in area where terrain is actually generated (negative coordinates)
-		spawnX, spawnY := g.world.FindSpawnPosition(-2000, -2000)
+		// Spawn at origin where terrain should be generated
+		spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
 		g.player.SetPosition(spawnX, spawnY)
 		g.player.SetVelocity(0, 0)
 
-	case menu.ActionBack:
-		if g.menu.CurrentMenu == menu.MenuBlockLibrary {
-			g.menu.SetMainMenu()
-		} else {
-			g.menu.SetMainMenu()
+		// Ensure chunks are loaded around spawn position
+		g.world.GetChunksInRange(spawnX, spawnY)
+
+	case menu.ActionSelectWorld:
+		g.menu.SetWorldSelectMenu()
+
+	case menu.ActionCreateNewWorld:
+		// Create new world with current settings
+		worldName := g.menu.NewWorldName
+		if worldName == "" {
+			worldName = "New World"
 		}
 
-	case menu.ActionOpenBlockLibrary:
-		g.menu.SetBlockLibraryMenu()
+		// Initialize new world
+		g.world = world.NewWorld(worldName)
+		g.world.SetSeed(g.menu.NewWorldSeed)
+
+		// Start game in new world
+		g.inMenu = false
+		g.inGame = true
+
+		// Reset player
+		spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
+		g.player.SetPosition(spawnX, spawnY)
+		g.player.SetVelocity(0, 0)
+		g.world.GetChunksInRange(spawnX, spawnY)
+
+	case menu.ActionDeleteWorld:
+		// Delete selected world
+		if g.menu.SelectedWorld < len(g.menu.Worlds) {
+			worldName := g.menu.Worlds[g.menu.SelectedWorld].Name
+			// In a full implementation, show confirmation dialog
+			world.DeleteWorld(worldName)
+			g.menu.SetWorldSelectMenu() // Refresh the list
+		}
+
+	case menu.ActionBackToWorldSelect:
+		g.menu.SetWorldSelectMenu()
+
+	case menu.ActionBack:
+		g.menu.SetMainMenu()
 
 	case menu.ActionOpenPluginManager:
 		g.inMenu = false
@@ -532,10 +617,6 @@ func (g *Game) handleMenuAction(action menu.MenuAction) {
 		g.inSkinEditor = true
 		g.inGame = false
 		g.playUISound("open")
-
-	case menu.ActionSelectBlock:
-		g.selectedBlock = g.menu.SelectedBlock
-		g.menu.SetMainMenu()
 
 	case menu.ActionExit:
 		os.Exit(0)
@@ -584,13 +665,6 @@ func (g *Game) handleGameInput() {
 		g.playUISound("open")
 		g.inCrafting = true
 		g.craftingUI.Toggle()
-	}
-
-	// Open block library (B key) - only in creative mode
-	if inpututil.IsKeyJustPressed(ebiten.KeyB) && g.CreativeMode {
-		g.inMenu = true
-		g.inGame = false
-		g.menu.SetBlockLibraryMenu()
 	}
 
 	// Open plugin manager (P key)
@@ -701,34 +775,43 @@ func (g *Game) handleGameInput() {
 	g.leftMouseWasPressed = staticLeftPressed
 	g.rightMouseWasPressed = staticRightPressed
 
-	// Hotbar selection using input manager
+	// Hotbar selection using input manager with bounds checking
 	if g.inputManager.IsActionJustPressed("hotbar_1") {
-		g.inventory.SelectSlot(0)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(0) {
+			g.playItemSound("hotbar_select")
+		}
 	} else if g.inputManager.IsActionJustPressed("hotbar_2") {
-		g.inventory.SelectSlot(1)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(1) {
+			g.playItemSound("hotbar_select")
+		}
 	} else if g.inputManager.IsActionJustPressed("hotbar_3") {
-		g.inventory.SelectSlot(2)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(2) {
+			g.playItemSound("hotbar_select")
+		}
 	} else if g.inputManager.IsActionJustPressed("hotbar_4") {
-		g.inventory.SelectSlot(3)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(3) {
+			g.playItemSound("hotbar_select")
+		}
 	} else if g.inputManager.IsActionJustPressed("hotbar_5") {
-		g.inventory.SelectSlot(4)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(4) {
+			g.playItemSound("hotbar_select")
+		}
 	} else if g.inputManager.IsActionJustPressed("hotbar_6") {
-		g.inventory.SelectSlot(5)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(5) {
+			g.playItemSound("hotbar_select")
+		}
 	} else if g.inputManager.IsActionJustPressed("hotbar_7") {
-		g.inventory.SelectSlot(6)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(6) {
+			g.playItemSound("hotbar_select")
+		}
 	} else if g.inputManager.IsActionJustPressed("hotbar_8") {
-		g.inventory.SelectSlot(7)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(7) {
+			g.playItemSound("hotbar_select")
+		}
 	} else if g.inputManager.IsActionJustPressed("hotbar_9") {
-		g.inventory.SelectSlot(8)
-		g.playItemSound("hotbar_select")
+		if g.inventory.SelectSlot(8) {
+			g.playItemSound("hotbar_select")
+		}
 	}
 
 	// Scroll wheel for hotbar
@@ -770,15 +853,32 @@ func (g *Game) handleGameInput() {
 	}
 
 	if g.commandMode {
-		// Handle typing letters
+		// Handle typing letters with input validation
 		for key := ebiten.KeyA; key <= ebiten.KeyZ; key++ {
 			if inpututil.IsKeyJustPressed(key) {
-				g.commandString += string(rune('a' + int(key-ebiten.KeyA)))
+				// Fixed: Limit command length to prevent buffer overflow
+				if len(g.commandString) < 100 {
+					g.commandString += string(rune('a' + int(key-ebiten.KeyA)))
+				}
 			}
 		}
-		// Space
+		// Space with validation
 		if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-			g.commandString += " "
+			if len(g.commandString) < 100 && len(g.commandString) > 0 {
+				// Don't allow leading or multiple consecutive spaces
+				lastChar := g.commandString[len(g.commandString)-1]
+				if lastChar != ' ' {
+					g.commandString += " "
+				}
+			}
+		}
+		// Numbers with validation
+		for key := ebiten.Key0; key <= ebiten.Key9; key++ {
+			if inpututil.IsKeyJustPressed(key) {
+				if len(g.commandString) < 100 {
+					g.commandString += string(rune('0' + int(key-ebiten.Key0)))
+				}
+			}
 		}
 		// Backspace
 		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
@@ -788,12 +888,16 @@ func (g *Game) handleGameInput() {
 		}
 		// Enter to execute
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-			g.executeCommand(g.commandString)
+			if len(g.commandString) > 0 {
+				g.executeCommand(g.commandString)
+			}
 			g.commandMode = false
+			g.commandString = ""
 		}
 		// Escape to cancel
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			g.commandMode = false
+			g.commandString = ""
 		}
 	}
 }
@@ -803,11 +907,30 @@ func (g *Game) executeCommand(command string) {
 	// Trim leading slash if present
 	command = strings.TrimPrefix(command, "/")
 
+	// Fixed: Sanitize input to prevent command injection
+	command = strings.TrimSpace(command)
+
+	// Limit command length
+	if len(command) > 100 {
+		log.Printf("Command too long")
+		return
+	}
+
 	// Split command into parts
 	parts := strings.Fields(command)
 	if len(parts) == 0 {
 		log.Printf("Empty command")
 		return
+	}
+
+	// Fixed: Validate command characters
+	for _, part := range parts {
+		for _, r := range part {
+			if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-') {
+				log.Printf("Invalid characters in command")
+				return
+			}
+		}
 	}
 
 	cmd := strings.ToLower(parts[0])
@@ -1058,6 +1181,11 @@ func (g *Game) updateMining(deltaTime float64) {
 	// Update mining progress
 	progressIncrease := miningSpeed * deltaTime
 	g.player.MiningProgress += progressIncrease
+
+	// Clamp mining progress to prevent overflow
+	if g.player.MiningProgress > 100.0 {
+		g.player.MiningProgress = 100.0
+	}
 
 	// Check if mining is complete
 	if g.player.MiningProgress >= 100.0 {
@@ -1734,11 +1862,11 @@ func (g *Game) drawUI(screen *ebiten.Image) {
 	if g.CreativeMode {
 		selectedBlockText := fmt.Sprintf("Selected: %s", strings.Title(g.selectedBlock))
 		ebitenutil.DebugPrintAt(screen, selectedBlockText, 10, ScreenHeight-100)
-		
+
 		// Draw instructions
 		instructions := "Press B to open block library"
 		ebitenutil.DebugPrintAt(screen, instructions, 10, ScreenHeight-80)
-		
+
 		placementInstructions := "Right Click to place, Left Click to break"
 		ebitenutil.DebugPrintAt(screen, placementInstructions, 10, ScreenHeight-60)
 	}
@@ -1853,10 +1981,10 @@ func (g *Game) drawBlock(screen *ebiten.Image, block *world.Hexagon) {
 	}
 
 	// Get block color with multi-color variations
-	biome := "forest" // This would come from world biome system
+	biome := "forest"                 // This would come from world biome system
 	depth := float64(blockR) / 1000.0 // Simple depth calculation
 	blockColor := blocks.GlobalBlockAppearance.GetBlockColor(blockKey, int(block.X), int(block.Y), biome, depth)
-	
+
 	// Apply damage darkening
 	blockColor = color.RGBA{
 		R: uint8(float64(blockColor.R) * damageRatio),
@@ -1877,7 +2005,7 @@ func (g *Game) drawBlock(screen *ebiten.Image, block *world.Hexagon) {
 		// Draw as solid or striped with multi-color support
 		color1 := blockColor
 		color2 := blockColor
-		
+
 		// Create darker shade for pattern
 		if props.TopColor.A > 0 {
 			color2 = props.TopColor

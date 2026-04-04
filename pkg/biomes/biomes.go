@@ -14,6 +14,14 @@ const (
 	MOUNTAINS
 	OCEAN
 	SWAMP
+	TAIGA
+	TUNDRA
+	JUNGLE
+	SAVANNA
+	ICE_FIELDS
+	VOLCANIC
+	CORAL_REEF
+	MANGROVE
 )
 
 // BiomeProperties defines properties of a biome
@@ -83,6 +91,78 @@ var BiomeDefinitions = map[BiomeType]*BiomeProperties{
 		Temperature:  0.6,
 		Humidity:     0.9,
 	},
+	TAIGA: {
+		Name:         "Taiga",
+		SurfaceBlock: "grass",
+		UnderBlock:   "dirt",
+		TreeDensity:  0.3,
+		OreFrequency: 1.2,
+		Temperature:  0.2,
+		Humidity:     0.6,
+	},
+	TUNDRA: {
+		Name:         "Tundra",
+		SurfaceBlock: "snow",
+		UnderBlock:   "dirt",
+		TreeDensity:  0.05,
+		OreFrequency: 0.7,
+		Temperature:  0.1,
+		Humidity:     0.3,
+	},
+	JUNGLE: {
+		Name:         "Jungle",
+		SurfaceBlock: "grass",
+		UnderBlock:   "dirt",
+		TreeDensity:  0.6,
+		OreFrequency: 0.9,
+		Temperature:  0.8,
+		Humidity:     0.95,
+	},
+	SAVANNA: {
+		Name:         "Savanna",
+		SurfaceBlock: "grass",
+		UnderBlock:   "dirt",
+		TreeDensity:  0.15,
+		OreFrequency: 0.6,
+		Temperature:  0.85,
+		Humidity:     0.4,
+	},
+	ICE_FIELDS: {
+		Name:         "Ice Fields",
+		SurfaceBlock: "ice",
+		UnderBlock:   "snow",
+		TreeDensity:  0.0,
+		OreFrequency: 0.5,
+		Temperature:  0.0,
+		Humidity:     0.2,
+	},
+	VOLCANIC: {
+		Name:         "Volcanic",
+		SurfaceBlock: "obsidian",
+		UnderBlock:   "stone",
+		TreeDensity:  0.0,
+		OreFrequency: 3.0,
+		Temperature:  1.0,
+		Humidity:     0.1,
+	},
+	CORAL_REEF: {
+		Name:         "Coral Reef",
+		SurfaceBlock: "sand",
+		UnderBlock:   "sand",
+		TreeDensity:  0.0,
+		OreFrequency: 0.4,
+		Temperature:  0.7,
+		Humidity:     1.0,
+	},
+	MANGROVE: {
+		Name:         "Mangrove",
+		SurfaceBlock: "grass",
+		UnderBlock:   "dirt",
+		TreeDensity:  0.4,
+		OreFrequency: 0.6,
+		Temperature:  0.75,
+		Humidity:     0.95,
+	},
 }
 
 // SimplexNoise is a simple noise implementation for terrain generation
@@ -109,36 +189,68 @@ func (n *SimplexNoise) sineNoise(x, y float64) float64 {
 	return (math.Sin(x) + math.Cos(y)) / 2.0
 }
 
-// GetBiomeAtPosition returns the biome type at the given world coordinates
+// GetBiomeAtPosition returns the biome type at given world coordinates
 func GetBiomeAtPosition(x, y float64, noise *SimplexNoise) BiomeType {
-	temp := noise.Noise2D(x*0.01, y*0.01)
-	humid := noise.Noise2D(x*0.01+1000, y*0.01+1000)
-	elev := noise.Noise2D(x*0.005, y*0.005)
+	temp := noise.Noise2D(x*0.008, y*0.008)
+	humid := noise.Noise2D(x*0.008+1000, y*0.008+1000)
+	elev := noise.Noise2D(x*0.004, y*0.004)
+
+	// Add continental noise for larger biome regions
+	continental := noise.Noise2D(x*0.002, y*0.002)
 
 	// Normalize values to 0-1 range
 	temp = (temp + 1) / 2.0
 	humid = (humid + 1) / 2.0
 	elev = (elev + 1) / 2.0
+	continental = (continental + 1) / 2.0
 
-	// Determine biome based on temperature, humidity, and elevation
-	if elev < 0.3 {
+	// Water bodies first
+	if elev < 0.35 {
+		if temp > 0.6 && continental > 0.6 {
+			return CORAL_REEF
+		}
+		if temp > 0.4 && humid > 0.8 {
+			return MANGROVE
+		}
 		return OCEAN
 	}
 
-	if elev > 0.7 {
+	// Extreme elevations
+	if elev > 0.8 {
+		if temp > 0.9 {
+			return VOLCANIC
+		}
 		return MOUNTAINS
 	}
 
-	if temp > 0.7 && humid < 0.3 {
-		return DESERT
+	// Cold biomes
+	if temp < 0.2 {
+		if elev < 0.5 && humid > 0.4 {
+			return TUNDRA
+		}
+		return TAIGA
 	}
 
-	if temp > 0.3 && temp < 0.7 && humid > 0.7 {
+	// Hot biomes
+	if temp > 0.75 {
+		if humid < 0.3 {
+			return DESERT
+		}
+		if humid > 0.6 {
+			return JUNGLE
+		}
+		return SAVANNA
+	}
+
+	// Moderate biomes
+	if humid > 0.8 {
 		return SWAMP
 	}
-
-	if humid > 0.5 && temp > 0.3 {
+	if humid > 0.5 {
 		return FOREST
+	}
+	if elev > 0.6 {
+		return MOUNTAINS
 	}
 
 	return PLAINS

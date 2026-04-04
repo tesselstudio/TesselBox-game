@@ -1,10 +1,13 @@
 package audio
 
 import (
+	"bytes"
 	"embed"
+	"encoding/binary"
 	"fmt"
 	"io/fs"
 	"log"
+	"math"
 	"path/filepath"
 	"strings"
 )
@@ -189,35 +192,41 @@ func (al *AudioLoader) listAudioInDir(dir string, audioList *[]string) {
 }
 
 // CreatePlaceholderAudio creates simple placeholder audio data for testing
-// This generates a simple sine wave tone for missing sounds
+// This generates a proper WAV file with sine wave tone
 func (al *AudioLoader) CreatePlaceholderAudio(frequency float64, duration float64, sampleRate int) []byte {
 	samples := int(duration * float64(sampleRate))
-	data := make([]byte, samples*2) // 16-bit audio
+	dataSize := samples * 2
 
+	// Create buffer for WAV data
+	var buf bytes.Buffer
+
+	// Write RIFF header
+	buf.WriteString("RIFF")
+	binary.Write(&buf, binary.LittleEndian, uint32(36+dataSize))
+	buf.WriteString("WAVE")
+
+	// Write fmt chunk
+	buf.WriteString("fmt ")
+	binary.Write(&buf, binary.LittleEndian, uint32(16))           // Chunk size
+	binary.Write(&buf, binary.LittleEndian, uint16(1))            // Audio format (PCM)
+	binary.Write(&buf, binary.LittleEndian, uint16(1))            // Number of channels
+	binary.Write(&buf, binary.LittleEndian, uint32(sampleRate))   // Sample rate
+	binary.Write(&buf, binary.LittleEndian, uint32(sampleRate*2)) // Byte rate
+	binary.Write(&buf, binary.LittleEndian, uint16(2))            // Block align
+	binary.Write(&buf, binary.LittleEndian, uint16(16))           // Bits per sample
+
+	// Write data chunk
+	buf.WriteString("data")
+	binary.Write(&buf, binary.LittleEndian, uint32(dataSize))
+
+	// Generate sine wave data
 	for i := 0; i < samples; i++ {
 		t := float64(i) / float64(sampleRate)
-		value := int16(32767 * 0.1 * sin(2*3.14159*frequency*t)) // 10% volume
-
-		// Little-endian 16-bit PCM
-		data[i*2] = byte(value & 0xFF)
-		data[i*2+1] = byte(value >> 8)
+		value := int16(8192 * math.Sin(2*math.Pi*frequency*t)) // 25% volume
+		binary.Write(&buf, binary.LittleEndian, value)
 	}
 
-	return data
-}
-
-// sin is a simple sine function for placeholder audio generation
-func sin(x float64) float64 {
-	// Simple Taylor series approximation for sine
-	// sin(x) ≈ x - x³/6 + x⁵/120 - x⁷/5040
-	x = modFloat(x, 2*3.14159)
-
-	x2 := x * x
-	x3 := x2 * x
-	x5 := x3 * x2
-	x7 := x5 * x2
-
-	return x - x3/6 + x5/120 - x7/5040
+	return buf.Bytes()
 }
 
 // modFloat is float modulo for placeholder audio generation
@@ -232,7 +241,7 @@ func modFloat(a, b float64) float64 {
 }
 
 // LoadPlaceholderSounds creates placeholder sounds for missing audio files with improved reliability
-func (al *AudioLoader) LoadPlaceholderSounds() {
+func (al *AudioLoader) LoadPlaceholderSounds() error {
 	log.Printf("Creating placeholder audio sounds...")
 
 	// Create placeholder for common sound effects
@@ -285,4 +294,5 @@ func (al *AudioLoader) LoadPlaceholderSounds() {
 	}
 
 	log.Printf("Placeholder audio sounds created: %d new, %d skipped (already exist)", createdCount, skippedCount)
+	return nil
 }

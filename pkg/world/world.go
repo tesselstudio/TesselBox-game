@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	"tesselbox/pkg/biomes"
@@ -40,6 +41,10 @@ type World struct {
 
 	// Noise generator for terrain generation (cached for performance)
 	noiseGenerator *biomes.SimplexNoise
+
+	// Loading state to prevent deadlocks
+	loadingChunks map[[2]int]bool // Fixed: Track chunks being loaded
+	loadingMutex  sync.Mutex      // Fixed: Protect loading state
 }
 
 // NewWorld creates a new world
@@ -48,19 +53,42 @@ func NewWorld(worldName string) *World {
 	rand.Seed(seed)
 
 	world := &World{
-		Chunks:      make(map[[2]int]*Chunk),
-		Seed:        seed,
-		Organisms:   []*organisms.Organism{},
-		Creatures:   []*creatures.Creature{},
-		Storage:     NewWorldStorage(worldName),
-		WorldName:   worldName,
-		spatialHash: make(map[[2]int][]*Hexagon),
+		Chunks:        make(map[[2]int]*Chunk),
+		Seed:          seed,
+		Organisms:     []*organisms.Organism{},
+		Creatures:     []*creatures.Creature{},
+		Storage:       NewWorldStorage(worldName),
+		WorldName:     worldName,
+		spatialHash:   make(map[[2]int][]*Hexagon),
+		loadingChunks: make(map[[2]int]bool),
 	}
 
 	// Initialize noise generator for terrain generation
 	world.noiseGenerator = biomes.NewSimplexNoise(float64(seed))
 
 	return world
+}
+
+// SetSeed sets the world seed and regenerates the noise generator
+func (w *World) SetSeed(seed int64) {
+	w.Seed = seed
+	rand.Seed(seed)
+	w.noiseGenerator = biomes.NewSimplexNoise(float64(seed))
+
+	// Clear existing chunks to force regeneration with new seed
+	w.Chunks = make(map[[2]int]*Chunk)
+	w.spatialHash = make(map[[2]int][]*Hexagon)
+}
+
+// GetSeed returns the current world seed
+func (w *World) GetSeed() int64 {
+	return w.Seed
+}
+
+// ValidateSeed checks if a seed is valid
+func (w *World) ValidateSeed(seed int64) bool {
+	// Seeds can be any int64, but we could add validation here
+	return seed != 0 // Avoid zero seed for better randomness
 }
 
 // NewWorldFromStorage creates a world and loads it from storage
@@ -106,12 +134,16 @@ func (w *World) addHexagonToSpatialHash(hex *Hexagon) {
 
 // removeHexagonFromSpatialHash removes a hexagon from the spatial hash
 func (w *World) removeHexagonFromSpatialHash(hex *Hexagon) {
+	if hex == nil {
+		return // Fixed: Add nil check
+	}
+
 	key := w.getSpatialHashKey(hex.X, hex.Y)
 	hexagons := w.spatialHash[key]
 
-	// Find and remove the hexagon from the slice
+	// Find and remove the hexagon from the slice using coordinates instead of pointer comparison
 	for i, h := range hexagons {
-		if h == hex {
+		if h != nil && h.X == hex.X && h.Y == hex.Y {
 			// Remove element at index i
 			w.spatialHash[key] = append(hexagons[:i], hexagons[i+1:]...)
 			break
@@ -138,29 +170,54 @@ func (w *World) rebuildSpatialHash() {
 // GetChunk returns the chunk at the given chunk coordinates
 func (w *World) GetChunk(chunkX, chunkY int) *Chunk {
 	key := [2]int{chunkX, chunkY}
+
+	// Check if chunk already exists
 	chunk, exists := w.Chunks[key]
-	if !exists {
-		// Try to load from storage first
-		loadedChunk, err := w.Storage.LoadChunk(chunkX, chunkY)
-		if err != nil {
-			// If loading fails, generate new chunk
-			chunk = NewChunk(chunkX, chunkY)
-			w.generateChunk(chunk)
-		} else if loadedChunk != nil {
-			chunk = loadedChunk
-		} else {
-			// No saved chunk exists, generate new one
-			chunk = NewChunk(chunkX, chunkY)
-			w.generateChunk(chunk)
-		}
-
-		w.Chunks[key] = chunk
-
-		// Add all hexagons from this chunk to the spatial hash
-		for _, hex := range chunk.Hexagons {
-			w.addHexagonToSpatialHash(hex)
-		}
+	if exists {
+		chunk.LastAccessed = time.Now()
+		return chunk
 	}
+
+	// Check if chunk is currently being loaded to prevent deadlock
+	w.loadingMutex.Lock()
+	if w.loadingChunks[key] {
+		w.loadingMutex.Unlock()
+		// Chunk is being loaded, wait and return existing or nil
+		if chunk, exists := w.Chunks[key]; exists {
+			chunk.LastAccessed = time.Now()
+			return chunk
+		}
+		return nil
+	}
+	w.loadingChunks[key] = true
+	w.loadingMutex.Unlock()
+
+	// Try to load from storage first
+	loadedChunk, err := w.Storage.LoadChunk(chunkX, chunkY)
+	if err != nil {
+		// If loading fails, generate new chunk
+		chunk = NewChunk(chunkX, chunkY)
+		w.generateChunk(chunk)
+	} else if loadedChunk != nil {
+		chunk = loadedChunk
+	} else {
+		// No saved chunk exists, generate new one
+		chunk = NewChunk(chunkX, chunkY)
+		w.generateChunk(chunk)
+	}
+
+	w.Chunks[key] = chunk
+
+	// Add all hexagons from this chunk to the spatial hash
+	for _, hex := range chunk.Hexagons {
+		w.addHexagonToSpatialHash(hex)
+	}
+
+	// Mark loading as complete
+	w.loadingMutex.Lock()
+	delete(w.loadingChunks, key)
+	w.loadingMutex.Unlock()
+
 	chunk.LastAccessed = time.Now()
 	return chunk
 }
@@ -193,29 +250,56 @@ func (w *World) generateChunk(chunk *Chunk) {
 			switch biomeType {
 			case biomes.OCEAN:
 				baseHeight = 550.0 // Lower for oceans
+			case biomes.CORAL_REEF:
+				baseHeight = 560.0 // Slightly lower for coral reefs
+			case biomes.MANGROVE:
+				baseHeight = 545.0 // Slightly above ocean
 			case biomes.DESERT:
-				baseHeight = 400.0
+				baseHeight = 380.0 // Lower for deserts
+			case biomes.SAVANNA:
+				baseHeight = 390.0 // Slightly higher than plains
 			case biomes.MOUNTAINS:
-				baseHeight = 350.0 // Higher for mountains
+				baseHeight = 320.0 // Higher for mountains
+			case biomes.VOLCANIC:
+				baseHeight = 300.0 // Highest for volcanic regions
 			case biomes.SWAMP:
 				baseHeight = 420.0
+			case biomes.TAIGA:
+				baseHeight = 380.0 // Cooler climate
+			case biomes.TUNDRA:
+				baseHeight = 360.0 // Cold, flat terrain
+			case biomes.JUNGLE:
+				baseHeight = 400.0 // Tropical elevation
+			case biomes.ICE_FIELDS:
+				baseHeight = 340.0 // Ice cap elevation
 			default:
 				baseHeight = 400.0
 			}
 
-			// Large scale terrain features
-			terrainNoise := math.Sin(x*0.005) * math.Cos(y*0.005) * 150
-			terrainNoise += math.Sin(x*0.01+100) * math.Cos(y*0.01) * 75
+			// Enhanced multi-layer terrain noise for more realistic terrain
+			// Continental scale features (mountains, valleys)
+			continentalNoise := noise.Noise2D(x*0.001, y*0.001) * 200
 
-			// Medium scale variation
-			variationNoise := math.Sin(x*0.02) * math.Cos(y*0.02) * 25
+			// Regional scale features (hills, ridges)
+			regionalNoise := noise.Noise2D(x*0.003, y*0.003) * 100
 
-			// Small scale detail
-			detailNoise := math.Sin(x*0.05) * math.Cos(y*0.05) * 10
+			// Local scale features (small hills, dunes)
+			localNoise := noise.Noise2D(x*0.01, y*0.01) * 40
+
+			// Detail scale features (small variations)
+			detailNoise := noise.Noise2D(x*0.05, y*0.05) * 8
+
+			// River and valley cutting
+			riverNoise := noise.Noise2D(x*0.015, y*0.015) * 30
+			if riverNoise < -0.3 {
+				riverNoise *= 2.0 // Deepen valleys
+			}
+
+			// Combine all noise layers with biome-specific weighting
+			terrainNoise := continentalNoise + regionalNoise + localNoise + detailNoise + riverNoise
 
 			// Combine all noise layers
-			totalNoise := terrainNoise + variationNoise + detailNoise
-			surfaceY := baseHeight + totalNoise
+			surfaceY := baseHeight + terrainNoise
 
 			// Determine block type based on depth and biome
 			depth := y - surfaceY
@@ -225,8 +309,7 @@ func (w *World) generateChunk(chunk *Chunk) {
 			if depth < -10 {
 				// Above surface - air (unless it's an ocean)
 				if biomeType == biomes.OCEAN && depth < 0 && depth > -60 {
-					// TODO: Implement liquid system for oceans
-					blockType = blocks.AIR // Temporarily use air until liquid system is integrated
+					blockType = blocks.AIR // Ocean areas are air for now
 				} else {
 					blockType = blocks.AIR
 				}
@@ -235,22 +318,42 @@ func (w *World) generateChunk(chunk *Chunk) {
 				switch biomeType {
 				case biomes.DESERT:
 					blockType = blocks.SAND
-				case biomes.OCEAN:
+				case biomes.OCEAN, biomes.CORAL_REEF:
 					blockType = blocks.SAND
+				case biomes.MANGROVE:
+					blockType = blocks.GRASS
 				case biomes.SWAMP:
 					blockType = blocks.GRASS
-				case biomes.MOUNTAINS:
+				case biomes.MOUNTAINS, biomes.VOLCANIC:
 					blockType = blocks.STONE
+				case biomes.TAIGA:
+					blockType = blocks.GRASS
+				case biomes.TUNDRA:
+					blockType = blocks.SNOW
+				case biomes.JUNGLE:
+					blockType = blocks.GRASS
+				case biomes.SAVANNA:
+					blockType = blocks.GRASS
+				case biomes.ICE_FIELDS:
+					blockType = blocks.ICE
 				default:
 					blockType = blocks.GRASS
 				}
 			} else if depth < 15 {
 				// Subsurface layer
 				switch biomeType {
-				case biomes.DESERT, biomes.OCEAN:
+				case biomes.DESERT, biomes.OCEAN, biomes.CORAL_REEF:
 					blockType = blocks.SAND
-				case biomes.SWAMP:
+				case biomes.SWAMP, biomes.MANGROVE, biomes.JUNGLE, biomes.SAVANNA:
 					blockType = blocks.DIRT
+				case biomes.TAIGA:
+					blockType = blocks.DIRT
+				case biomes.TUNDRA:
+					blockType = blocks.SNOW
+				case biomes.ICE_FIELDS:
+					blockType = blocks.ICE
+				case biomes.MOUNTAINS, biomes.VOLCANIC:
+					blockType = blocks.STONE
 				default:
 					blockType = blocks.DIRT
 				}
@@ -259,19 +362,37 @@ func (w *World) generateChunk(chunk *Chunk) {
 				// Use biome ore frequency modifier
 				oreFrequency := biomeProps.OreFrequency
 
-				// Add random ore generation
-				rand.Seed(w.Seed + int64(x)*1000 + int64(y))
+				// Enhanced ore generation with more variety
+				// Use position-based seed for consistent ore generation
+				posSeed := w.Seed + int64(x)*1000 + int64(y)
+				rand.Seed(posSeed)
 				oreChance := rand.Float64()
 
-				// Adjust ore chance by biome frequency
-				if depth > 20 && depth < 50 && oreChance < 0.02*oreFrequency {
+				// Add vein detection for more realistic ore deposits
+				veinNoise := noise.Noise2D(x*0.1, y*0.1)
+				isVein := veinNoise > 0.7
+
+				// Adjust ore chance by biome frequency and vein detection
+				if isVein {
+					// Higher chance in veins
+					oreChance *= 3.0
+				}
+
+				// Multiple ore types with realistic depth distribution
+				if depth > 15 && depth < 60 && oreChance < 0.03*oreFrequency {
 					blockType = blocks.COAL_ORE
-				} else if depth > 30 && depth < 70 && oreChance < 0.015*oreFrequency {
+				} else if depth > 25 && depth < 80 && oreChance < 0.025*oreFrequency {
 					blockType = blocks.IRON_ORE
-				} else if depth > 40 && depth < 60 && oreChance < 0.008*oreFrequency {
+				} else if depth > 35 && depth < 65 && oreChance < 0.015*oreFrequency {
 					blockType = blocks.GOLD_ORE
-				} else if depth > 50 && depth < 80 && oreChance < 0.004*oreFrequency {
+				} else if depth > 45 && depth < 90 && oreChance < 0.008*oreFrequency {
 					blockType = blocks.DIAMOND_ORE
+				} else if depth > 20 && depth < 55 && oreChance < 0.02*oreFrequency && biomeType == biomes.VOLCANIC {
+					blockType = blocks.OBSIDIAN // Volcanic regions have obsidian
+				} else if depth > 10 && depth < 40 && oreChance < 0.012*oreFrequency {
+					blockType = blocks.GRAVEL // Common stone deposit
+				} else if depth > 5 && depth < 30 && oreChance < 0.01*oreFrequency {
+					blockType = blocks.SANDSTONE // Sedimentary deposits
 				} else {
 					blockType = blocks.STONE
 				}
@@ -290,25 +411,69 @@ func (w *World) generateChunk(chunk *Chunk) {
 				chunk.AddHexagon(x, y, hexagon)
 			}
 
-			// Spawn organisms on surface grass blocks
-			if blockType == blocks.GRASS && depth >= -2 && depth <= 2 {
-				rand.Seed(w.Seed + int64(x)*10000 + int64(y)*10000) // Deterministic seed for this position
+			// Enhanced organism spawning for all biomes
+			if (blockType == blocks.GRASS || blockType == blocks.SAND || blockType == blocks.SNOW || blockType == blocks.ICE) && depth >= -2 && depth <= 2 {
+				// Use position-based seed for consistent organism spawning
+				posSeed := w.Seed + int64(x)*10000 + int64(y)*10000
+				rand.Seed(posSeed)
 				spawnChance := rand.Float64()
 
 				var orgType string
 				var spawnProbability float64
 
 				switch biomeType {
-				case biomes.FOREST, biomes.PLAINS:
-					if spawnChance < 0.05 {
+				case biomes.FOREST:
+					if spawnChance < 0.15 {
 						orgType = "tree"
-						spawnProbability = 0.05
-					} else if spawnChance < 0.15 {
+						spawnProbability = 0.15
+					} else if spawnChance < 0.25 {
 						orgType = "bush"
 						spawnProbability = 0.10
-					} else if spawnChance < 0.25 {
+					} else if spawnChance < 0.35 {
 						orgType = "flower"
 						spawnProbability = 0.10
+					}
+				case biomes.JUNGLE:
+					if spawnChance < 0.25 {
+						orgType = "tree"
+						spawnProbability = 0.25
+					} else if spawnChance < 0.35 {
+						orgType = "bush"
+						spawnProbability = 0.10
+					}
+				case biomes.TAIGA:
+					if spawnChance < 0.12 {
+						orgType = "tree"
+						spawnProbability = 0.12
+					} else if spawnChance < 0.18 {
+						orgType = "bush"
+						spawnProbability = 0.06
+					}
+				case biomes.DESERT:
+					if spawnChance < 0.02 {
+						orgType = "cactus"
+						spawnProbability = 0.02
+					} else if spawnChance < 0.05 {
+						orgType = "dead_bush"
+						spawnProbability = 0.03
+					}
+				case biomes.SAVANNA:
+					if spawnChance < 0.08 {
+						orgType = "tree"
+						spawnProbability = 0.08
+					} else if spawnChance < 0.12 {
+						orgType = "bush"
+						spawnProbability = 0.04
+					}
+				case biomes.TUNDRA:
+					if spawnChance < 0.01 {
+						orgType = "ice_shrub"
+						spawnProbability = 0.01
+					}
+				case biomes.ICE_FIELDS:
+					if spawnChance < 0.005 {
+						orgType = "ice_spike"
+						spawnProbability = 0.005
 					}
 				case biomes.SWAMP:
 					if spawnChance < 0.08 {
@@ -318,15 +483,36 @@ func (w *World) generateChunk(chunk *Chunk) {
 						orgType = "flower"
 						spawnProbability = 0.04
 					}
+				case biomes.MANGROVE:
+					if spawnChance < 0.10 {
+						orgType = "mangrove_tree"
+						spawnProbability = 0.10
+					}
+				case biomes.CORAL_REEF:
+					if spawnChance < 0.05 {
+						orgType = "coral"
+						spawnProbability = 0.05
+					}
 				case biomes.MOUNTAINS:
 					if spawnChance < 0.03 {
 						orgType = "bush"
 						spawnProbability = 0.03
 					}
-				default:
+				case biomes.VOLCANIC:
 					if spawnChance < 0.02 {
-						orgType = "flower"
+						orgType = "lava_rock"
 						spawnProbability = 0.02
+					}
+				default: // PLAINS
+					if spawnChance < 0.05 {
+						orgType = "tree"
+						spawnProbability = 0.05
+					} else if spawnChance < 0.10 {
+						orgType = "bush"
+						spawnProbability = 0.05
+					} else if spawnChance < 0.15 {
+						orgType = "flower"
+						spawnProbability = 0.05
 					}
 				}
 

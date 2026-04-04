@@ -29,10 +29,15 @@ func NewWorldStorage(worldName string) *WorldStorage {
 
 // SaveChunk saves a single chunk to disk
 func (ws *WorldStorage) SaveChunk(chunk *Chunk) error {
+	if chunk == nil {
+		return fmt.Errorf("cannot save nil chunk") // Fixed: Add nil check
+	}
+	
 	if !chunk.Modified {
 		return nil // Skip saving unchanged chunks
 	}
 
+	// Create a copy of chunk data to avoid race conditions
 	chunkData := chunk.ToChunkData()
 
 	data, err := json.MarshalIndent(chunkData, "", "  ")
@@ -42,9 +47,18 @@ func (ws *WorldStorage) SaveChunk(chunk *Chunk) error {
 
 	filename := filepath.Join(ws.WorldDir, fmt.Sprintf("chunk_%d_%d.json", chunk.ChunkX, chunk.ChunkY))
 
-	err = os.WriteFile(filename, data, 0644)
+	// Use atomic write to prevent corruption
+	tempFile := filename + ".tmp"
+	err = os.WriteFile(tempFile, data, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write chunk file: %w", err)
+		return fmt.Errorf("failed to write temp chunk file: %w", err)
+	}
+
+	// Atomic rename
+	err = os.Rename(tempFile, filename)
+	if err != nil {
+		os.Remove(tempFile) // Clean up temp file
+		return fmt.Errorf("failed to rename chunk file: %w", err)
 	}
 
 	chunk.Modified = false

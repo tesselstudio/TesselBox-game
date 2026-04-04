@@ -603,3 +603,39 @@ func (pf *PluginFactory) ListPlugins() []string {
 	}
 	return plugins
 }
+
+// EnablePlugin enables a plugin
+func (pm *PluginManager) EnablePlugin(name string) error {
+	pm.mutex.Lock()
+	defer pm.mutex.Unlock()
+
+	_, exists := pm.plugins[name]
+	if !exists {
+		return fmt.Errorf("plugin not found: %s", name)
+	}
+
+	// Enable the plugin in info
+	if pm.pluginInfo[name] != nil {
+		pm.pluginInfo[name].Enabled = true
+	}
+
+	return nil
+}
+
+// DisablePlugin disables a plugin
+func (pm *PluginManager) DisablePlugin(name string) error {
+	pm.mutex.Lock()
+	defer pm.mutex.Unlock()
+
+	_, exists := pm.plugins[name]
+	if !exists {
+		return fmt.Errorf("plugin not found: %s", name)
+	}
+
+	// Disable the plugin in info
+	if pm.pluginInfo[name] != nil {
+		pm.pluginInfo[name].Enabled = false
+	}
+
+	return nil
+}

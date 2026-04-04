@@ -594,6 +594,42 @@ func (epm *EnhancedPluginManager) GetPluginConfig(pluginName string) (*PluginCon
 	return config, nil
 }
 
+// EnablePlugin enables a plugin
+func (epm *EnhancedPluginManager) EnablePlugin(name string) error {
+	epm.mutex.Lock()
+	defer epm.mutex.Unlock()
+
+	_, exists := epm.plugins[name]
+	if !exists {
+		return fmt.Errorf("plugin not found: %s", name)
+	}
+
+	// Enable the plugin in info
+	if epm.pluginInfo[name] != nil {
+		epm.pluginInfo[name].Enabled = true
+	}
+
+	return nil
+}
+
+// DisablePlugin disables a plugin
+func (epm *EnhancedPluginManager) DisablePlugin(name string) error {
+	epm.mutex.Lock()
+	defer epm.mutex.Unlock()
+
+	_, exists := epm.plugins[name]
+	if !exists {
+		return fmt.Errorf("plugin not found: %s", name)
+	}
+
+	// Disable the plugin in info
+	if epm.pluginInfo[name] != nil {
+		epm.pluginInfo[name].Enabled = false
+	}
+
+	return nil
+}
+
 // SetPluginConfig sets the configuration for a plugin
 func (epm *EnhancedPluginManager) SetPluginConfig(pluginName string, config *PluginConfig) error {
 	epm.configs[pluginName] = config

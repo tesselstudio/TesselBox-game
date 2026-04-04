@@ -193,7 +193,7 @@ func (ch *ChatHandler) listPlugins() string {
 		return "Plugin manager not initialized"
 	}
 
-	plugins := ch.pluginManager.GetLoadedPlugins()
+	plugins := ch.pluginManager.ListPlugins()
 	if len(plugins) == 0 {
 		return "No plugins loaded"
 	}
@@ -205,7 +205,7 @@ func (ch *ChatHandler) listPlugins() string {
 	sort.Strings(plugins)
 
 	for _, name := range plugins {
-		info := ch.pluginManager.GetPluginInfo(name)
+		info, _ := ch.pluginManager.GetPluginInfo(name)
 		status := "enabled"
 		if !info.Enabled {
 			status = "disabled"
@@ -248,9 +248,9 @@ func (ch *ChatHandler) reloadPlugin(name string) string {
 		return "Plugin manager not initialized"
 	}
 
-	// Get plugin path first
-	info := ch.pluginManager.GetPluginInfo(name)
-	if info.Path == "" {
+	// Get plugin info first
+	info, err := ch.pluginManager.GetPluginInfo(name)
+	if err != nil || info == nil {
 		return fmt.Sprintf("Plugin not found: %s", name)
 	}
 
@@ -260,7 +260,7 @@ func (ch *ChatHandler) reloadPlugin(name string) string {
 	}
 
 	// Reload
-	if err := ch.pluginManager.LoadPlugin(info.Path); err != nil {
+	if err := ch.pluginManager.LoadPlugin(name); err != nil {
 		return fmt.Sprintf("Failed to reload plugin: %v", err)
 	}
 

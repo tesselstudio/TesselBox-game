@@ -17,34 +17,34 @@ import (
 // PluginUI represents the plugin manager interface
 type PluginUI struct {
 	pluginManager *entities.PluginManager
-	
+
 	// UI state
 	currentView   PluginView
 	selectedIndex int
 	scrollOffset  int
 	searchQuery   string
 	searchActive  bool
-	
+
 	// Marketplace data
 	availablePlugins []*MarketplacePlugin
 	categories       []string
 	selectedCategory string
-	
+
 	// Installation state
 	installingPlugins map[string]bool
 	installProgress   map[string]float64
-	
+
 	// Visual properties
 	backgroundColor color.RGBA
 	accentColor     color.RGBA
 	textColor       color.RGBA
 	successColor    color.RGBA
 	errorColor      color.RGBA
-	
+
 	// Animations
-	animTimer       float64
-	fadeAlpha       float64
-	
+	animTimer float64
+	fadeAlpha float64
+
 	// For solid color drawing
 	whiteImage *ebiten.Image
 }
@@ -62,22 +62,22 @@ const (
 
 // MarketplacePlugin represents a plugin available in the marketplace
 type MarketplacePlugin struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Version     string            `json:"version"`
-	Description string            `json:"description"`
-	Author      string            `json:"author"`
-	Category    string            `json:"category"`
-	Tags        []string          `json:"tags"`
-	Downloads   int               `json:"downloads"`
-	Rating      float64           `json:"rating"`
-	Dependencies []string         `json:"dependencies"`
-	DownloadURL string            `json:"downloadUrl"`
-	Installed   bool              `json:"installed"`
-	Enabled     bool              `json:"enabled"`
-	LastUpdate  time.Time         `json:"lastUpdate"`
-	Screenshots []string          `json:"screenshots"`
-	Features    []string          `json:"features"`
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	Version       string            `json:"version"`
+	Description   string            `json:"description"`
+	Author        string            `json:"author"`
+	Category      string            `json:"category"`
+	Tags          []string          `json:"tags"`
+	Downloads     int               `json:"downloads"`
+	Rating        float64           `json:"rating"`
+	Dependencies  []string          `json:"dependencies"`
+	DownloadURL   string            `json:"downloadUrl"`
+	Installed     bool              `json:"installed"`
+	Enabled       bool              `json:"enabled"`
+	LastUpdate    time.Time         `json:"lastUpdate"`
+	Screenshots   []string          `json:"screenshots"`
+	Features      []string          `json:"features"`
 	Compatibility map[string]string `json:"compatibility"`
 }
 
@@ -110,7 +110,7 @@ func NewPluginUI(pluginManager *entities.PluginManager) *PluginUI {
 
 	// Initialize marketplace data
 	ui.initializeMarketplace()
-	
+
 	return ui
 }
 
@@ -118,106 +118,106 @@ func NewPluginUI(pluginManager *entities.PluginManager) *PluginUI {
 func (ui *PluginUI) initializeMarketplace() {
 	ui.availablePlugins = []*MarketplacePlugin{
 		{
-			ID:          "magic-system",
-			Name:        "Magic System",
-			Version:     "1.2.0",
-			Description: "Adds magic spells, wands, and enchanting system to the game",
-			Author:      "TesselBox Team",
-			Category:    "Gameplay",
-			Tags:        []string{"magic", "spells", "enchanting"},
-			Downloads:   15420,
-			Rating:      4.8,
+			ID:           "magic-system",
+			Name:         "Magic System",
+			Version:      "1.2.0",
+			Description:  "Adds magic spells, wands, and enchanting system to the game",
+			Author:       "TesselBox Team",
+			Category:     "Gameplay",
+			Tags:         []string{"magic", "spells", "enchanting"},
+			Downloads:    15420,
+			Rating:       4.8,
 			Dependencies: []string{},
-			DownloadURL: "https://plugins.tesselbox.com/magic-system.so",
-			Installed:   false,
-			Enabled:     false,
-			LastUpdate:  time.Now().AddDate(0, -1, -15),
-			Features:    []string{"Spell casting", "Mana system", "Enchanting table", "Magic items"},
+			DownloadURL:  "https://plugins.tesselbox.com/magic-system.so",
+			Installed:    false,
+			Enabled:      false,
+			LastUpdate:   time.Now().AddDate(0, -1, -15),
+			Features:     []string{"Spell casting", "Mana system", "Enchanting table", "Magic items"},
 		},
 		{
-			ID:          "colored-blocks",
-			Name:        "Colored Blocks Pack",
-			Version:     "2.1.0",
-			Description: "Adds blocks with multiple color variations and patterns",
-			Author:      "Artist Collective",
-			Category:    "Blocks",
-			Tags:        []string{"blocks", "colors", "decoration"},
-			Downloads:   32100,
-			Rating:      4.9,
+			ID:           "colored-blocks",
+			Name:         "Colored Blocks Pack",
+			Version:      "2.1.0",
+			Description:  "Adds blocks with multiple color variations and patterns",
+			Author:       "Artist Collective",
+			Category:     "Blocks",
+			Tags:         []string{"blocks", "colors", "decoration"},
+			Downloads:    32100,
+			Rating:       4.9,
 			Dependencies: []string{},
-			DownloadURL: "https://plugins.tesselbox.com/colored-blocks.so",
-			Installed:   false,
-			Enabled:     false,
-			LastUpdate:  time.Now().AddDate(0, -0, -5),
-			Features:    []string{"Multi-color blocks", "Pattern blocks", "Gradient blocks", "Custom textures"},
+			DownloadURL:  "https://plugins.tesselbox.com/colored-blocks.so",
+			Installed:    false,
+			Enabled:      false,
+			LastUpdate:   time.Now().AddDate(0, -0, -5),
+			Features:     []string{"Multi-color blocks", "Pattern blocks", "Gradient blocks", "Custom textures"},
 		},
 		{
-			ID:          "advanced-crafting",
-			Name:        "Advanced Crafting",
-			Version:     "1.5.2",
-			Description: "Enhanced crafting system with new recipes and workstations",
-			Author:      "Crafting Masters",
-			Category:    "Gameplay",
-			Tags:        []string{"crafting", "recipes", "workstations"},
-			Downloads:   28900,
-			Rating:      4.7,
+			ID:           "advanced-crafting",
+			Name:         "Advanced Crafting",
+			Version:      "1.5.2",
+			Description:  "Enhanced crafting system with new recipes and workstations",
+			Author:       "Crafting Masters",
+			Category:     "Gameplay",
+			Tags:         []string{"crafting", "recipes", "workstations"},
+			Downloads:    28900,
+			Rating:       4.7,
 			Dependencies: []string{},
-			DownloadURL: "https://plugins.tesselbox.com/advanced-crafting.so",
-			Installed:   false,
-			Enabled:     false,
-			LastUpdate:  time.Now().AddDate(0, -2, -10),
-			Features:    []string{"New recipes", "Advanced workstations", "Quality system", "Tool upgrades"},
+			DownloadURL:  "https://plugins.tesselbox.com/advanced-crafting.so",
+			Installed:    false,
+			Enabled:      false,
+			LastUpdate:   time.Now().AddDate(0, -2, -10),
+			Features:     []string{"New recipes", "Advanced workstations", "Quality system", "Tool upgrades"},
 		},
 		{
-			ID:          "creature-mobs",
-			Name:        "Creature Mobs",
-			Version:     "1.0.0",
-			Description: "Adds various creatures and mobs to the world",
-			Author:      "Wildlife Team",
-			Category:    "Creatures",
-			Tags:        []string{"creatures", "mobs", "animals"},
-			Downloads:   19800,
-			Rating:      4.6,
+			ID:           "creature-mobs",
+			Name:         "Creature Mobs",
+			Version:      "1.0.0",
+			Description:  "Adds various creatures and mobs to the world",
+			Author:       "Wildlife Team",
+			Category:     "Creatures",
+			Tags:         []string{"creatures", "mobs", "animals"},
+			Downloads:    19800,
+			Rating:       4.6,
 			Dependencies: []string{},
-			DownloadURL: "https://plugins.tesselbox.com/creature-mobs.so",
-			Installed:   false,
-			Enabled:     false,
-			LastUpdate:  time.Now().AddDate(0, -1, -20),
-			Features:    []string{"Friendly animals", "Hostile mobs", "Boss creatures", "AI behaviors"},
+			DownloadURL:  "https://plugins.tesselbox.com/creature-mobs.so",
+			Installed:    false,
+			Enabled:      false,
+			LastUpdate:   time.Now().AddDate(0, -1, -20),
+			Features:     []string{"Friendly animals", "Hostile mobs", "Boss creatures", "AI behaviors"},
 		},
 		{
-			ID:          "ui-enhancement",
-			Name:        "UI Enhancement Pack",
-			Version:     "1.3.1",
-			Description: "Improves the user interface with better layouts and visual effects",
-			Author:      "UI Designers",
-			Category:    "UI",
-			Tags:        []string{"ui", "interface", "visual"},
-			Downloads:   41200,
-			Rating:      4.9,
+			ID:           "ui-enhancement",
+			Name:         "UI Enhancement Pack",
+			Version:      "1.3.1",
+			Description:  "Improves the user interface with better layouts and visual effects",
+			Author:       "UI Designers",
+			Category:     "UI",
+			Tags:         []string{"ui", "interface", "visual"},
+			Downloads:    41200,
+			Rating:       4.9,
 			Dependencies: []string{},
-			DownloadURL: "https://plugins.tesselbox.com/ui-enhancement.so",
-			Installed:   false,
-			Enabled:     false,
-			LastUpdate:  time.Now().AddDate(0, -0, -15),
-			Features:    []string{"Better inventory", "Enhanced tooltips", "Animations", "Themes"},
+			DownloadURL:  "https://plugins.tesselbox.com/ui-enhancement.so",
+			Installed:    false,
+			Enabled:      false,
+			LastUpdate:   time.Now().AddDate(0, -0, -15),
+			Features:     []string{"Better inventory", "Enhanced tooltips", "Animations", "Themes"},
 		},
 		{
-			ID:          "tech-modpack",
-			Name:        "Technology Modpack",
-			Version:     "2.0.0",
-			Description: "Adds technology, machines, and automation to the game",
-			Author:      "Tech Engineers",
-			Category:    "Tools",
-			Tags:        []string{"technology", "machines", "automation"},
-			Downloads:   35600,
-			Rating:      4.8,
+			ID:           "tech-modpack",
+			Name:         "Technology Modpack",
+			Version:      "2.0.0",
+			Description:  "Adds technology, machines, and automation to the game",
+			Author:       "Tech Engineers",
+			Category:     "Tools",
+			Tags:         []string{"technology", "machines", "automation"},
+			Downloads:    35600,
+			Rating:       4.8,
 			Dependencies: []string{"advanced-crafting"},
-			DownloadURL: "https://plugins.tesselbox.com/tech-modpack.so",
-			Installed:   false,
-			Enabled:     false,
-			LastUpdate:  time.Now().AddDate(0, -0, -8),
-			Features:    []string{"Machines", "Automation", "Power systems", "Tech items"},
+			DownloadURL:  "https://plugins.tesselbox.com/tech-modpack.so",
+			Installed:    false,
+			Enabled:      false,
+			LastUpdate:   time.Now().AddDate(0, -0, -8),
+			Features:     []string{"Machines", "Automation", "Power systems", "Tech items"},
 		},
 	}
 }
@@ -326,7 +326,7 @@ func (ui *PluginUI) handleSelection() {
 	plugins := ui.getVisiblePlugins()
 	if ui.selectedIndex >= 0 && ui.selectedIndex < len(plugins) {
 		plugin := plugins[ui.selectedIndex]
-		
+
 		switch ui.currentView {
 		case ViewMarketplace, ViewSearch:
 			ui.currentView = ViewDetails
@@ -424,15 +424,14 @@ func (ui *PluginUI) searchPlugins(query string) []*MarketplacePlugin {
 func (ui *PluginUI) installPlugin(pluginID string) {
 	ui.installingPlugins[pluginID] = true
 	ui.installProgress[pluginID] = 0.0
-	
+
 	// Simulate installation process
 	go func() {
 		for i := 0; i <= 100; i += 5 {
-			// TODO: Add mutex protection for thread safety
 			ui.installProgress[pluginID] = float64(i)
 			time.Sleep(100 * time.Millisecond)
 		}
-		
+
 		// Mark as installed (thread safety issue - needs mutex)
 		for _, plugin := range ui.availablePlugins {
 			if plugin.ID == pluginID {
@@ -441,10 +440,10 @@ func (ui *PluginUI) installPlugin(pluginID string) {
 				break
 			}
 		}
-		
+
 		delete(ui.installingPlugins, pluginID)
 		delete(ui.installProgress, pluginID)
-		
+
 		log.Printf("Plugin %s installed successfully", pluginID)
 	}()
 }
@@ -458,7 +457,7 @@ func (ui *PluginUI) uninstallPlugin(pluginID string) {
 			break
 		}
 	}
-	
+
 	log.Printf("Plugin %s uninstalled", pluginID)
 }
 
@@ -477,13 +476,13 @@ func (ui *PluginUI) togglePlugin(pluginID string) {
 func (ui *PluginUI) updateScrollOffset() {
 	maxVisible := 8
 	plugins := ui.getVisiblePlugins()
-	
+
 	if ui.selectedIndex < ui.scrollOffset {
 		ui.scrollOffset = ui.selectedIndex
 	} else if ui.selectedIndex >= ui.scrollOffset+maxVisible {
 		ui.scrollOffset = ui.selectedIndex - maxVisible + 1
 	}
-	
+
 	// Ensure scroll offset is valid
 	if ui.scrollOffset < 0 {
 		ui.scrollOffset = 0
@@ -496,7 +495,7 @@ func (ui *PluginUI) updateScrollOffset() {
 func (ui *PluginUI) handleScrolling(scrollY float64) {
 	maxVisible := 8
 	plugins := ui.getVisiblePlugins()
-	
+
 	if scrollY > 0 {
 		// Scroll up
 		ui.scrollOffset--
@@ -510,7 +509,7 @@ func (ui *PluginUI) handleScrolling(scrollY float64) {
 			ui.scrollOffset++
 		}
 	}
-	
+
 	// Adjust selection if needed
 	if ui.selectedIndex < ui.scrollOffset {
 		ui.selectedIndex = ui.scrollOffset
@@ -597,12 +596,12 @@ func (ui *PluginUI) drawCategories(screen *ebiten.Image) {
 		} else {
 			ebitenutil.DebugPrintAt(screen, "  "+category, 25, y)
 		}
-		
+
 		if i == ui.selectedIndex {
 			// Draw selection indicator
 			ebitenutil.DrawRect(screen, 20, float64(y-5), 200, 25, ui.accentColor)
 		}
-		
+
 		y += 30
 	}
 }
@@ -612,7 +611,7 @@ func (ui *PluginUI) drawSearch(screen *ebiten.Image) {
 	// Draw search box
 	ebitenutil.DrawRect(screen, 20, 80, 400, 30, color.RGBA{40, 40, 50, 255})
 	ebitenutil.DebugPrintAt(screen, "Search: "+ui.searchQuery, 25, 85)
-	
+
 	// Draw search results
 	plugins := ui.searchPlugins(ui.searchQuery)
 	ui.drawPluginList(screen, plugins)
@@ -631,24 +630,24 @@ func (ui *PluginUI) drawDetails(screen *ebiten.Image) {
 func (ui *PluginUI) drawPluginList(screen *ebiten.Image, plugins []*MarketplacePlugin) {
 	y := 80
 	maxVisible := 8
-	
+
 	visibleStart := ui.scrollOffset
 	visibleEnd := min(ui.scrollOffset+maxVisible, len(plugins))
-	
+
 	for i := visibleStart; i < visibleEnd; i++ {
 		plugin := plugins[i]
 		yPos := y + (i-visibleStart)*60
-		
+
 		// Draw selection highlight
 		if i == ui.selectedIndex {
 			ebitenutil.DrawRect(screen, 20, float64(yPos-5), 760, 50, color.RGBA{80, 120, 180, 100})
 		}
-		
+
 		// Draw plugin info
 		ebitenutil.DebugPrintAt(screen, plugin.Name, 30, yPos)
 		ebitenutil.DebugPrintAt(screen, plugin.Description, 30, yPos+20)
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("v%s by %s", plugin.Version, plugin.Author), 500, yPos)
-		
+
 		// Draw status
 		statusText := "Not Installed"
 		if plugin.Installed {
@@ -659,14 +658,14 @@ func (ui *PluginUI) drawPluginList(screen *ebiten.Image, plugins []*MarketplaceP
 			}
 		}
 		ebitenutil.DebugPrintAt(screen, statusText, 650, yPos)
-		
+
 		// Draw installation progress
 		if ui.installingPlugins[plugin.ID] {
 			progress := ui.installProgress[plugin.ID]
 			ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Installing: %.0f%%", progress), 650, yPos+20)
 		}
 	}
-	
+
 	// Draw scroll indicators
 	if len(plugins) > maxVisible {
 		if ui.scrollOffset > 0 {
@@ -681,16 +680,16 @@ func (ui *PluginUI) drawPluginList(screen *ebiten.Image, plugins []*MarketplaceP
 // drawPluginDetails draws detailed information about a plugin
 func (ui *PluginUI) drawPluginDetails(screen *ebiten.Image, plugin *MarketplacePlugin) {
 	y := 80
-	
+
 	// Plugin name and version
 	ebitenutil.DebugPrintAt(screen, plugin.Name, 30, y)
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Version %s", plugin.Version), 30, y+20)
-	
+
 	// Author and rating
 	y += 50
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("By %s", plugin.Author), 30, y)
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Rating: %.1f/5.0 (%d downloads)", plugin.Rating, plugin.Downloads), 30, y+20)
-	
+
 	// Description
 	y += 50
 	ebitenutil.DebugPrintAt(screen, "Description:", 30, y)
@@ -700,7 +699,7 @@ func (ui *PluginUI) drawPluginDetails(screen *ebiten.Image, plugin *MarketplaceP
 		ebitenutil.DebugPrintAt(screen, line, 30, y)
 		y += 20
 	}
-	
+
 	// Features
 	y += 20
 	ebitenutil.DebugPrintAt(screen, "Features:", 30, y)
@@ -709,7 +708,7 @@ func (ui *PluginUI) drawPluginDetails(screen *ebiten.Image, plugin *MarketplaceP
 		ebitenutil.DebugPrintAt(screen, "• "+feature, 50, y)
 		y += 20
 	}
-	
+
 	// Dependencies
 	if len(plugin.Dependencies) > 0 {
 		y += 20
@@ -720,7 +719,7 @@ func (ui *PluginUI) drawPluginDetails(screen *ebiten.Image, plugin *MarketplaceP
 			y += 20
 		}
 	}
-	
+
 	// Install button
 	y += 30
 	buttonText := "INSTALL"
@@ -747,14 +746,14 @@ func (ui *PluginUI) wrapText(text string, maxWidth int) []string {
 	words := strings.Split(text, " ")
 	lines := []string{}
 	currentLine := ""
-	
+
 	for _, word := range words {
 		testLine := currentLine
 		if testLine != "" {
 			testLine += " "
 		}
 		testLine += word
-		
+
 		if len(testLine) > maxWidth {
 			if currentLine != "" {
 				lines = append(lines, currentLine)
@@ -766,11 +765,11 @@ func (ui *PluginUI) wrapText(text string, maxWidth int) []string {
 			currentLine = testLine
 		}
 	}
-	
+
 	if currentLine != "" {
 		lines = append(lines, currentLine)
 	}
-	
+
 	return lines
 }
 

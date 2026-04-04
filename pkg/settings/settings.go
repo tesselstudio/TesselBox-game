@@ -137,12 +137,20 @@ func (m *Manager) Get() *Settings {
 	defer m.mu.RUnlock()
 
 	// Return a copy to prevent external modification
-	copy := *m.settings
-	copy.Keybinds = make(map[string]string)
-	for k, v := range m.settings.Keybinds {
-		copy.Keybinds[k] = v
+	// Create a copy without the mutex
+	return &Settings{
+		Volume:           m.settings.Volume,
+		Mute:             m.settings.Mute,
+		Fullscreen:       m.settings.Fullscreen,
+		VSync:            m.settings.VSync,
+		ShowDebug:        m.settings.ShowDebug,
+		AutoSaveInterval: m.settings.AutoSaveInterval,
+		CreativeMode:     m.settings.CreativeMode,
+		ChunkRenderDist:  m.settings.ChunkRenderDist,
+		WindowWidth:      m.settings.WindowWidth,
+		WindowHeight:     m.settings.WindowHeight,
+		Keybinds:         m.settings.Keybinds,
 	}
-	return &copy
 }
 
 // GetVolume returns the volume level
