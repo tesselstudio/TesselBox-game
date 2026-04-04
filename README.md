@@ -15,6 +15,37 @@
   </a>
 </p>
 
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Clone repository
+git clone https://github.com/tesselstudio/TesselBox-game.git
+cd TesselBox-game
+
+# Build and run
+go run cmd/main.go
+```
+
+### System Requirements
+
+#### **Minimum Requirements**
+- **OS**: Windows 10, macOS 10.14, or Linux (Ubuntu 18.04+)
+- **CPU**: Dual-core processor at 2.0 GHz
+- **RAM**: 4 GB RAM
+- **Graphics**: OpenGL 3.3 compatible graphics card
+- **Storage**: 500 MB available space
+- **Audio**: Standard audio output device
+
+#### **Recommended Requirements**
+- **OS**: Windows 11, macOS 12, or Linux (Ubuntu 20.04+)
+- **CPU**: Quad-core processor at 3.0 GHz
+- **RAM**: 8 GB RAM
+- **Graphics**: Dedicated graphics card with 2GB VRAM
+- **Storage**: 2 GB available space (for saves and plugins)
+- **Audio**: Stereo speakers or headphones
+
 Experience TesselBox, a captivating open-source game engine built in Go. Dive into a procedural hexagonal world, where you can mine, build, and explore endless landscapes with advanced plugin support, custom skins, dynamic weather systems, and comprehensive game mechanics.
 
 ## 🎮 Gameplay Overview
@@ -239,38 +270,6 @@ skins/
 └── temp/                 # Temporary files
 ```
 
-## 🚀 Quick Start
-
-### Installation
-
-```bash
-# Clone repository
-git clone https://github.com/tesselstudio/TesselBox-game.git
-cd TesselBox-game
-
-# Build and run
-go run cmd/main.go
-```
-
-### System Requirements
-
-#### **Minimum Requirements**
-- **OS**: Windows 10, macOS 10.14, or Linux (Ubuntu 18.04+)
-- **CPU**: Dual-core processor at 2.0 GHz
-- **RAM**: 4 GB RAM
-- **Graphics**: OpenGL 3.3 compatible graphics card
-- **Storage**: 500 MB available space
-- **Audio**: Standard audio output device
-
-#### **Recommended Requirements**
-- **OS**: Windows 11, macOS 12, or Linux (Ubuntu 20.04+)
-- **CPU**: Quad-core processor at 3.0 GHz
-- **RAM**: 8 GB RAM
-- **Graphics**: Dedicated graphics card with 2GB VRAM
-- **Storage**: 2 GB available space (for saves and plugins)
-- **Audio**: Stereo speakers or headphones
-
-### Configuration
 
 #### **Game Configuration**
 Configuration files are stored in:
