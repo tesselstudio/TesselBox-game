@@ -627,38 +627,38 @@ func (se *SkinEditor) createDefaultSkin() {
 
 // drawDefaultHumanoid draws a simple humanoid figure on the skin
 func (se *SkinEditor) drawDefaultHumanoid(skin *SkinData) {
-	// Head (light skin tone)
-	headColor := color.RGBA{255, 220, 177, 255}
+	// Full red body (original red skin)
+	redColor := color.RGBA{255, 0, 0, 255}
+	
+	// Head
 	for y := 8; y < 16; y++ {
 		for x := 24; x < 40; x++ {
 			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = headColor
+				skin.Pixels[y][x] = redColor
 			}
 		}
 	}
 
-	// Eyes
+	// Eyes (black for visibility)
 	eyeColor := color.RGBA{0, 0, 0, 255}
 	skin.Pixels[10][28] = eyeColor
 	skin.Pixels[10][36] = eyeColor
 
-	// Body (blue shirt)
-	bodyColor := color.RGBA{0, 100, 200, 255}
+	// Body
 	for y := 16; y < 32; y++ {
 		for x := 20; x < 44; x++ {
 			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = bodyColor
+				skin.Pixels[y][x] = redColor
 			}
 		}
 	}
 
 	// Arms
-	armColor := color.RGBA{255, 220, 177, 255}
 	// Left arm
 	for y := 16; y < 28; y++ {
 		for x := 16; x < 20; x++ {
 			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = armColor
+				skin.Pixels[y][x] = redColor
 			}
 		}
 	}
@@ -666,18 +666,17 @@ func (se *SkinEditor) drawDefaultHumanoid(skin *SkinData) {
 	for y := 16; y < 28; y++ {
 		for x := 44; x < 48; x++ {
 			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = armColor
+				skin.Pixels[y][x] = redColor
 			}
 		}
 	}
 
-	// Legs (brown pants)
-	legColor := color.RGBA{139, 69, 19, 255}
+	// Legs
 	// Left leg
 	for y := 32; y < 48; y++ {
 		for x := 24; x < 32; x++ {
 			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = legColor
+				skin.Pixels[y][x] = redColor
 			}
 		}
 	}
@@ -685,7 +684,7 @@ func (se *SkinEditor) drawDefaultHumanoid(skin *SkinData) {
 	for y := 32; y < 48; y++ {
 		for x := 32; x < 40; x++ {
 			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = legColor
+				skin.Pixels[y][x] = redColor
 			}
 		}
 	}
