@@ -410,6 +410,27 @@ func (ws *WeatherSystem) AffectsMovement() float64 {
 	}
 }
 
+// GetCurrentWeather returns the current weather as a string
+func (ws *WeatherSystem) GetCurrentWeather() string {
+	weather := ws.CurrentWeather
+	if ws.IsTransitioning {
+		weather = ws.NextWeather
+	}
+	
+	switch weather.Type {
+	case Clear:
+		return "clear"
+	case Rain:
+		return "rain"
+	case Storm:
+		return "storm"
+	case Snow:
+		return "snow"
+	default:
+		return "clear"
+	}
+}
+
 // Draw renders weather particles
 func (ws *WeatherSystem) Draw(screen *ebiten.Image, cameraX, cameraY float64) {
 	weather := ws.CurrentWeather

@@ -280,12 +280,14 @@ type SkinConfig struct {
 }
 
 const (
-	SkinWidth   = 64
-	SkinHeight  = 64
-	CanvasSize  = 512
-	PreviewSize = 128
-	PaletteSize = 16
-	MaxHistory  = 50
+	SkinWidth    = 64
+	SkinHeight   = 64
+	CanvasSize   = 512
+	PreviewSize  = 128
+	PaletteSize  = 16
+	MaxHistory   = 50
+	ScreenWidth  = 1280
+	ScreenHeight = 720
 )
 
 // NewSkinEditor creates a new skin editor
@@ -629,7 +631,7 @@ func (se *SkinEditor) createDefaultSkin() {
 func (se *SkinEditor) drawDefaultHumanoid(skin *SkinData) {
 	// Full red body (original red skin)
 	redColor := color.RGBA{255, 0, 0, 255}
-	
+
 	// Head
 	for y := 8; y < 16; y++ {
 		for x := 24; x < 40; x++ {
@@ -1974,9 +1976,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-
-// Constants for screen dimensions (should match game constants)
-const (
-	ScreenWidth  = 1280
-	ScreenHeight = 720
-)

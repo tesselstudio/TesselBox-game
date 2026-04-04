@@ -43,9 +43,10 @@ type Recipe struct {
 	RequiredStation CraftingStation `yaml:"required_station"` // STATION_NONE if no station required
 }
 
-// CraftingSystem manages the crafting functionality
+// CraftingSystem manages recipes and crafting operations
 type CraftingSystem struct {
-	recipes map[string]*Recipe
+	recipes       map[string]*Recipe
+	OnItemCrafted func(recipeID string) // Callback for when an item is crafted
 }
 
 // NewCraftingSystem creates a new crafting system
@@ -395,6 +396,11 @@ func (cs *CraftingSystem) Craft(recipeID string, inventory *items.Inventory, sta
 			// In a real implementation, you might want to handle this differently
 			return fmt.Errorf("inventory full")
 		}
+	}
+
+	// Call crafting callback if set
+	if cs.OnItemCrafted != nil {
+		cs.OnItemCrafted(recipeID)
 	}
 
 	return nil

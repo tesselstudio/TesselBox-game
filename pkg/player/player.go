@@ -42,6 +42,10 @@ type Player struct {
 	// Inventory (reference to inventory)
 	SelectedSlot int
 
+	// Health system
+	Health    float64
+	MaxHealth float64
+
 	// Time tracking for delta time
 	LastUpdateTime time.Time
 }
@@ -56,6 +60,8 @@ func NewPlayer(x, y float64) *Player {
 		Width:          PlayerWidth,
 		Height:         PlayerHeight,
 		SelectedSlot:   0,
+		Health:         100.0,
+		MaxHealth:      100.0,
 		LastUpdateTime: time.Now(),
 	}
 }
@@ -212,7 +218,36 @@ func (p *Player) UpdateWithCollision(deltaTime float64, checkCollision func(floa
 
 // GetCenter returns the center position of the player
 func (p *Player) GetCenter() (float64, float64) {
-	return p.X + p.Width/2.0, p.Y + p.Height/2.0
+	return p.X + p.Width/2, p.Y + p.Height/2
+}
+
+// TakeDamage reduces player health by the specified amount
+func (p *Player) TakeDamage(amount float64) {
+	p.Health -= amount
+	if p.Health < 0 {
+		p.Health = 0
+	}
+}
+
+// Heal restores player health by the specified amount
+func (p *Player) Heal(amount float64) {
+	p.Health += amount
+	if p.Health > p.MaxHealth {
+		p.Health = p.MaxHealth
+	}
+}
+
+// IsAlive returns true if player health is greater than 0
+func (p *Player) IsAlive() bool {
+	return p.Health > 0
+}
+
+// GetHealthPercentage returns health as a percentage (0-1)
+func (p *Player) GetHealthPercentage() float64 {
+	if p.MaxHealth <= 0 {
+		return 0
+	}
+	return p.Health / p.MaxHealth
 }
 
 // GetPosition returns the top-left position of the player

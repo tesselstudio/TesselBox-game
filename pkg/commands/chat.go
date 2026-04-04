@@ -205,9 +205,9 @@ func (ch *ChatHandler) listPlugins() string {
 	sort.Strings(plugins)
 
 	for _, name := range plugins {
-		info, _ := ch.pluginManager.GetPluginInfo(name)
+		info, err := ch.pluginManager.GetPluginInfo(name)
 		status := "enabled"
-		if !info.Enabled {
+		if err != nil || info == nil || !info.Enabled {
 			status = "disabled"
 		}
 		sb.WriteString(fmt.Sprintf("  - %s [%s] v%s\n", name, status, info.Version))

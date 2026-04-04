@@ -816,7 +816,7 @@ func (m *Menu) SetWorldSelectMenu() {
 				Action:   ActionSelectWorld,
 				Position: i,
 				Enabled:  true,
-				Tooltip: fmt.Sprintf("Last saved: %s\\nCreated: %s\\nSeed: %d\\nMode: %s",
+				Tooltip: fmt.Sprintf("Last saved: %s\nCreated: %s\nSeed: %d\nMode: %s",
 					world.LastSaved, world.CreatedAt, world.Seed, world.GameMode),
 			})
 		} else {

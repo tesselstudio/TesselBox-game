@@ -186,6 +186,19 @@ type Game struct {
 	MiningDamage float64
 	MiningSpeed  float64
 
+	// Statistics tracking
+	BlocksPlaced    int
+	BlocksDestroyed int
+	ItemsCrafted    int
+	PlayStartTime   time.Time
+	TotalPlayTime   time.Duration
+
+	// Crafting station tracking
+	CurrentCraftingStation string
+
+	// Unlocked recipes tracking
+	UnlockedRecipes map[string]bool
+
 	// For solid color drawing
 	whiteImage *ebiten.Image
 }
@@ -197,17 +210,23 @@ func NewGame() *Game {
 	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
 
 	g := &Game{
-		world:                world.NewWorld("default"),  // Default world name
-		player:               player.NewPlayer(400, 300), // Start at ground level
-		inventory:            items.NewInventory(32),
-		selectedBlock:        "dirt", // Default to dirt in creative mode
-		CreativeMode:         true,   // Enable creative mode by default
-		cameraX:              0,
-		cameraY:              0,
-		lastTime:             time.Now(),
-		whiteImage:           whiteImage,
-		leftMouseWasPressed:  false,
-		rightMouseWasPressed: false,
+		world:                  world.NewWorld("default"),  // Default world name
+		player:                 player.NewPlayer(400, 300), // Start at ground level
+		inventory:              items.NewInventory(32),
+		selectedBlock:          "dirt", // Default to dirt in creative mode
+		CreativeMode:           true,   // Enable creative mode by default
+		cameraX:                0,
+		cameraY:                0,
+		lastTime:               time.Now(),
+		whiteImage:             whiteImage,
+		leftMouseWasPressed:    false,
+		rightMouseWasPressed:   false,
+		PlayStartTime:          time.Now(),
+		BlocksPlaced:           0,
+		BlocksDestroyed:        0,
+		ItemsCrafted:           0,
+		CurrentCraftingStation: "",
+		UnlockedRecipes:        make(map[string]bool),
 	}
 
 	// Initialize object pools for rendering optimization
@@ -256,6 +275,13 @@ func NewGame() *Game {
 		log.Printf("Warning: Failed to load crafting recipes: %v", err)
 		log.Printf("Game will continue with default recipes")
 	}
+
+	// Set up crafting callback for statistics tracking
+	g.craftingSystem.OnItemCrafted = func(recipeID string) {
+		g.ItemsCrafted++
+		g.UnlockedRecipes[recipeID] = true
+	}
+
 	g.craftingUI = crafting.NewCraftingUI(g.craftingSystem, g.inventory)
 
 	// Initialize input manager
@@ -418,6 +444,9 @@ func (g *Game) Update() error {
 	currentTime := time.Now()
 	deltaTime := currentTime.Sub(g.lastTime).Seconds()
 	g.lastTime = currentTime
+
+	// Update play time statistics
+	g.TotalPlayTime += time.Duration(deltaTime * float64(time.Second))
 
 	// Handle menu state
 	if g.inMenu {
@@ -1100,10 +1129,13 @@ func (g *Game) interactWithStation() {
 		switch blockKey {
 		case "workbench":
 			station = crafting.STATION_WORKBENCH
+			g.CurrentCraftingStation = "workbench"
 		case "furnace":
 			station = crafting.STATION_FURNACE
+			g.CurrentCraftingStation = "furnace"
 		case "anvil":
 			station = crafting.STATION_ANVIL
+			g.CurrentCraftingStation = "anvil"
 		default:
 			continue
 		}
@@ -1117,6 +1149,7 @@ func (g *Game) interactWithStation() {
 
 	// No station found, open general crafting
 	g.craftingUI.SetStation(crafting.STATION_NONE)
+	g.CurrentCraftingStation = "" // Reset to no station
 	g.inCrafting = true
 	g.craftingUI.Toggle()
 }
@@ -1284,6 +1317,9 @@ func (g *Game) handleMining() {
 		// Get the block type before removing
 		blockType := targetHex.BlockType
 
+		// Track statistics
+		g.BlocksDestroyed++
+
 		// Get the exact world position before removing
 		x, y := targetHex.X, targetHex.Y
 		g.world.RemoveHexagonAt(x, y)
@@ -1376,6 +1412,9 @@ func (g *Game) handleBlockPlacement() {
 	// Place block at the calculated position
 	blockType := stringToBlockType(blockTypeToPlace)
 	g.world.AddHexagonAt(placeX, placeY, blockType)
+
+	// Track statistics
+	g.BlocksPlaced++
 
 	// Play block placement sound
 	g.playBlockSound("place", blockType)
@@ -2293,6 +2332,12 @@ func (g *Game) createSaveState() *save.GameState {
 		gameMode = "creative"
 	}
 
+	// Get weather from weather system
+	currentWeather := "clear" // Default weather
+	if g.weatherSystem != nil {
+		currentWeather = g.weatherSystem.GetCurrentWeather()
+	}
+
 	return &save.GameState{
 		World:      g.world,
 		Player:     g.player,
@@ -2307,20 +2352,29 @@ func (g *Game) createSaveState() *save.GameState {
 		CreativeMode:    g.CreativeMode,
 		GameMode:        gameMode,
 		WorldTime:       g.dayNightCycle.GameTime, // Use the GameTime field directly
-		Weather:         "clear",                  // TODO: Implement weather system
-		PlayerHealth:    100.0,                    // TODO: Implement player health
-		PlayerMaxHealth: 100.0,
+		Weather:         currentWeather,           // Use actual weather from weather system
+		PlayerHealth:    g.player.Health,          // Use actual player health
+		PlayerMaxHealth: g.player.MaxHealth,       // Use actual player max health
 
 		// Crafting state
-		CraftingStation: "",         // TODO: Track current crafting station
-		UnlockedRecipes: []string{}, // TODO: Track unlocked recipes
+		CraftingStation: g.CurrentCraftingStation,
+		UnlockedRecipes: g.getUnlockedRecipesAsSlice(),
 
-		// Statistics (TODO: Implement tracking)
-		BlocksPlaced:    0,
-		BlocksDestroyed: 0,
-		ItemsCrafted:    0,
-		PlayTime:        0, // TODO: Track play time
+		// Statistics tracking
+		BlocksPlaced:    g.BlocksPlaced,
+		BlocksDestroyed: g.BlocksDestroyed,
+		ItemsCrafted:    g.ItemsCrafted,
+		PlayTime:        g.TotalPlayTime.Seconds(),
 	}
+}
+
+// getUnlockedRecipesAsSlice converts the unlocked recipes map to a slice
+func (g *Game) getUnlockedRecipesAsSlice() []string {
+	recipes := make([]string, 0, len(g.UnlockedRecipes))
+	for recipeID := range g.UnlockedRecipes {
+		recipes = append(recipes, recipeID)
+	}
+	return recipes
 }
 
 // SaveGame saves the current game state
@@ -2435,13 +2489,6 @@ func (g *Game) updateAudioContext() {
 		biome = "underground"
 	}
 
-	// Get weather from weather system
-	weather := "clear" // Default weather
-	if g.weatherSystem != nil {
-		// This would need to be implemented in weather system
-		// weather = g.weatherSystem.GetCurrentWeather()
-	}
-
 	// Determine if underground
 	isUnderground := g.player.Y < 0
 
@@ -2452,7 +2499,13 @@ func (g *Game) updateAudioContext() {
 		// timeOfDay = g.dayNightCycle.GetTimeOfDay()
 	}
 
-	g.soundLibrary.UpdateContext(biome, weather, isUnderground, timeOfDay)
+	// Get weather from weather system
+	currentWeather := "clear" // Default weather
+	if g.weatherSystem != nil {
+		currentWeather = g.weatherSystem.GetCurrentWeather()
+	}
+
+	g.soundLibrary.UpdateContext(biome, currentWeather, isUnderground, timeOfDay)
 }
 
 // cleanupAudio cleans up audio resources when shutting down

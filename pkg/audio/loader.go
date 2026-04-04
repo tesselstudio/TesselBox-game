@@ -229,17 +229,6 @@ func (al *AudioLoader) CreatePlaceholderAudio(frequency float64, duration float6
 	return buf.Bytes()
 }
 
-// modFloat is float modulo for placeholder audio generation
-func modFloat(a, b float64) float64 {
-	for a >= b {
-		a -= b
-	}
-	for a < 0 {
-		a += b
-	}
-	return a
-}
-
 // LoadPlaceholderSounds creates placeholder sounds for missing audio files with improved reliability
 func (al *AudioLoader) LoadPlaceholderSounds() error {
 	log.Printf("Creating placeholder audio sounds...")
