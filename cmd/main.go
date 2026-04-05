@@ -354,6 +354,7 @@ func NewGame() *Game {
 
 	// Initialize menu
 	g.menu = menu.NewMenu()
+	g.menu.CreativeMode = g.CreativeMode // Set menu creative mode to match game mode
 
 	// Initialize plugin system
 	log.Printf("Initializing plugin system...")
@@ -430,10 +431,8 @@ func NewGame() *Game {
 	g.footstepCooldown = 400 * time.Millisecond // Footstep every 400ms when walking
 
 	// Start in menu
-	// g.inMenu = true
-	// g.inGame = false
-	g.inMenu = false
-	g.inGame = true
+	g.inMenu = true
+	g.inGame = false
 
 	return g
 }
@@ -530,7 +529,7 @@ func (g *Game) Update() error {
 		g.audioManager.Update()
 
 		// Handle footstep sounds
-		g.handleFootstepAudio(deltaTime)
+		g.handleFootstepAudio()
 
 		// Update dropped items physics
 		g.updateDroppedItems(deltaTime)
@@ -2414,7 +2413,7 @@ func (g *Game) StopAutoSave() {
 }
 
 // handleFootstepAudio handles footstep sounds based on player movement
-func (g *Game) handleFootstepAudio(deltaTime float64) {
+func (g *Game) handleFootstepAudio() {
 	// Only play footsteps if player is moving and on ground
 	if (g.player.MovingLeft || g.player.MovingRight) && g.player.OnGround && !g.player.IsFlying {
 		// Check if enough time has passed since last footstep

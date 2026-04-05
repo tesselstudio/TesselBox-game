@@ -583,37 +583,40 @@ func (m *Menu) drawMenuItems(screen *ebiten.Image) {
 		textY := itemY + 30 // Centered vertically in button
 
 		// Draw text multiple times with slight offsets for thicker appearance
-		for dx := 0; dx < 2; dx++ {
-			for dy := 0; dy < 2; dy++ {
+		for dx := 0; dx < 3; dx++ {
+			for dy := 0; dy < 3; dy++ {
 				ebitenutil.DebugPrintAt(screen, item.Text, textX+dx, textY+dy)
 			}
 		}
+
+		// Also draw a larger version for better visibility
+		ebitenutil.DebugPrintAt(screen, item.Text, textX, textY)
 	}
 }
 
 // drawHexButton draws a hexagon-shaped button
 func (m *Menu) drawHexButton(screen *ebiten.Image, x, y, width, height float64, bgColor, borderColor color.RGBA) {
-	// Draw rounded rectangle with hexagon-like corners
-	ebitenutil.DrawRect(screen, x+10, y, width-20, height, bgColor)
+	// Draw rounded rectangle with hexagon-like corners - make it more visible
+	ebitenutil.DrawRect(screen, x+5, y, width-10, height, bgColor)
 
-	// Draw border
-	ebitenutil.DrawRect(screen, x+10, y, width-20, 3, borderColor)
-	ebitenutil.DrawRect(screen, x+10, y+height-3, width-20, 3, borderColor)
+	// Draw border - make it thicker
+	ebitenutil.DrawRect(screen, x+5, y, width-10, 5, borderColor)
+	ebitenutil.DrawRect(screen, x+5, y+height-5, width-10, 5, borderColor)
 
 	// Draw decorative hexagon points
 	leftPoint := x
 	rightPoint := x + width
 	centerY := y + height/2
 
-	// Left point
+	// Left point - make it larger
 	m.drawHexagonPoint(screen, leftPoint, centerY, borderColor)
-	// Right point
+	// Right point - make it larger
 	m.drawHexagonPoint(screen, rightPoint, centerY, borderColor)
 }
 
 // drawHexagonPoint draws a hexagon point decoration
 func (m *Menu) drawHexagonPoint(screen *ebiten.Image, x, y float64, color color.RGBA) {
-	pointSize := 10.0
+	pointSize := 15.0 // Make it larger
 	ebitenutil.DrawRect(screen, x-pointSize/2, y-pointSize/2, pointSize, pointSize, color)
 }
 
