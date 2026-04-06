@@ -7,11 +7,12 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"os/exec"
-	"runtime"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"tesselbox/pkg/audio"
 	"tesselbox/pkg/blocks"
@@ -21,7 +22,6 @@ import (
 	"tesselbox/pkg/hexagon"
 	"tesselbox/pkg/input"
 	"tesselbox/pkg/items"
-	"tesselbox/pkg/menu"
 	"tesselbox/pkg/player"
 	"tesselbox/pkg/plugins"
 	"tesselbox/pkg/save"
@@ -33,6 +33,16 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
+
+// getTesselboxDir returns the user's home directory .tesselbox folder
+func getTesselboxDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to current directory if home dir can't be found
+		return ".tesselbox"
+	}
+	return filepath.Join(home, ".tesselbox")
+}
 
 // stringToBlockType converts a string block type name to blocks.BlockType
 func stringToBlockType(blockTypeStr string) blocks.BlockType {
@@ -127,7 +137,6 @@ type Game struct {
 	// Systems
 	craftingSystem  *crafting.CraftingSystem
 	craftingUI      *crafting.CraftingUI
-	menu            *menu.Menu
 	pluginManager   *entities.EnhancedPluginManager
 	pluginUI        *plugins.PluginUI
 	pluginInstaller *plugins.PluginInstaller
@@ -352,10 +361,6 @@ func NewGame() *Game {
 	g.inventory.AddItem(items.GLASS, 16)
 	g.inventory.AddItem(items.TORCH, 16)
 
-	// Initialize menu
-	g.menu = menu.NewMenu()
-	g.menu.CreativeMode = g.CreativeMode // Set menu creative mode to match game mode
-
 	// Initialize plugin system
 	log.Printf("Initializing plugin system...")
 	// Create entity manager and system manager first
@@ -430,9 +435,9 @@ func NewGame() *Game {
 	g.lastFootstepTime = time.Now()
 	g.footstepCooldown = 400 * time.Millisecond // Footstep every 400ms when walking
 
-	// Start in menu
-	g.inMenu = true
-	g.inGame = false
+	// Start in game mode (no menu)
+	g.inMenu = false
+	g.inGame = true
 
 	return g
 }
@@ -446,21 +451,6 @@ func (g *Game) Update() error {
 
 	// Update play time statistics
 	g.TotalPlayTime += time.Duration(deltaTime * float64(time.Second))
-
-	// Handle menu state
-	if g.inMenu {
-		var action menu.MenuAction
-		switch g.menu.CurrentMenu {
-		case menu.MenuWorldSelect:
-			action = g.menu.UpdateCreateWorldMenu()
-		case menu.MenuCreateWorld:
-			action = g.menu.UpdateCreateWorldMenu()
-		default:
-			action = g.menu.Update()
-		}
-		g.handleMenuAction(action)
-		return nil
-	}
 
 	// Handle crafting UI
 	if g.inCrafting {
@@ -501,9 +491,7 @@ func (g *Game) Update() error {
 				log.Printf("Failed to save skin on exit: %v", err)
 			}
 			g.inSkinEditor = false
-			g.inMenu = true
-			g.inGame = false
-			g.menu.SetMainMenu()
+			g.inGame = true
 			g.playUISound("close")
 		}
 		return nil
@@ -576,80 +564,6 @@ func (g *Game) Update() error {
 	}
 
 	return nil
-}
-
-func (g *Game) handleMenuAction(action menu.MenuAction) {
-	// Play UI click sound for most actions
-	g.playUISound("click")
-
-	switch action {
-	case menu.ActionStartGame:
-		g.inMenu = false
-		g.inGame = true
-
-		// Find a suitable spawn position and set player position
-		// Spawn at origin where terrain should be generated
-		spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
-		g.player.SetPosition(spawnX, spawnY)
-		g.player.SetVelocity(0, 0)
-
-		// Ensure chunks are loaded around spawn position
-		g.world.GetChunksInRange(spawnX, spawnY)
-
-	case menu.ActionSelectWorld:
-		g.menu.SetWorldSelectMenu()
-
-	case menu.ActionCreateNewWorld:
-		// Create new world with current settings
-		worldName := g.menu.NewWorldName
-		if worldName == "" {
-			worldName = "New World"
-		}
-
-		// Initialize new world
-		g.world = world.NewWorld(worldName)
-		g.world.SetSeed(g.menu.NewWorldSeed)
-
-		// Start game in new world
-		g.inMenu = false
-		g.inGame = true
-
-		// Reset player
-		spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
-		g.player.SetPosition(spawnX, spawnY)
-		g.player.SetVelocity(0, 0)
-		g.world.GetChunksInRange(spawnX, spawnY)
-
-	case menu.ActionDeleteWorld:
-		// Delete selected world
-		if g.menu.SelectedWorld < len(g.menu.Worlds) {
-			worldName := g.menu.Worlds[g.menu.SelectedWorld].Name
-			// In a full implementation, show confirmation dialog
-			world.DeleteWorld(worldName)
-			g.menu.SetWorldSelectMenu() // Refresh the list
-		}
-
-	case menu.ActionBackToWorldSelect:
-		g.menu.SetWorldSelectMenu()
-
-	case menu.ActionBack:
-		g.menu.SetMainMenu()
-
-	case menu.ActionOpenPluginManager:
-		g.inMenu = false
-		g.inPluginUI = true
-		g.playUISound("open")
-
-	case menu.ActionOpenSkinEditor:
-		g.inMenu = false
-		g.inSkinEditor = true
-		g.inGame = false
-		g.playUISound("open")
-
-	case menu.ActionExit:
-		os.Exit(0)
-		return
-	}
 }
 
 func (g *Game) handleGameInput() {
@@ -759,13 +673,6 @@ func (g *Game) handleGameInput() {
 					info.BlocksPlaced, info.BlocksDestroyed, info.ItemsCrafted)
 			}
 		}
-	}
-
-	// Return to menu
-	if g.inputManager.IsActionJustPressed("menu") {
-		g.inGame = false
-		g.inMenu = true
-		g.menu.SetMainMenu()
 	}
 
 	// Handle mouse input
@@ -1558,11 +1465,6 @@ func (g *Game) updateDroppedItems(deltaTime float64) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	if g.inMenu {
-		g.menu.Draw(screen)
-		return
-	}
-
 	if g.inCrafting {
 		// Draw game in background
 		g.drawGameScene(screen)
@@ -2161,13 +2063,38 @@ func (g *Game) drawPlayer(screen *ebiten.Image) {
 		renderer.SetScale(1.0)
 		renderer.Draw(screen, screenX+float64(g.player.Width)/2, screenY+float64(g.player.Height)/2)
 	} else {
-		// Fallback to simple colored rectangles
-		bodyColor := g.colorToRGB(255, 100, 100)
-		ebitenutil.DrawRect(screen, screenX, screenY, float64(g.player.Width), float64(g.player.Height), bodyColor)
+		// Fallback to blocky square player (Minecraft-style)
+		bodyColor := g.colorToRGB(139, 69, 19)   // Brown body
+		headColor := g.colorToRGB(255, 200, 150) // Skin tone head
 
-		// Draw player head (simple representation)
-		headColor := g.colorToRGB(255, 200, 150)
-		ebitenutil.DrawRect(screen, screenX+10, screenY+5, 20, 20, headColor)
+		// Draw bigger square body (50x50)
+		ebitenutil.DrawRect(screen, screenX-5, screenY+10, float64(g.player.Width)+10, float64(g.player.Height)-10, bodyColor)
+
+		// Draw square head (25x25) centered on top
+		headSize := 25.0
+		headX := screenX + (float64(g.player.Width)-headSize)/2
+		headY := screenY - 5
+		ebitenutil.DrawRect(screen, headX, headY, headSize, headSize, headColor)
+
+		// Draw simple blocky arms
+		armWidth := 10.0
+		armHeight := 30.0
+		armColor := g.colorToRGB(139, 69, 19) // Same as body
+
+		// Left arm
+		ebitenutil.DrawRect(screen, screenX-armWidth-5, screenY+20, armWidth, armHeight, armColor)
+		// Right arm
+		ebitenutil.DrawRect(screen, screenX+float64(g.player.Width)+5, screenY+20, armWidth, armHeight, armColor)
+
+		// Draw blocky legs
+		legWidth := 12.0
+		legHeight := 20.0
+		legColor := g.colorToRGB(0, 0, 139) // Blue pants
+
+		// Left leg
+		ebitenutil.DrawRect(screen, screenX+8, screenY+float64(g.player.Height)-legHeight, legWidth, legHeight, legColor)
+		// Right leg
+		ebitenutil.DrawRect(screen, screenX+float64(g.player.Width)-legWidth-8, screenY+float64(g.player.Height)-legHeight, legWidth, legHeight, legColor)
 	}
 }
 
@@ -2305,56 +2232,14 @@ func (g *Game) getItemFromBlockType(blockType blocks.BlockType) items.ItemType {
 	}
 }
 
-// openURL opens a URL in the default browser
-func openURL(url string) error {
-	var cmd string
-	var args []string
-
-	switch runtime.GOOS {
-	case "windows":
-		cmd = "cmd"
-		args = []string{"/c", "start"}
-	case "darwin":
-		cmd = "open"
-	default: // "linux", "freebsd", "openbsd", "netbsd"
-		cmd = "xdg-open"
-	}
-	args = append(args, url)
-	return exec.Command(cmd, args...).Start()
-}
-
 // createSaveState creates a save state from the current game state
 func (g *Game) createSaveState() *save.GameState {
-	// Determine game mode string
-	gameMode := "survival"
-	if g.CreativeMode {
-		gameMode = "creative"
-	}
-
-	// Get weather from weather system
-	currentWeather := "clear" // Default weather
-	if g.weatherSystem != nil {
-		currentWeather = g.weatherSystem.GetCurrentWeather()
-	}
-
 	return &save.GameState{
-		World:      g.world,
-		Player:     g.player,
-		Inventory:  g.inventory,
-		CameraX:    g.cameraX,
-		CameraY:    g.cameraY,
-		InMenu:     g.inMenu,
-		InGame:     g.inGame,
-		InCrafting: g.inCrafting,
-
-		// Enhanced game state
-		CreativeMode:    g.CreativeMode,
-		GameMode:        gameMode,
-		WorldTime:       g.dayNightCycle.GameTime, // Use the GameTime field directly
-		Weather:         currentWeather,           // Use actual weather from weather system
-		PlayerHealth:    g.player.Health,          // Use actual player health
-		PlayerMaxHealth: g.player.MaxHealth,       // Use actual player max health
-
+		World:     g.world,
+		Player:    g.player,
+		Inventory: g.inventory,
+		CameraX:   g.cameraX,
+		CameraY:   g.cameraY,
 		// Crafting state
 		CraftingStation: g.CurrentCraftingStation,
 		UnlockedRecipes: g.getUnlockedRecipesAsSlice(),
@@ -2507,15 +2392,238 @@ func (g *Game) updateAudioContext() {
 	g.soundLibrary.UpdateContext(biome, currentWeather, isUnderground, timeOfDay)
 }
 
-// cleanupAudio cleans up audio resources when shutting down
-func (g *Game) cleanupAudio() {
-	if g.audioManager != nil {
-		g.audioManager.Cleanup()
+// TUI model for Bubble Tea
+type model struct {
+	choices       []string
+	cursor        int
+	selected      int
+	width         int
+	height        int
+	currentScreen string // "main" or "settings"
+	shouldExit    bool   // New field to track if we should exit
+
+	// Settings state
+	soundEnabled    bool
+	graphicsQuality string // "low", "medium", "high"
+	difficulty      string // "easy", "normal", "hard"
+}
+
+// Init implements tea.Model interface
+func (m model) Init() tea.Cmd {
+	return nil
+}
+
+// Initial model for TUI
+func initialModel() model {
+	return model{
+		choices:         []string{"Start Game", "Settings", "Exit"},
+		cursor:          0,
+		selected:        0,
+		width:           80,
+		height:          20,
+		currentScreen:   "main",
+		shouldExit:      false,
+		soundEnabled:    true,
+		graphicsQuality: "medium",
+		difficulty:      "normal",
 	}
 }
 
-// Main function
-func main() {
+// TUI update function for Bubble Tea
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if m.currentScreen == "main" {
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.choices)-1 {
+					m.cursor++
+				}
+			case "enter", " ":
+				m.selected = m.cursor
+				if m.choices[m.cursor] == "Settings" {
+					m.currentScreen = "settings"
+					m.choices = []string{"Sound: ON", "Graphics: Medium", "Difficulty: Normal", "Back"}
+					m.cursor = 0
+				} else if m.choices[m.cursor] == "Exit" {
+					fmt.Println("Goodbye!")
+					os.Exit(0)
+				} else if m.choices[m.cursor] == "Back" {
+					// This shouldn't happen in main screen
+				} else {
+					// Start Game
+					return m, tea.Quit
+				}
+			case "ctrl+c", "q":
+				return m, tea.Quit
+			}
+		} else if m.currentScreen == "settings" {
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.choices)-1 {
+					m.cursor++
+				}
+			case "enter", " ":
+				if m.choices[m.cursor] == "Sound: ON" || m.choices[m.cursor] == "Sound: OFF" {
+					m.soundEnabled = !m.soundEnabled
+					if m.soundEnabled {
+						m.choices[0] = "Sound: ON"
+					} else {
+						m.choices[0] = "Sound: OFF"
+					}
+				} else if m.choices[m.cursor] == "Graphics: Low" || m.choices[m.cursor] == "Graphics: Medium" || m.choices[m.cursor] == "Graphics: High" {
+					// Cycle through graphics quality
+					if m.graphicsQuality == "low" {
+						m.graphicsQuality = "medium"
+						m.choices[1] = "Graphics: Medium"
+					} else if m.graphicsQuality == "medium" {
+						m.graphicsQuality = "high"
+						m.choices[1] = "Graphics: High"
+					} else {
+						m.graphicsQuality = "low"
+						m.choices[1] = "Graphics: Low"
+					}
+				} else if m.choices[m.cursor] == "Difficulty: Easy" || m.choices[m.cursor] == "Difficulty: Normal" || m.choices[m.cursor] == "Difficulty: Hard" {
+					// Cycle through difficulty
+					if m.difficulty == "easy" {
+						m.difficulty = "normal"
+						m.choices[2] = "Difficulty: Normal"
+					} else if m.difficulty == "normal" {
+						m.difficulty = "hard"
+						m.choices[2] = "Difficulty: Hard"
+					} else {
+						m.difficulty = "easy"
+						m.choices[2] = "Difficulty: Easy"
+					}
+				} else if m.choices[m.cursor] == "Back" {
+					m.currentScreen = "main"
+					m.choices = []string{"Start Game", "Settings", "Exit"}
+					m.cursor = 1 // Return to Settings option
+				}
+			case "ctrl+c", "q":
+				return m, tea.Quit
+			}
+		}
+	}
+
+	return m, nil
+}
+
+// TUI view function for Bubble Tea
+func (m model) View() string {
+	s := strings.Builder{}
+
+	// Magnified colorful game title with larger appearance
+	var title string
+	if m.currentScreen == "main" {
+		// Large rainbow title with magnified effect
+		title = "\033[38;5;196m╔════════════════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;196m║\033[38;5;208m  ╔══╗  \033[38;5;226mT\033[38;5;46mE\033[38;5;51mS\033[38;5;99mS\033[38;5;129mE\033[38;5;165mL\033[38;5;196mB\033[38;5;208mO\033[38;5;226mX  ╔══╗  \033[38;5;196m║\033[0m\n"
+		title += "\033[38;5;196m║\033[38;5;208m  ║  ║  \033[38;5;46m║\033[38;5;51m║\033[38;5;99m║\033[38;5;129m║\033[38;5;165m║\033[38;5;196m║\033[38;5;208m║\033[38;5;226m║  ║  ║  \033[38;5;196m║\033[0m\n"
+		title += "\033[38;5;196m║\033[38;5;208m  ╚══╝  ╚══╝  \033[38;5;46m╚══╝\033[38;5;51m╚══╝\033[38;5;99m╚══╝\033[38;5;129m╚══╝\033[38;5;165m╚══╝\033[38;5;196m╚══╝\033[38;5;208m╚══╝\033[38;5;226m╚══╝  ║  ║  \033[38;5;196m║\033[0m\n"
+		title += "\033[38;5;196m╚══════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	} else {
+		// Settings title with magnified effect
+		title = "\033[38;5;208m╔══════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;208m║\033[38;5;226m  ⚙ \033[38;5;46mS\033[38;5;51mE\033[38;5;129mT\033[38;5;165mT\033[38;5;196mI\033[38;5;208mN\033[38;5;226mG\033[38;5;208mS  ⚙  \033[38;5;208m║\033[0m\n"
+		title += "\033[38;5;208m║\033[38;5;226m                                             ║  \033[38;5;208m║\033[0m\n"
+		title += "\033[38;5;208m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	}
+
+	titlePadding := (m.width - 60) / 2 // Adjusted for larger title
+	if titlePadding < 0 {
+		titlePadding = 0
+	}
+	s.WriteString(strings.Repeat(" ", titlePadding))
+	s.WriteString(title)
+	s.WriteString(strings.Repeat(" ", titlePadding))
+	s.WriteString("\n\n")
+
+	// Menu items with color highlighting
+	for i, choice := range m.choices {
+		padding := (m.width - len(choice) - 4) / 2
+		s.WriteString(strings.Repeat(" ", padding))
+
+		if m.cursor == i {
+			// Enhanced highlighted selection with gradient effect
+			if m.currentScreen == "main" {
+				s.WriteString("\033[38;5;46;1m") // Bright green bold
+			} else {
+				s.WriteString("\033[38;5;208;1m") // Bright orange bold for settings
+			}
+			s.WriteString("👉 ")
+			s.WriteString(choice)
+			s.WriteString("\033[0m") // Reset color
+		} else {
+			// Normal choices with subtle colors
+			if strings.Contains(choice, "ON") {
+				s.WriteString("\033[38;5;46m") // Green for enabled options
+			} else if strings.Contains(choice, "OFF") {
+				s.WriteString("\033[38;5;196m") // Red for disabled options
+			} else if strings.Contains(choice, "High") {
+				s.WriteString("\033[38;5;51m") // Cyan for high settings
+			} else if strings.Contains(choice, "Low") {
+				s.WriteString("\033[38;5;208m") // Orange for low settings
+			} else if strings.Contains(choice, "Hard") {
+				s.WriteString("\033[38;5;196m") // Red for hard difficulty
+			} else if strings.Contains(choice, "Easy") {
+				s.WriteString("\033[38;5;46m") // Green for easy difficulty
+			} else {
+				s.WriteString("\033[38;5;250m") // Light gray for normal options
+			}
+			s.WriteString("  ")
+			s.WriteString(choice)
+			s.WriteString("\033[0m") // Reset color
+		}
+		s.WriteString("\n")
+	}
+
+	// Enhanced footer with instructions
+	s.WriteString("\n")
+	var footer string
+	if m.currentScreen == "main" {
+		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Quit"
+	} else {
+		footer = "↑/k: Change    ↓/j: Change    Enter: Toggle    q/Ctrl+C: Back"
+	}
+	footerPadding := (m.width - len(footer)) / 2
+	s.WriteString(strings.Repeat(" ", footerPadding))
+	s.WriteString("\033[38;5;240m") // Dim gray
+	s.WriteString(footer)
+	s.WriteString("\033[0m") // Reset color
+
+	return s.String()
+}
+
+// runTUI provides beautiful terminal interface using Bubble Tea
+func runTUI() {
+	p := tea.NewProgram(initialModel())
+	finalModel, err := p.Run()
+	if err != nil {
+		fmt.Printf("Error running TUI: %v", err)
+		os.Exit(1)
+	}
+
+	m := finalModel.(model)
+
+	// Handle Start Game
+	if m.currentScreen == "main" && m.selected == 0 {
+		startGameWithGUI()
+	}
+}
+
+// startGameWithGUI starts the game with Ebiten GUI engine
+func startGameWithGUI() {
+	fmt.Printf("🚀 Starting game with GUI...\n")
+
 	// Load block definitions before any world generation
 	blocks.LoadBlocks()
 
@@ -2531,7 +2639,123 @@ func main() {
 	// Start auto-saver
 	game.StartAutoSave()
 
+	// Run the game with Ebiten engine
 	if err := ebiten.RunGame(game); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to run game: %v", err)
 	}
+}
+
+// startGameCLI starts the game in CLI mode (for testing only)
+func startGameCLI() {
+	worldName := "default"
+	if len(os.Args) > 2 {
+		worldName = os.Args[2]
+	}
+
+	fmt.Printf("Starting game in world: %s\n", worldName)
+	fmt.Println("Game running... Press Ctrl+C to exit")
+
+	// Create game instance without GUI
+	game := NewGame()
+	game.inMenu = false
+	game.inGame = true
+
+	// Simple game loop
+	for {
+		// Update game state
+		if err := game.Update(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			break
+		}
+
+		// Simple status display
+		px, py := game.player.GetCenter()
+		fmt.Printf("\rPosition: (%.1f, %.1f)  Chunks: %d", px, py, len(game.world.Chunks))
+
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// listWorldsCLI lists available worlds
+func listWorldsCLI() {
+	fmt.Println("Available worlds:")
+
+	// Check tesselbox directory
+	tesselboxDir := getTesselboxDir()
+	worldDir := filepath.Join(tesselboxDir, "worlds")
+	if _, err := os.Stat(worldDir); os.IsNotExist(err) {
+		fmt.Println("No worlds found")
+		return
+	}
+
+	files, err := os.ReadDir(worldDir)
+	if err != nil {
+		fmt.Printf("Error reading worlds: %v\n", err)
+		return
+	}
+
+	if len(files) == 0 {
+		fmt.Println("No worlds found")
+		return
+	}
+
+	for i, file := range files {
+		if file.IsDir() {
+			fmt.Printf("%d. %s\n", i+1, file.Name())
+		}
+	}
+}
+
+// createWorldCLI creates a new world
+func createWorldCLI() {
+	worldName := "NewWorld"
+	if len(os.Args) > 3 {
+		worldName = os.Args[3]
+	}
+
+	fmt.Printf("Creating world: %s\n", worldName)
+
+	// Create world directory
+	tesselboxDir := getTesselboxDir()
+	worldDir := filepath.Join(tesselboxDir, "worlds", worldName)
+	if err := os.MkdirAll(worldDir, 0755); err != nil {
+		fmt.Printf("Error creating world: %v\n", err)
+		return
+	}
+
+	fmt.Printf("World '%s' created successfully!\n", worldName)
+}
+
+// deleteWorldCLI deletes a world
+func deleteWorldCLI() {
+	worldName := "NewWorld"
+	if len(os.Args) > 3 {
+		worldName = os.Args[3]
+	}
+
+	fmt.Printf("Deleting world: %s\n", worldName)
+
+	// Delete world directory
+	tesselboxDir := getTesselboxDir()
+	worldDir := filepath.Join(tesselboxDir, "worlds", worldName)
+	if err := os.RemoveAll(worldDir); err != nil {
+		fmt.Printf("Error deleting world: %v\n", err)
+		return
+	}
+
+	fmt.Printf("World '%s' deleted successfully!\n", worldName)
+}
+
+// cleanupAudio cleans up audio resources when shutting down
+func (g *Game) cleanupAudio() {
+	if g.audioManager != nil {
+		g.audioManager.Cleanup()
+	}
+}
+
+// Main function
+func main() {
+	// Default to TUI mode
+	fmt.Println("🎮 TESSELBOX - Beautiful Terminal Interface 🎮")
+	runTUI()
 }

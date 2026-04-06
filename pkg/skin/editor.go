@@ -292,6 +292,14 @@ const (
 
 // NewSkinEditor creates a new skin editor
 func NewSkinEditor() *SkinEditor {
+	// Get user home directory for skin storage
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to current directory if home dir can't be found
+		home = "."
+	}
+	skinDir := filepath.Join(home, ".tesselbox", "skins")
+
 	log.Printf("Creating new skin editor...")
 
 	// Create a 1x1 white image for solid color drawing
@@ -330,7 +338,7 @@ func NewSkinEditor() *SkinEditor {
 		layerOpacity:     1.0,
 		layerBlend:       BlendNormal,
 		layerVisible:     make([]bool, 0),
-		skinDirectory:    "skins",
+		skinDirectory:    skinDir,
 		backgroundColor:  color.RGBA{30, 30, 40, 255},
 		gridColor:        color.RGBA{60, 60, 80, 255},
 		selectionColor:   color.RGBA{100, 150, 255, 255},
@@ -358,6 +366,9 @@ func NewSkinEditor() *SkinEditor {
 	if err := editor.loadSkinConfig(); err != nil {
 		log.Printf("Warning: Failed to load skin config: %v", err)
 	}
+
+	// Force recreate square skin to ensure it's just a square
+	editor.createDefaultSkin()
 
 	log.Printf("Skin editor created successfully")
 	return editor
@@ -629,64 +640,14 @@ func (se *SkinEditor) createDefaultSkin() {
 
 // drawDefaultHumanoid draws a simple humanoid figure on the skin
 func (se *SkinEditor) drawDefaultHumanoid(skin *SkinData) {
-	// Full red body (original red skin)
-	redColor := color.RGBA{255, 0, 0, 255}
+	// Just a simple bigger square
+	squareColor := color.RGBA{255, 100, 100, 255} // Red square
 
-	// Head
-	for y := 8; y < 16; y++ {
-		for x := 24; x < 40; x++ {
+	// Draw a simple bigger square (40x40, centered to fill more of the 64x64 skin)
+	for y := 12; y < 52; y++ {
+		for x := 12; x < 52; x++ {
 			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = redColor
-			}
-		}
-	}
-
-	// Eyes (black for visibility)
-	eyeColor := color.RGBA{0, 0, 0, 255}
-	skin.Pixels[10][28] = eyeColor
-	skin.Pixels[10][36] = eyeColor
-
-	// Body
-	for y := 16; y < 32; y++ {
-		for x := 20; x < 44; x++ {
-			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = redColor
-			}
-		}
-	}
-
-	// Arms
-	// Left arm
-	for y := 16; y < 28; y++ {
-		for x := 16; x < 20; x++ {
-			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = redColor
-			}
-		}
-	}
-	// Right arm
-	for y := 16; y < 28; y++ {
-		for x := 44; x < 48; x++ {
-			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = redColor
-			}
-		}
-	}
-
-	// Legs
-	// Left leg
-	for y := 32; y < 48; y++ {
-		for x := 24; x < 32; x++ {
-			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = redColor
-			}
-		}
-	}
-	// Right leg
-	for y := 32; y < 48; y++ {
-		for x := 32; x < 40; x++ {
-			if x >= 0 && x < SkinWidth && y >= 0 && y < SkinHeight {
-				skin.Pixels[y][x] = redColor
+				skin.Pixels[y][x] = squareColor
 			}
 		}
 	}

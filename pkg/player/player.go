@@ -14,8 +14,8 @@ const (
 	TerminalVelX = 300.0
 	TerminalVelY = 1200.0 // Increased for faster falling
 	MiningRange  = 2000.0 // Increased range for better block placement
-	PlayerWidth  = 40.0
-	PlayerHeight = 40.0 // Square player
+	PlayerWidth  = 50.0
+	PlayerHeight = 50.0 // Bigger square player
 )
 
 // Player represents a player in the game

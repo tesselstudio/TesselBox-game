@@ -107,6 +107,11 @@ type BlockProperties struct {
 	Viscosity   float64       // For liquids
 	Pattern     string        // "solid", "striped", "checkerboard", etc.
 	Texture     *ebiten.Image // Optional texture for pixel-by-pixel appearance
+
+	// Humidity-based appearance system
+	HumidityColors       []color.RGBA // Colors for different humidity levels [dry, normal, wet]
+	HumidityPatterns     []string     // Patterns for different humidity levels
+	HasHumidityVariation bool         // Whether this block uses humidity variations
 }
 
 // BlockJSON represents the YAML structure for block definitions
@@ -129,6 +134,11 @@ type BlockJSON struct {
 	UI          map[string]interface{} `yaml:"ui"`
 	Function    map[string]interface{} `yaml:"function"`
 	Texture     string                 `yaml:"texture,omitempty"`
+
+	// Humidity-based appearance fields
+	HumidityColors       [][]uint8 `yaml:"humidityColors,omitempty"`   // [dry, normal, wet] colors
+	HumidityPatterns     []string  `yaml:"humidityPatterns,omitempty"` // Patterns for humidity levels
+	HasHumidityVariation bool      `yaml:"hasHumidityVariation,omitempty"`
 }
 
 // BlockDefinitions holds all block type definitions
@@ -284,9 +294,12 @@ func loadBlocksFromEmbedded() {
 			Pattern:     b.Pattern,
 		}
 
+		// Parse top color
 		if len(b.TopColor) == 4 {
 			props.TopColor = color.RGBA{b.TopColor[0], b.TopColor[1], b.TopColor[2], b.TopColor[3]}
 		}
+
+		// Parse side color
 		if len(b.SideColor) == 4 {
 			props.SideColor = color.RGBA{b.SideColor[0], b.SideColor[1], b.SideColor[2], b.SideColor[3]}
 		}
@@ -298,6 +311,24 @@ func loadBlocksFromEmbedded() {
 				if len(c) == 4 {
 					props.Colors[i] = color.RGBA{c[0], c[1], c[2], c[3]}
 				}
+			}
+		}
+
+		// Parse humidity-based appearance
+		if len(b.HumidityColors) >= 3 {
+			props.HumidityColors = make([]color.RGBA, 3)
+			for i, c := range b.HumidityColors[:3] {
+				if len(c) == 4 {
+					props.HumidityColors[i] = color.RGBA{c[0], c[1], c[2], c[3]}
+				}
+			}
+			props.HasHumidityVariation = true
+		}
+
+		if len(b.HumidityPatterns) >= 3 {
+			props.HumidityPatterns = make([]string, 3)
+			for i, pattern := range b.HumidityPatterns[:3] {
+				props.HumidityPatterns[i] = pattern
 			}
 		}
 
@@ -350,7 +381,47 @@ func validateViscosity(viscosity float64) float64 {
 	return viscosity
 }
 
-// loadDefaultBlocks loads essential default block configurations
+// GetHumidityModifiedColor returns the appropriate block color based on humidity level
+func GetHumidityModifiedColor(baseColor color.RGBA, humidity float64, humidityColors []color.RGBA) color.RGBA {
+	if len(humidityColors) < 3 {
+		return baseColor // No humidity variation available
+	}
+
+	// Determine humidity level: 0.0-0.33 = dry, 0.33-0.66 = normal, 0.66-1.0 = wet
+	var targetColor color.RGBA
+	if humidity < 0.33 {
+		targetColor = humidityColors[0] // Dry
+	} else if humidity < 0.66 {
+		targetColor = humidityColors[1] // Normal
+	} else {
+		targetColor = humidityColors[2] // Wet
+	}
+
+	// Blend base color with humidity color (30% humidity color, 70% base color)
+	return color.RGBA{
+		R: uint8(float64(targetColor.R)*0.3 + float64(baseColor.R)*0.7),
+		G: uint8(float64(targetColor.G)*0.3 + float64(baseColor.G)*0.7),
+		B: uint8(float64(targetColor.B)*0.3 + float64(baseColor.B)*0.7),
+		A: baseColor.A,
+	}
+}
+
+// GetHumidityPattern returns the appropriate pattern based on humidity
+func GetHumidityPattern(humidity float64, patterns []string) string {
+	if len(patterns) < 3 {
+		return "solid" // Default pattern
+	}
+
+	if humidity < 0.33 {
+		return patterns[0] // Dry pattern
+	} else if humidity < 0.66 {
+		return patterns[1] // Normal pattern
+	} else {
+		return patterns[2] // Wet pattern
+	}
+}
+
+// loadDefaultBlocks loads default block configurations with humidity variations
 func loadDefaultBlocks() {
 	defaultBlocks := map[string]*BlockProperties{
 		"air": {
@@ -366,126 +437,196 @@ func loadDefaultBlocks() {
 			Gravity:     false,
 		},
 		"dirt": {
-			ID:          DIRT,
-			Name:        "Dirt",
-			Color:       color.RGBA{139, 90, 43, 255},
-			Hardness:    0.5,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   DIRT,
+			Name:                 "Dirt",
+			Color:                color.RGBA{139, 90, 43, 255},
+			Hardness:             0.5,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{200, 150, 100, 255}, // Dry: light brown
+				{139, 90, 43, 255},   // Normal: medium brown
+				{100, 60, 30, 255},   // Wet: dark brown with damp patches
+			},
+			HumidityPatterns: []string{"solid", "cracked", "damp"},
 		},
 		"grass": {
-			ID:          GRASS,
-			Name:        "Grass",
-			Color:       color.RGBA{124, 169, 84, 255},
-			TopColor:    color.RGBA{124, 169, 84, 255},
-			SideColor:   color.RGBA{139, 90, 43, 255},
-			Hardness:    0.6,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   GRASS,
+			Name:                 "Grass",
+			Color:                color.RGBA{124, 169, 84, 255},
+			TopColor:             color.RGBA{124, 169, 84, 255},
+			SideColor:            color.RGBA{139, 90, 43, 255},
+			Hardness:             0.6,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{200, 180, 100, 255}, // Dry: yellowish grass
+				{124, 169, 84, 255},  // Normal: green grass
+				{50, 120, 50, 255},   // Wet: dark green lush
+			},
+			HumidityPatterns: []string{"sparse", "uniform", "lush"},
 		},
 		"stone": {
-			ID:          STONE,
-			Name:        "Stone",
-			Color:       color.RGBA{128, 128, 128, 255},
-			Hardness:    1.5,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   STONE,
+			Name:                 "Stone",
+			Color:                color.RGBA{128, 128, 128, 255},
+			Hardness:             1.5,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{180, 180, 180, 255}, // Dry: light gray weathered
+				{128, 128, 128, 255}, // Normal: medium gray solid
+				{80, 80, 80, 255},    // Wet: dark gray with moss
+			},
+			HumidityPatterns: []string{"weathered", "solid", "mossy"},
 		},
 		"sand": {
-			ID:          SAND,
-			Name:        "Sand",
-			Color:       color.RGBA{238, 203, 173, 255},
-			Hardness:    0.5,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   SAND,
+			Name:                 "Sand",
+			Color:                color.RGBA{238, 203, 173, 255},
+			Hardness:             0.5,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{255, 240, 200, 255}, // Dry: light tan fine grains
+				{238, 203, 173, 255}, // Normal: yellow sand compacted
+				{200, 150, 100, 255}, // Wet: dark tan wet clumps
+			},
+			HumidityPatterns: []string{"fine", "compacted", "wet"},
 		},
 		"log": {
-			ID:          LOG,
-			Name:        "Log",
-			Color:       color.RGBA{139, 69, 19, 255},
-			Hardness:    1.0,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   true,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   LOG,
+			Name:                 "Log",
+			Color:                color.RGBA{139, 69, 19, 255},
+			Hardness:             1.0,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            true,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{180, 140, 100, 255}, // Dry: light brown dry wood
+				{139, 69, 19, 255},   // Normal: medium brown wood grain
+				{100, 50, 30, 255},   // Wet: dark brown moss coverage
+			},
+			HumidityPatterns: []string{"dry", "grain", "mossy"},
 		},
 		"leaves": {
-			ID:          LEAVES,
-			Name:        "Leaves",
-			Color:       color.RGBA{34, 139, 34, 200},
-			Hardness:    0.2,
-			Transparent: true,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   true,
-			LightLevel:  0,
-			Gravity:     false,
+			ID:                   LEAVES,
+			Name:                 "Leaves",
+			Color:                color.RGBA{34, 139, 34, 200},
+			Hardness:             0.2,
+			Transparent:          true,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            true,
+			LightLevel:           0,
+			Gravity:              false,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{200, 180, 100, 200}, // Dry: yellow-green sparse foliage
+				{34, 139, 34, 200},   // Normal: green leaves full coverage
+				{20, 80, 20, 200},    // Wet: dark green dripping moisture
+			},
+			HumidityPatterns: []string{"sparse", "full", "dripping"},
 		},
 		"coal_ore": {
-			ID:          COAL_ORE,
-			Name:        "Coal Ore",
-			Color:       color.RGBA{54, 54, 54, 255},
-			Hardness:    1.5,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   COAL_ORE,
+			Name:                 "Coal Ore",
+			Color:                color.RGBA{54, 54, 54, 255},
+			Hardness:             1.5,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{180, 180, 180, 255}, // Dry: light gray stone bright coal
+				{54, 54, 54, 255},    // Normal: medium gray stone normal coal
+				{40, 40, 40, 255},    // Wet: dark gray stone damp coal
+			},
+			HumidityPatterns: []string{"bright_veins", "normal", "damp_deposits"},
 		},
 		"iron_ore": {
-			ID:          IRON_ORE,
-			Name:        "Iron Ore",
-			Color:       color.RGBA{183, 183, 183, 255},
-			Hardness:    2.0,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   IRON_ORE,
+			Name:                 "Iron Ore",
+			Color:                color.RGBA{183, 183, 183, 255},
+			Hardness:             2.0,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{200, 160, 120, 255}, // Dry: light brown stone rusted iron
+				{183, 183, 183, 255}, // Normal: medium brown stone metallic iron
+				{120, 80, 60, 255},   // Wet: dark brown stone oxidized iron
+			},
+			HumidityPatterns: []string{"rusted", "metallic", "oxidized"},
 		},
 		"gold_ore": {
-			ID:          GOLD_ORE,
-			Name:        "Gold Ore",
-			Color:       color.RGBA{255, 215, 0, 255},
-			Hardness:    2.0,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   GOLD_ORE,
+			Name:                 "Gold Ore",
+			Color:                color.RGBA{255, 215, 0, 255},
+			Hardness:             2.0,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{255, 230, 150, 255}, // Dry: light yellow stone bright gold
+				{255, 215, 0, 255},   // Normal: medium yellow stone shiny gold
+				{180, 140, 80, 255},  // Wet: dark yellow stone tarnished gold
+			},
+			HumidityPatterns: []string{"bright", "shiny", "tarnished"},
 		},
 		"diamond_ore": {
-			ID:          DIAMOND_ORE,
-			Name:        "Diamond Ore",
-			Color:       color.RGBA{185, 242, 255, 255},
-			Hardness:    3.0,
-			Transparent: false,
-			Solid:       true,
-			Collectible: true,
-			Flammable:   false,
-			LightLevel:  0,
-			Gravity:     true,
+			ID:                   DIAMOND_ORE,
+			Name:                 "Diamond Ore",
+			Color:                color.RGBA{185, 242, 255, 255},
+			Hardness:             3.0,
+			Transparent:          false,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           0,
+			Gravity:              true,
+			HasHumidityVariation: true,
+			HumidityColors: []color.RGBA{
+				{200, 200, 255, 255}, // Dry: light blue stone clear diamonds
+				{185, 242, 255, 255}, // Normal: medium blue stone sparkling diamonds
+				{100, 150, 200, 255}, // Wet: dark blue stone wet diamond clusters
+			},
+			HumidityPatterns: []string{"clear", "sparkling", "wet_clusters"},
 		},
 		"bedrock": {
 			ID:          BEDROCK,
