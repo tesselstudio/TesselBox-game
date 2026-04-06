@@ -5,15 +5,13 @@ import (
 	"fmt"
 	"image/color"
 	"math/rand"
-	"os"
-	"sync"
 	"time"
 
+	"tesselbox/pkg/biomes"
 	"tesselbox/pkg/blocks"
 	"tesselbox/pkg/creatures"
 	"tesselbox/pkg/gametime"
 	"tesselbox/pkg/hexagon"
-	"tesselbox/pkg/menu"
 	"tesselbox/pkg/organisms"
 	"tesselbox/pkg/player"
 	"tesselbox/pkg/world"
@@ -25,35 +23,18 @@ import (
 
 // Colors
 var (
-	White    = color.RGBA{255, 255, 255, 255}
-	Black    = color.RGBA{0, 0, 0, 255}
-	DarkGray = color.RGBA{64, 64, 64, 255}
-	Gray     = color.RGBA{128, 128, 128, 128}
-	Green    = color.RGBA{100, 200, 100, 255}
-	Red      = color.RGBA{200, 100, 100, 255}
-	Blue     = color.RGBA{50, 150, 255, 255}
+	White = color.RGBA{255, 255, 255, 255}
+	Gray  = color.RGBA{128, 128, 128, 128}
+	Red   = color.RGBA{200, 100, 100, 255}
+	Blue  = color.RGBA{50, 150, 255, 255}
 )
 
-// Object pools for performance optimization
-var (
-	hexagonPool = sync.Pool{
-		New: func() interface{} {
-			return make([]ebiten.Vertex, 6) // 6 vertices for hexagon
-		},
-	}
-
-	indicesPool = sync.Pool{
-		New: func() interface{} {
-			return make([]uint16, 12) // 12 indices for hexagon triangles
-		},
-	}
-)
-
-// Screen dimensions and defaults
+// Constants
 const (
 	ScreenWidth           = 1280
 	ScreenHeight          = 720
-	DefaultRenderDistance = 4
+	DefaultRenderDistance = 10
+	FPS                   = 60
 )
 
 // Game represents the game state
@@ -70,7 +51,6 @@ type Game struct {
 	renderDistance  int
 	Particles       *ParticlePool
 	inMenu          bool
-	mainMenu        *menu.Menu
 	lastUpdateTime  time.Time
 	whiteImage      *ebiten.Image // Reusable image for drawing
 	dayNightCycle   *gametime.DayNightCycle
@@ -166,20 +146,20 @@ func NewGame() *Game {
 	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
 
 	game := &Game{
-		ScreenWidth:    ScreenWidth,
-		ScreenHeight:   ScreenHeight,
-		World:          world.NewWorld("default"),
-		CameraX:        0,
-		CameraY:        0,
-		Mining:         false,
-		MiningProgress: 0,
-		renderDistance: DefaultRenderDistance,
-		Particles:      NewParticlePool(1000), // Pre-allocate 1000 particles
-		inMenu:         true,
-		mainMenu:       menu.NewMenu(),
-		lastUpdateTime: time.Now(),
-		whiteImage:     whiteImage,
-		dayNightCycle:  gametime.NewDayNightCycle(600.0), // 10 minutes day/night cycle
+		ScreenWidth:     ScreenWidth,
+		ScreenHeight:    ScreenHeight,
+		World:           world.NewWorld("default"),
+		CameraX:         0,
+		CameraY:         0,
+		Mining:          false,
+		MiningProgress:  0,
+		MiningStartTime: time.Time{},
+		renderDistance:  DefaultRenderDistance,
+		Particles:       NewParticlePool(1000), // Pre-allocate 1000 particles
+		inMenu:          true,
+		lastUpdateTime:  time.Now(),
+		whiteImage:      whiteImage,
+		dayNightCycle:   gametime.NewDayNightCycle(600.0), // 10 minutes day/night cycle
 	}
 
 	return game
@@ -199,10 +179,7 @@ func (g *Game) Update() error {
 
 	// Handle menu interaction
 	if g.inMenu {
-		action := g.mainMenu.Update()
-		if action != menu.ActionNone {
-			g.handleMenuAction(action)
-		}
+		// No menu system - skip menu handling
 		return nil
 	}
 
@@ -360,32 +337,8 @@ func (g *Game) Update() error {
 	return nil
 }
 
-// handleMenuAction processes button clicks from the menu (cleaned, no auth)
-func (g *Game) handleMenuAction(action menu.MenuAction) {
-	switch action {
-	case menu.ActionStartGame:
-		g.inMenu = false
-		g.spawnPlayer()
-		g.World.GetChunksInRange(g.Player.X, g.Player.Y)
-
-	case menu.ActionBack:
-		g.mainMenu.SetMainMenu()
-
-	case menu.ActionExit:
-		os.Exit(0)
-
-	// Removed login/logout actions
-	default:
-		fmt.Printf("Unhandled menu action: %v\n", action)
-	}
-}
-
-func (g *Game) spawnPlayer() {
-	g.Player = player.NewPlayer(100, 100)
-}
-
 func (g *Game) createExplosion(x, y float64, c color.Color) {
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		particle := g.Particles.GetInactiveParticle()
 		if particle == nil {
 			break // No available particles in pool
@@ -404,7 +357,10 @@ func (g *Game) createExplosion(x, y float64, c color.Color) {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.inMenu {
-		g.mainMenu.Draw(screen)
+		// No menu system - draw simple placeholder
+		screen.Fill(color.RGBA{20, 20, 40, 255})
+		ebitenutil.DebugPrintAt(screen, "🎮 TESSELBOX 🎮", ScreenWidth/2-50, ScreenHeight/2)
+		ebitenutil.DebugPrintAt(screen, "Use arrow keys to navigate", ScreenWidth/2-80, ScreenHeight/2+20)
 		return
 	}
 
@@ -575,16 +531,34 @@ func (g *Game) drawHexagon(screen *ebiten.Image, hex *world.Hexagon) {
 	// Get hexagon corners
 	corners := hexagon.GetHexCorners(screenX, screenY, world.HexSize)
 
-	// Get block color
+	// Get block color and apply humidity modification
 	def := blocks.BlockDefinitions[getBlockKeyFromType(hex.BlockType)]
 	if def == nil {
 		return
 	}
 
+	// Get humidity at current position from biome system
+	biomeType := biomes.GetBiomeAtPosition(hex.X, hex.Y, g.World.noiseGenerator)
+	biomeProps := biomes.BiomeDefinitions[biomeType]
+	var humidity float64
+	if biomeProps != nil {
+		humidity = biomeProps.Humidity
+	} else {
+		humidity = 0.5 // Default to normal humidity
+	}
+
+	// Apply humidity-based color modification if block supports it
+	var finalColor color.RGBA
+	if def.HasHumidityVariation && len(def.HumidityColors) >= 3 {
+		finalColor = blocks.GetHumidityModifiedColor(def.Color, humidity, def.HumidityColors)
+	} else {
+		finalColor = def.Color
+	}
+
 	// Create polygon vertices
 	vertices := make([]ebiten.Vertex, len(corners))
 	for i, corner := range corners {
-		r, g, b, a := def.Color.RGBA()
+		r, g, b, a := finalColor.RGBA()
 		vertices[i] = ebiten.Vertex{
 			DstX:   float32(corner[0]),
 			DstY:   float32(corner[1]),

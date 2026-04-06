@@ -76,7 +76,13 @@ type SaveManager struct {
 
 // NewSaveManager creates a new save manager
 func NewSaveManager(worldName, playerName string) *SaveManager {
-	saveDir := filepath.Join("saves", worldName)
+	// Get user home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to current directory if home dir can't be found
+		home = "."
+	}
+	saveDir := filepath.Join(home, ".tesselbox", "saves", worldName)
 
 	// Create save directory if it doesn't exist
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
@@ -432,7 +438,7 @@ func NewAutoSaver(saveManager *SaveManager, gameState *GameState, interval time.
 func (as *AutoSaver) Start() {
 	as.mutex.Lock()
 	defer as.mutex.Unlock()
-	
+
 	if as.enabled {
 		return
 	}
@@ -444,7 +450,7 @@ func (as *AutoSaver) Start() {
 func (as *AutoSaver) Stop() {
 	as.mutex.Lock()
 	defer as.mutex.Unlock()
-	
+
 	if !as.enabled {
 		return
 	}
@@ -461,7 +467,7 @@ func (as *AutoSaver) SetInterval(interval time.Duration) {
 func (as *AutoSaver) ForceSave() error {
 	as.mutex.RLock()
 	defer as.mutex.RUnlock()
-	
+
 	as.lastSave = time.Now()
 	return as.saveManager.SaveGame(as.gameState)
 }
@@ -477,7 +483,7 @@ func (as *AutoSaver) autoSaveLoop() {
 			as.mutex.RLock()
 			enabled := as.enabled
 			as.mutex.RUnlock()
-			
+
 			if enabled {
 				if err := as.ForceSave(); err != nil {
 					// Log error but continue running

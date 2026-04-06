@@ -15,7 +15,13 @@ type WorldStorage struct {
 
 // NewWorldStorage creates a new world storage instance
 func NewWorldStorage(worldName string) *WorldStorage {
-	worldDir := filepath.Join("worlds", worldName)
+	// Get user home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to current directory if home dir can't be found
+		home = "."
+	}
+	worldDir := filepath.Join(home, ".tesselbox", "worlds", worldName)
 
 	// Create world directory if it doesn't exist
 	if _, err := os.Stat(worldDir); os.IsNotExist(err) {
@@ -32,7 +38,7 @@ func (ws *WorldStorage) SaveChunk(chunk *Chunk) error {
 	if chunk == nil {
 		return fmt.Errorf("cannot save nil chunk") // Fixed: Add nil check
 	}
-	
+
 	if !chunk.Modified {
 		return nil // Skip saving unchanged chunks
 	}

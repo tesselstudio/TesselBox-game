@@ -204,55 +204,79 @@ func GetBiomeAtPosition(x, y float64, noise *SimplexNoise) BiomeType {
 	elev = (elev + 1) / 2.0
 	continental = (continental + 1) / 2.0
 
-	// Water bodies first
+	// Enhanced biome determination following BLOCKS_LIST.md patterns
+	// Water bodies first (oceans and deep water)
 	if elev < 0.35 {
-		if temp > 0.6 && continental > 0.6 {
-			return CORAL_REEF
+		if continental > 0.6 {
+			return CORAL_REEF // Coral reefs in deep ocean
 		}
-		if temp > 0.4 && humid > 0.8 {
-			return MANGROVE
-		}
-		return OCEAN
+		return OCEAN // Regular ocean
 	}
 
-	// Extreme elevations
-	if elev > 0.8 {
-		if temp > 0.9 {
-			return VOLCANIC
-		}
-		return MOUNTAINS
-	}
+	// Land biomes with temperature and humidity classification
+	// Temperature zones: Cold (<0.3), Cool (0.3-0.5), Temperate (0.5-0.7), Warm (0.7-0.9), Hot (>0.9)
+	// Humidity zones: Arid (<0.3), Dry (0.3-0.5), Moderate (0.5-0.7), Humid (>0.7)
 
-	// Cold biomes
-	if temp < 0.2 {
-		if elev < 0.5 && humid > 0.4 {
-			return TUNDRA
-		}
-		return TAIGA
-	}
-
-	// Hot biomes
-	if temp > 0.75 {
+	if temp < 0.3 { // Cold biomes
 		if humid < 0.3 {
-			return DESERT
+			return TUNDRA // Cold & Arid
+		} else if humid < 0.5 {
+			return ICE_FIELDS // Cold & Dry
+		} else if humid < 0.7 {
+			return TAIGA // Cold & Moderate
+		} else {
+			return TUNDRA // Cold & Humid (tundra dominates)
 		}
-		if humid > 0.6 {
-			return JUNGLE
+	} else if temp < 0.5 { // Cool biomes
+		if humid < 0.3 {
+			return DESERT // Cool & Arid (rare cold deserts)
+		} else if humid < 0.5 {
+			return SAVANNA // Cool & Dry
+		} else if humid < 0.7 {
+			return PLAINS // Cool & Moderate
+		} else {
+			return SWAMP // Cool & Humid
 		}
-		return SAVANNA
+	} else if temp < 0.7 { // Temperate biomes
+		if humid < 0.3 {
+			return DESERT // Temperate & Arid
+		} else if humid < 0.5 {
+			return SAVANNA // Temperate & Dry
+		} else if humid < 0.7 {
+			return FOREST // Temperate & Moderate
+		} else {
+			return SWAMP // Temperate & Humid
+		}
+	} else if temp < 0.9 { // Warm biomes
+		if humid < 0.3 {
+			return DESERT // Warm & Arid
+		} else if humid < 0.5 {
+			return SAVANNA // Warm & Dry
+		} else if humid < 0.7 {
+			return JUNGLE // Warm & Moderate
+		} else {
+			return SWAMP // Warm & Humid
+		}
+	} else { // Hot biomes (>0.9)
+		if humid < 0.3 {
+			return DESERT // Hot & Arid
+		} else if humid < 0.7 {
+			return SAVANNA // Hot & Dry/Moderate
+		} else {
+			return JUNGLE // Hot & Humid
+		}
 	}
 
-	// Moderate biomes
-	if humid > 0.8 {
-		return SWAMP
-	}
-	if humid > 0.5 {
-		return FOREST
-	}
-	if elev > 0.6 {
-		return MOUNTAINS
+	// Special biome overrides
+	if continental < 0.3 && elev > 0.8 {
+		return MOUNTAINS // Mountain peaks
+	} else if continental > 0.7 && elev > 0.6 {
+		return VOLCANIC // Volcanic regions
+	} else if continental > 0.6 && temp > 0.8 && humid > 0.8 {
+		return MANGROVE // Mangrove swamps
 	}
 
+	// Default fallback
 	return PLAINS
 }
 

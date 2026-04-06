@@ -9,11 +9,7 @@
 [![GitHub repo size](https://img.shields.io/github/repo-size/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/size)
 [![GitHub contributors](https://img.shields.io/github/contributors/tesselstudio/TesselBox-game)](https://github.com/tesselstudio/TesselBox-game/graphs/contributors)
 
-<p align="center">
-  <a href="https://github.com/tesselstudio/TesselBox-game/archive/refs/heads/main.zip">
-    <img src="download.png" alt="Download TesselBox" width="120" style="border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-  </a>
-</p>
+
 
 ## 🚀 Quick Start
 

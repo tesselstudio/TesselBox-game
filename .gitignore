@@ -40,6 +40,7 @@ desktop.ini
 config/local.*
 
 # Game-specific files
+.tesselbox/
 saves/
 worlds/
 logs/
@@ -112,11 +113,11 @@ plugins/temp/
 plugins/*.tmp
 
 # Skin editor temp files
-skins/temp/
-skins/*.tmp
+.tesselbox/skins/temp/
+.tesselbox/skins/*.tmp
 
 # World generation cache
-worlds/cache/
+.tesselbox/worlds/cache/
 *.cache
 
 # Package manager lock files (Go)
