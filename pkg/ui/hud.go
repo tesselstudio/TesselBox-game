@@ -78,21 +78,24 @@ func (h *HUD) calculateLayout() {
 
 // Draw renders the HUD
 func (h *HUD) Draw(screen *ebiten.Image) {
-	if h.SurvivalManager == nil {
-		return
-	}
-
-	// Draw survival bars
+	// Draw health bar (always shown if health system exists)
 	h.drawHealthBar(screen)
-	h.drawHungerBar(screen)
-	h.drawThirstBar(screen)
-	h.drawStaminaBar(screen)
+
+	// Draw survival bars (only if survival manager exists)
+	if h.SurvivalManager != nil {
+		h.drawHungerBar(screen)
+		h.drawThirstBar(screen)
+		h.drawStaminaBar(screen)
+	}
 
 	// Draw day/night indicator
 	h.drawDayNightIndicator(screen)
 
 	// Draw defense indicator
 	h.drawDefenseIndicator(screen)
+
+	// Draw body part health diagram
+	h.drawBodyPartHealth(screen)
 }
 
 // drawHealthBar draws the segmented health bar

@@ -48,6 +48,9 @@ type Zombie struct {
 
 	// Light sensitivity
 	LightDamageRate float64 // Damage per second when in light
+
+	// Physics state (same as player)
+	OnGround bool // For gravity/collision
 }
 
 // ZombieState represents AI states
@@ -155,49 +158,53 @@ func (zs *ZombieSpawner) spawnZombie(px, py float64) *Zombie {
 	return NewZombie(zs.NextID, ztype, sx, sy)
 }
 
-// NewZombie creates a new zombie
+// NewZombie creates a new zombie - decaying version of player
 func NewZombie(id int, ztype ZombieType, x, y float64) *Zombie {
+	// Zombies are same size as player - 50x50 cubes
 	zombie := &Zombie{
 		ID:              fmt.Sprintf("zombie_%d", id),
 		Type:            ztype,
 		X:               x,
 		Y:               y,
-		Width:           40,
-		Height:          60,
+		Width:           50, // Same as player
+		Height:          50, // Same as player (square cube)
+		VX:              0,
+		VY:              0,
 		SpawnTime:       time.Now(),
 		IsAlive:         true,
-		LightDamageRate: 10.0, // 10 damage per second in light
+		LightDamageRate: 10.0,
 		State:           ZombieIdle,
+		OnGround:        false,
 	}
 
-	// Set stats based on type
+	// Set stats based on type - slower than player, same size
 	switch ztype {
 	case ZombieNormal:
 		zombie.MaxHealth = 20
 		zombie.Health = 20
 		zombie.Damage = 5
-		zombie.Speed = 80
+		zombie.Speed = 60 // Slower than player (300)
 		zombie.AttackRange = 50
 		zombie.AttackCooldown = 1 * time.Second
 	case ZombieFast:
 		zombie.MaxHealth = 15
 		zombie.Health = 15
 		zombie.Damage = 3
-		zombie.Speed = 140
+		zombie.Speed = 120 // Still slower than player
 		zombie.AttackRange = 50
 		zombie.AttackCooldown = 800 * time.Millisecond
 	case ZombieStrong:
 		zombie.MaxHealth = 30
 		zombie.Health = 30
 		zombie.Damage = 10
-		zombie.Speed = 60
+		zombie.Speed = 40
 		zombie.AttackRange = 60
 		zombie.AttackCooldown = 1200 * time.Millisecond
 	case ZombieTank:
 		zombie.MaxHealth = 50
 		zombie.Health = 50
 		zombie.Damage = 6
-		zombie.Speed = 40
+		zombie.Speed = 30
 		zombie.AttackRange = 55
 		zombie.AttackCooldown = 1500 * time.Millisecond
 	}
@@ -233,7 +240,17 @@ func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight f
 	// Calculate distance to player
 	dist := distance(z.X, z.Y, player.X, player.Y)
 
-	// AI behavior
+	// Apply gravity (same as player) - zombies fall
+	const Gravity = 2.0
+	const Friction = 0.85
+	const TerminalVelY = 1200.0
+
+	z.VY += Gravity * deltaTime * 60.0
+	if z.VY > TerminalVelY {
+		z.VY = TerminalVelY
+	}
+
+	// AI behavior - hex grid aligned movement (no diagonal/angled movement)
 	switch z.State {
 	case ZombieIdle:
 		if dist < 500 { // Detection range
@@ -248,8 +265,8 @@ func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight f
 		} else if dist < z.AttackRange {
 			z.State = ZombieAttacking
 		} else {
-			// Move towards player
-			z.moveTowards(player.X, player.Y, deltaTime)
+			// Move towards player on hex grid - only left/right (no angled movement)
+			z.moveTowardsPlayerHex(player.X, deltaTime)
 		}
 
 	case ZombieAttacking:
@@ -267,30 +284,44 @@ func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight f
 		if dist < z.AttackRange && time.Since(z.LastAttack) > z.AttackCooldown {
 			z.attack(player, damageCallback)
 		}
-		if dist < 500 {
-			z.moveTowards(player.X, player.Y, deltaTime)
-		}
+		// Panic movement - but still hex-aligned
+		z.VX += (rand.Float64() - 0.5) * z.Speed * 2 * deltaTime
 	}
 
 	// Apply velocity
 	z.X += z.VX * deltaTime
 	z.Y += z.VY * deltaTime
 
-	// Friction
-	z.VX *= 0.9
-	z.VY *= 0.9
+	// Apply friction
+	z.VX *= Friction
+
+	// Stop very small movements
+	if z.VX > -0.1 && z.VX < 0.1 {
+		z.VX = 0
+	}
 }
 
-// moveTowards moves zombie towards a target position
-func (z *Zombie) moveTowards(tx, ty float64, deltaTime float64) {
-	dx := tx - z.X
-	dy := ty - z.Y
-	dist := math.Sqrt(dx*dx + dy*dy)
+// moveTowardsPlayerHex moves zombie towards player on hex grid (only horizontal)
+// Zombies move left/right like players, falling with gravity, no diagonal/angled movement
+func (z *Zombie) moveTowardsPlayerHex(playerX float64, deltaTime float64) {
+	dx := playerX - z.X
 
-	if dist > 0 {
-		// Normalize and apply speed
-		z.VX = (dx / dist) * z.Speed
-		z.VY = (dy / dist) * z.Speed
+	// Only move horizontally on hex grid - no angled movement
+	if math.Abs(dx) > 5 { // Small threshold to prevent jitter
+		// Accelerate towards player
+		if dx > 0 {
+			z.VX += z.Speed * deltaTime * 10 // Move right
+		} else {
+			z.VX -= z.Speed * deltaTime * 10 // Move left
+		}
+
+		// Clamp velocity
+		const TerminalVelX = 300.0
+		if z.VX > TerminalVelX {
+			z.VX = TerminalVelX
+		} else if z.VX < -TerminalVelX {
+			z.VX = -TerminalVelX
+		}
 	}
 }
 
