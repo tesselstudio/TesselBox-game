@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -117,6 +118,22 @@ func minFloat32(a, b float32) float32 {
 		return a
 	}
 	return b
+}
+
+var (
+	// sharedWhiteImage is a singleton 1x1 white image used for all solid color drawing
+	// This avoids creating multiple ebiten.Image instances
+	sharedWhiteImage *ebiten.Image
+	sharedWhiteOnce  sync.Once
+)
+
+// getSharedWhiteImage returns the singleton white image, creating it if needed
+func getSharedWhiteImage() *ebiten.Image {
+	sharedWhiteOnce.Do(func() {
+		sharedWhiteImage = ebiten.NewImage(1, 1)
+		sharedWhiteImage.Fill(color.RGBA{255, 255, 255, 255})
+	})
+	return sharedWhiteImage
 }
 
 const (
@@ -257,9 +274,8 @@ func NewGame() *Game {
 
 // NewGameWithWorld creates a new game with a specific world name and seed
 func NewGameWithWorld(worldName string, worldSeed int64) *Game {
-	// Create a 1x1 white image for solid color drawing
-	whiteImage := ebiten.NewImage(1, 1)
-	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
+	// Use shared white image singleton for better resource management
+	whiteImage := getSharedWhiteImage()
 
 	g := &Game{
 		world:                  world.NewWorld(worldName), // Create world with name
