@@ -22,6 +22,7 @@ var (
 type Hexagon struct {
 	X           float64
 	Y           float64
+	Z           int // Layer depth (0=surface, 1=middle, 2=back)
 	Size        float64
 	BlockType   blocks.BlockType
 	Color       color.Color

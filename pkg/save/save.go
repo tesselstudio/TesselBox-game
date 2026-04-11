@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"tesselbox/pkg/chest"
+	"tesselbox/pkg/enemies"
 	"tesselbox/pkg/equipment"
 	"tesselbox/pkg/health"
 	"tesselbox/pkg/items"
@@ -276,6 +278,47 @@ func (sm *SaveManager) SaveGame(gameState *GameState) error {
 		}
 	}
 
+	// Save zombies
+	if gameState.ZombieSpawner != nil {
+		zombies := gameState.ZombieSpawner.Zombies
+		saveData.Zombies = make([]ZombieData, 0, len(zombies))
+		for _, zombie := range zombies {
+			if zombie.IsAlive {
+				saveData.Zombies = append(saveData.Zombies, ZombieData{
+					ID:        zombie.ID,
+					X:         zombie.X,
+					Y:         zombie.Y,
+					Health:    zombie.Health,
+					MaxHealth: zombie.MaxHealth,
+					Type:      int(zombie.Type),
+					IsAlive:   zombie.IsAlive,
+					State:     int(zombie.State),
+				})
+			}
+		}
+	}
+
+	// Save chests
+	if gameState.ChestManager != nil {
+		chests := gameState.ChestManager.GetAllChests()
+		saveData.Chests = make([]ChestData, 0, len(chests))
+		for _, chest := range chests {
+			slots := make([]InventorySlotData, len(chest.Slots))
+			for i, slot := range chest.Slots {
+				slots[i] = InventorySlotData{
+					Type:       slot.Type,
+					Quantity:   slot.Quantity,
+					Durability: slot.Durability,
+				}
+			}
+			saveData.Chests = append(saveData.Chests, ChestData{
+				X:     chest.X,
+				Y:     chest.Y,
+				Slots: slots,
+			})
+		}
+	}
+
 	// Save world chunks first
 	worldStorage := world.NewWorldStorage(sm.WorldName)
 	if err := worldStorage.SaveWorld(gameState.World); err != nil {
@@ -454,6 +497,41 @@ func (sm *SaveManager) ApplySaveData(saveData *SaveData, gameState *GameState) e
 		gameState.HealthSystem.MaxOverallHealth = totalMax
 	}
 
+	// Load zombies
+	if len(saveData.Zombies) > 0 && gameState.ZombieSpawner != nil {
+		// Clear existing zombies and recreate from save
+		gameState.ZombieSpawner.Zombies = make([]*enemies.Zombie, 0, len(saveData.Zombies))
+		for _, zombieData := range saveData.Zombies {
+			zombie := enemies.NewZombie(
+				len(gameState.ZombieSpawner.Zombies),
+				enemies.ZombieType(zombieData.Type),
+				zombieData.X,
+				zombieData.Y,
+			)
+			zombie.Health = zombieData.Health
+			zombie.MaxHealth = zombieData.MaxHealth
+			zombie.State = enemies.ZombieState(zombieData.State)
+			gameState.ZombieSpawner.Zombies = append(gameState.ZombieSpawner.Zombies, zombie)
+		}
+		// Update NextID to avoid ID conflicts
+		gameState.ZombieSpawner.NextID = len(gameState.ZombieSpawner.Zombies) + 1
+	}
+
+	// Load chests
+	if len(saveData.Chests) > 0 && gameState.ChestManager != nil {
+		for _, chestData := range saveData.Chests {
+			slots := make([]items.Item, len(chestData.Slots))
+			for i, slot := range chestData.Slots {
+				slots[i] = items.Item{
+					Type:       slot.Type,
+					Quantity:   slot.Quantity,
+					Durability: slot.Durability,
+				}
+			}
+			gameState.ChestManager.SetChestContents(chestData.X, chestData.Y, slots)
+		}
+	}
+
 	// Load world chunks around player position
 	worldStorage := world.NewWorldStorage(sm.WorldName)
 	if err := worldStorage.LoadWorld(gameState.World, saveData.PlayerX, saveData.PlayerY, 5); err != nil {
@@ -578,6 +656,12 @@ type GameState struct {
 	SurvivalManager *survival.SurvivalManager
 	EquipmentSet    *equipment.EquipmentSet
 	HealthSystem    *health.LocationalHealthSystem
+
+	// Enemy systems
+	ZombieSpawner *enemies.ZombieSpawner
+
+	// Storage systems
+	ChestManager *chest.ChestManager
 }
 
 // AutoSaver handles automatic saving at intervals

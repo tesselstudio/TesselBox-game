@@ -244,6 +244,10 @@ type Game struct {
 
 	// Enemy systems
 	zombieSpawner *enemies.ZombieSpawner
+
+	// Layer system (surface=0, middle=1, back=2)
+	currentLayer int
+	totalLayers  int
 }
 
 // NewGame creates a new game with default world
@@ -496,6 +500,11 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 		g.returnToMainMenu()
 	}
 
+	// Initialize layer system (surface=0, middle=1, back=2)
+	g.currentLayer = 0
+	g.totalLayers = 3
+	log.Printf("Layer system initialized: surface=0, middle=1, back=2")
+
 	log.Printf("Survival systems initialized: Equipment slots filled, wings equipped, HUD ready")
 
 	// Start in game mode (no menu)
@@ -730,6 +739,22 @@ func (g *Game) handleGameInput() {
 		}
 	}
 
+	// Layer switching: I = go deeper (toward back), K = go toward surface
+	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
+		if g.currentLayer < g.totalLayers-1 {
+			g.currentLayer++
+			layerNames := []string{"surface", "middle", "back"}
+			log.Printf("Moved deeper to layer: %s (%d)", layerNames[g.currentLayer], g.currentLayer)
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyK) {
+		if g.currentLayer > 0 {
+			g.currentLayer--
+			layerNames := []string{"surface", "middle", "back"}
+			log.Printf("Moved toward surface to layer: %s (%d)", layerNames[g.currentLayer], g.currentLayer)
+		}
+	}
+
 	// Open crafting menu
 	if g.inputManager.IsActionJustPressed("crafting") {
 		g.playUISound("open")
@@ -737,8 +762,8 @@ func (g *Game) handleGameInput() {
 		g.craftingUI.Toggle()
 	}
 
-	// Open backpack with 'I' key
-	if g.inputManager.IsActionJustPressed("inventory") || inpututil.IsKeyJustPressed(ebiten.KeyI) {
+	// Open backpack
+	if g.inputManager.IsActionJustPressed("inventory") {
 		g.playUISound("open")
 		g.backpackUI.Toggle()
 	}
@@ -1727,30 +1752,35 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
-// drawGameScene draws the game world and player
+// drawGameScene draws the game world and player with layer support
 func (g *Game) drawGameScene(screen *ebiten.Image) {
 	// Draw background with day/night cycle sky color
 	skyR, skyG, skyB := g.dayNightCycle.GetSkyColor()
 	skyColor := g.colorToRGB(int(skyR*255), int(skyG*255), int(skyB*255))
 	screen.Fill(skyColor)
 
-	// Get visible blocks
+	// Get player position
 	px, py := g.player.GetCenter()
-	visibleBlocks := g.world.GetVisibleBlocks(px, py)
 
-	// Draw blocks with batching by color for performance
-	g.drawBlocksBatched(screen, visibleBlocks)
+	// Draw back layers first (with blur effect based on distance)
+	for layer := g.totalLayers - 1; layer > g.currentLayer; layer-- {
+		blurAmount := float64(layer-g.currentLayer) * 0.3 // More blur for further layers
+		g.drawLayer(screen, px, py, layer, blurAmount)
+	}
 
-	// Draw player
+	// Draw current layer (no blur)
+	g.drawLayer(screen, px, py, g.currentLayer, 0)
+
+	// Draw player (only on current layer)
 	g.drawPlayer(screen)
 
-	// Draw weapon swing effect
+	// Draw weapon swing effect (only on current layer)
 	g.drawWeaponSwing(screen)
 
-	// Draw zombies
+	// Draw zombies (only on current layer)
 	g.drawZombies(screen)
 
-	// Draw dropped items
+	// Draw dropped items (only on current layer)
 	g.drawDroppedItems(screen)
 
 	// Draw weather particles
@@ -1979,6 +2009,98 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 	}
 }
 
+// drawLayer draws a specific layer of the world with optional blur effect
+func (g *Game) drawLayer(screen *ebiten.Image, px, py float64, layer int, blurAmount float64) {
+	// Get visible blocks for this layer
+	visibleBlocks := g.world.GetVisibleBlocksForLayer(px, py, layer)
+
+	if len(visibleBlocks) == 0 {
+		return
+	}
+
+	// Apply blur effect if needed
+	if blurAmount > 0 {
+		// Draw blocks with reduced opacity and darkened colors for blur effect
+		g.drawBlocksBatchedWithBlur(screen, visibleBlocks, blurAmount)
+	} else {
+		// Draw normally
+		g.drawBlocksBatched(screen, visibleBlocks)
+	}
+}
+
+// drawBlocksBatchedWithBlur draws blocks with a blur/darkening effect
+func (g *Game) drawBlocksBatchedWithBlur(screen *ebiten.Image, blockList []*world.Hexagon, blurAmount float64) {
+	// Calculate opacity and darkening based on blur amount
+	opacity := uint8(255 * (1.0 - blurAmount*0.5))
+	darkenFactor := 1.0 - blurAmount*0.4
+
+	for _, block := range blockList {
+		if block.BlockType == blocks.AIR {
+			continue
+		}
+
+		// Calculate screen position
+		screenX := block.X - g.cameraX
+		screenY := block.Y - g.cameraY
+
+		// Skip if off screen
+		if screenX < -world.HexSize*2 || screenX > ScreenWidth+world.HexSize*2 ||
+			screenY < -world.HexSize*2 || screenY > ScreenHeight+world.HexSize*2 {
+			continue
+		}
+
+		// Get base color with darkening
+		r, gr, b, a := block.ActiveColor.RGBA()
+		darkenedR := uint8(float64(r/257) * darkenFactor)
+		darkenedG := uint8(float64(gr/257) * darkenFactor)
+		darkenedB := uint8(float64(b/257) * darkenFactor)
+
+		// Apply opacity
+		finalA := uint8(float64(a/257) * float64(opacity) / 255.0)
+
+		// Draw hexagon using triangle fan
+		if len(block.Corners) == 6 {
+			centerX := screenX
+			centerY := screenY
+
+			// Create vertices for the hexagon
+			vertices := make([]ebiten.Vertex, 7)
+
+			// Center vertex
+			vertices[0] = ebiten.Vertex{
+				DstX:   float32(centerX),
+				DstY:   float32(centerY),
+				SrcX:   0,
+				SrcY:   0,
+				ColorR: float32(darkenedR) / 255.0,
+				ColorG: float32(darkenedG) / 255.0,
+				ColorB: float32(darkenedB) / 255.0,
+				ColorA: float32(finalA) / 255.0,
+			}
+
+			// Corner vertices
+			for i, corner := range block.Corners {
+				vertices[i+1] = ebiten.Vertex{
+					DstX:   float32(corner[0] - g.cameraX),
+					DstY:   float32(corner[1] - g.cameraY),
+					SrcX:   0,
+					SrcY:   0,
+					ColorR: float32(darkenedR) / 255.0,
+					ColorG: float32(darkenedG) / 255.0,
+					ColorB: float32(darkenedB) / 255.0,
+					ColorA: float32(finalA) / 255.0,
+				}
+			}
+
+			// Create indices for triangle fan
+			indices := []uint16{0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 1}
+
+			// Draw the hexagon
+			screen.DrawTriangles(vertices, indices, g.whiteImage, nil)
+		}
+	}
+}
+
 // drawUI draws the user interface
 func (g *Game) drawUI(screen *ebiten.Image) {
 	// Draw HUD (survival bars)
@@ -2068,9 +2190,13 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	_, weatherIntensity, weatherName := g.weatherSystem.GetWeatherInfo()
 	weatherInfo := fmt.Sprintf("Weather: %s (%.1f)", weatherName, weatherIntensity)
 
-	info := fmt.Sprintf("Pos: (%.1f, %.1f)\nVel: (%.1f, %.1f)\nFPS: %.1f\nOnGround: %v\nDelta: %.4f\n%s\n%s\n%s",
+	// Layer info
+	layerNames := []string{"surface", "middle", "back"}
+	layerInfo := fmt.Sprintf("Layer: %s (%d/%d)", layerNames[g.currentLayer], g.currentLayer, g.totalLayers-1)
+
+	info := fmt.Sprintf("Pos: (%.1f, %.1f)\nVel: (%.1f, %.1f)\nFPS: %.1f\nOnGround: %v\nDelta: %.4f\n%s\n%s\n%s\n%s",
 		px, py, vx, vy, ebiten.ActualFPS(), g.player.IsOnGround(), time.Since(g.lastTime).Seconds(),
-		timeInfo, lightInfo, weatherInfo)
+		timeInfo, lightInfo, weatherInfo, layerInfo)
 
 	ebitenutil.DebugPrint(screen, info)
 }
@@ -2765,6 +2891,12 @@ func (g *Game) createSaveState() *save.GameState {
 		SurvivalManager: g.survivalManager,
 		EquipmentSet:    g.equipmentSet,
 		HealthSystem:    g.healthSystem,
+
+		// Enemy systems
+		ZombieSpawner: g.zombieSpawner,
+
+		// Storage systems
+		ChestManager: g.chestManager,
 	}
 }
 
