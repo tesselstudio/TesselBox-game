@@ -53,6 +53,30 @@ func getTesselboxDir() string {
 	return filepath.Join(home, ".tesselbox")
 }
 
+// initTesselboxStorage creates the .tesselbox directory structure on startup
+// This ensures all subdirectories exist when running on a new device
+func initTesselboxStorage() error {
+	tesselboxDir := getTesselboxDir()
+
+	// Create all necessary subdirectories
+	dirs := []string{
+		tesselboxDir,                           // ~/.tesselbox
+		filepath.Join(tesselboxDir, "worlds"),  // ~/.tesselbox/worlds
+		filepath.Join(tesselboxDir, "saves"),   // ~/.tesselbox/saves
+		filepath.Join(tesselboxDir, "skins"),   // ~/.tesselbox/skins
+		filepath.Join(tesselboxDir, "plugins"), // ~/.tesselbox/plugins
+	}
+
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+	}
+
+	log.Printf("Tesselbox storage initialized: %s", tesselboxDir)
+	return nil
+}
+
 // stringToBlockType converts a string block type name to blocks.BlockType
 func stringToBlockType(blockTypeStr string) blocks.BlockType {
 	blockMap := map[string]blocks.BlockType{
@@ -3914,6 +3938,11 @@ func (g *Game) cleanupAudio() {
 
 // Main function
 func main() {
+	// Initialize storage directory on startup (creates ~/.tesselbox if needed)
+	if err := initTesselboxStorage(); err != nil {
+		fmt.Printf("⚠️ Failed to initialize storage: %v\n", err)
+	}
+
 	// Default to TUI mode
 	fmt.Println("🎮 TESSELBOX - Beautiful Terminal Interface 🎮")
 	runTUI()
