@@ -48,6 +48,9 @@ type Zombie struct {
 
 	// Light sensitivity
 	LightDamageRate float64 // Damage per second when in light
+
+	// Physics state (same as player)
+	OnGround bool // For gravity/collision
 }
 
 // ZombieState represents AI states
@@ -91,20 +94,20 @@ func NewZombieSpawner(dayNight *gametime.DayNightCycle) *ZombieSpawner {
 }
 
 // Update updates all zombies and handles spawning/despawning
-func (zs *ZombieSpawner) Update(deltaTime float64, player *player.Player, ambientLight float64) {
+func (zs *ZombieSpawner) Update(deltaTime float64, player *player.Player, ambientLight float64,
+	checkCollision func(float64, float64, float64, float64) bool, worldSpawnFunc func(float64, float64) (float64, float64)) {
+
 	// Check if it's night time (light < 0.3)
 	isNight := ambientLight < 0.3
 
 	// Spawn new zombies at night
 	if isNight && len(zs.Zombies) < zs.MaxZombies {
 		if time.Since(zs.LastSpawnTime) > zs.SpawnCooldown {
-			// Check if player is in a dark area
-			if zs.canSpawnAt(player.X, player.Y, ambientLight) {
-				zombie := zs.spawnZombie(player.X, player.Y)
-				if zombie != nil {
-					zs.Zombies = append(zs.Zombies, zombie)
-					zs.LastSpawnTime = time.Now()
-				}
+			// Spawn everywhere - find valid spawn positions like player
+			zombie := zs.spawnZombieEverywhere(player.X, player.Y, worldSpawnFunc)
+			if zombie != nil {
+				zs.Zombies = append(zs.Zombies, zombie)
+				zs.LastSpawnTime = time.Now()
 			}
 		}
 	}
@@ -113,6 +116,11 @@ func (zs *ZombieSpawner) Update(deltaTime float64, player *player.Player, ambien
 	activeZombies := []*Zombie{}
 	for _, zombie := range zs.Zombies {
 		zombie.Update(deltaTime, player, ambientLight, zs.OnPlayerDamage)
+
+		// Apply collision detection if collision function provided
+		if checkCollision != nil {
+			zombie.UpdateWithCollision(deltaTime, checkCollision)
+		}
 
 		// Despawn if too far or dead
 		distance := distance(zombie.X, zombie.Y, player.X, player.Y)
@@ -133,10 +141,10 @@ func (zs *ZombieSpawner) canSpawnAt(px, py float64, ambientLight float64) bool {
 func (zs *ZombieSpawner) spawnZombie(px, py float64) *Zombie {
 	// Random position around player (but not too close)
 	angle := rand.Float64() * 2 * math.Pi
-	distance := zs.SpawnRadius*0.5 + rand.Float64()*zs.SpawnRadius*0.5
+	dist := zs.SpawnRadius*0.5 + rand.Float64()*zs.SpawnRadius*0.5
 
-	sx := px + math.Cos(angle)*distance
-	sy := py + math.Sin(angle)*distance
+	sx := px + math.Cos(angle)*dist
+	sy := py + math.Sin(angle)*dist
 
 	// Determine zombie type based on random chance
 	var ztype ZombieType
@@ -155,49 +163,96 @@ func (zs *ZombieSpawner) spawnZombie(px, py float64) *Zombie {
 	return NewZombie(zs.NextID, ztype, sx, sy)
 }
 
-// NewZombie creates a new zombie
+// spawnZombieEverywhere spawns a zombie at a valid position using the world's spawn function
+// This allows zombies to spawn everywhere with proper terrain, same as player spawning
+func (zs *ZombieSpawner) spawnZombieEverywhere(playerX, playerY float64, worldSpawnFunc func(float64, float64) (float64, float64)) *Zombie {
+	// Try multiple spawn positions
+	for attempts := 0; attempts < 10; attempts++ {
+		// Random position around player
+		angle := rand.Float64() * 2 * math.Pi
+		dist := zs.SpawnRadius*0.3 + rand.Float64()*zs.SpawnRadius*0.7
+
+		tryX := playerX + math.Cos(angle)*dist
+		tryY := playerY + math.Sin(angle)*dist
+
+		// Use world spawn function to find valid ground position
+		spawnX, spawnY := worldSpawnFunc(tryX, tryY)
+
+		// Make sure we found a valid position above ground
+		if spawnY < 10000 { // Valid spawn found (not the fallback max value)
+			// Place zombie above ground like player
+			zombieY := spawnY - 200
+
+			// Determine zombie type based on random chance
+			var ztype ZombieType
+			r := rand.Float64()
+			switch {
+			case r < 0.6:
+				ztype = ZombieNormal
+			case r < 0.8:
+				ztype = ZombieFast
+			case r < 0.95:
+				ztype = ZombieStrong
+			default:
+				ztype = ZombieTank
+			}
+
+			zombie := NewZombie(zs.NextID, ztype, spawnX, zombieY)
+			zs.NextID++
+			return zombie
+		}
+	}
+
+	return nil // Could not find valid spawn
+}
+
+// NewZombie creates a new zombie - decaying version of player
 func NewZombie(id int, ztype ZombieType, x, y float64) *Zombie {
+	// Zombies are same size as player - 50x50 cubes
 	zombie := &Zombie{
 		ID:              fmt.Sprintf("zombie_%d", id),
 		Type:            ztype,
 		X:               x,
 		Y:               y,
-		Width:           40,
-		Height:          60,
+		Width:           50, // Same as player
+		Height:          50, // Same as player (square cube)
+		VX:              0,
+		VY:              0,
 		SpawnTime:       time.Now(),
 		IsAlive:         true,
-		LightDamageRate: 10.0, // 10 damage per second in light
+		LightDamageRate: 10.0,
 		State:           ZombieIdle,
+		OnGround:        false,
 	}
 
-	// Set stats based on type
+	// Set stats based on type - slower than player, same size
 	switch ztype {
 	case ZombieNormal:
 		zombie.MaxHealth = 20
 		zombie.Health = 20
 		zombie.Damage = 5
-		zombie.Speed = 80
+		zombie.Speed = 60 // Slower than player (300)
 		zombie.AttackRange = 50
 		zombie.AttackCooldown = 1 * time.Second
 	case ZombieFast:
 		zombie.MaxHealth = 15
 		zombie.Health = 15
 		zombie.Damage = 3
-		zombie.Speed = 140
+		zombie.Speed = 120 // Still slower than player
 		zombie.AttackRange = 50
 		zombie.AttackCooldown = 800 * time.Millisecond
 	case ZombieStrong:
 		zombie.MaxHealth = 30
 		zombie.Health = 30
 		zombie.Damage = 10
-		zombie.Speed = 60
+		zombie.Speed = 40
 		zombie.AttackRange = 60
 		zombie.AttackCooldown = 1200 * time.Millisecond
 	case ZombieTank:
 		zombie.MaxHealth = 50
 		zombie.Health = 50
 		zombie.Damage = 6
-		zombie.Speed = 40
+		zombie.Speed = 30
 		zombie.AttackRange = 55
 		zombie.AttackCooldown = 1500 * time.Millisecond
 	}
@@ -233,7 +288,17 @@ func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight f
 	// Calculate distance to player
 	dist := distance(z.X, z.Y, player.X, player.Y)
 
-	// AI behavior
+	// Apply gravity (same as player) - zombies fall
+	const Gravity = 2.0
+	const Friction = 0.85
+	const TerminalVelY = 1200.0
+
+	z.VY += Gravity * deltaTime * 60.0
+	if z.VY > TerminalVelY {
+		z.VY = TerminalVelY
+	}
+
+	// AI behavior - hex grid aligned movement (no diagonal/angled movement)
 	switch z.State {
 	case ZombieIdle:
 		if dist < 500 { // Detection range
@@ -248,8 +313,8 @@ func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight f
 		} else if dist < z.AttackRange {
 			z.State = ZombieAttacking
 		} else {
-			// Move towards player
-			z.moveTowards(player.X, player.Y, deltaTime)
+			// Move towards player on hex grid - only left/right (no angled movement)
+			z.moveTowardsPlayerHex(player.X, deltaTime)
 		}
 
 	case ZombieAttacking:
@@ -267,30 +332,103 @@ func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight f
 		if dist < z.AttackRange && time.Since(z.LastAttack) > z.AttackCooldown {
 			z.attack(player, damageCallback)
 		}
-		if dist < 500 {
-			z.moveTowards(player.X, player.Y, deltaTime)
-		}
+		// Panic movement - but still hex-aligned
+		z.VX += (rand.Float64() - 0.5) * z.Speed * 2 * deltaTime
 	}
 
 	// Apply velocity
 	z.X += z.VX * deltaTime
 	z.Y += z.VY * deltaTime
 
-	// Friction
-	z.VX *= 0.9
-	z.VY *= 0.9
+	// Apply friction
+	z.VX *= Friction
+
+	// Stop very small movements
+	if z.VX > -0.1 && z.VX < 0.1 {
+		z.VX = 0
+	}
 }
 
-// moveTowards moves zombie towards a target position
-func (z *Zombie) moveTowards(tx, ty float64, deltaTime float64) {
-	dx := tx - z.X
-	dy := ty - z.Y
-	dist := math.Sqrt(dx*dx + dy*dy)
+// UpdateWithCollision updates zombie position with collision detection
+// Similar to player's UpdateWithCollision
+func (z *Zombie) UpdateWithCollision(deltaTime float64, checkCollision func(float64, float64, float64, float64) bool) {
+	// Get zombie bounds
+	minX, minY, maxX, maxY := z.GetBounds()
 
-	if dist > 0 {
-		// Normalize and apply speed
-		z.VX = (dx / dist) * z.Speed
-		z.VY = (dy / dist) * z.Speed
+	// Check vertical collision (ground detection) - check from zombie's feet downward
+	feetY := maxY // Zombie's feet position
+	groundCheckDistance := 5.0
+
+	bottomLeftCollision := checkCollision(minX, feetY, minX+z.Width/2, feetY+groundCheckDistance)
+	bottomRightCollision := checkCollision(minX+z.Width/2, feetY, maxX, feetY+groundCheckDistance)
+	bottomCenterCollision := checkCollision(minX+z.Width/2, feetY, minX+z.Width/2+1, feetY+groundCheckDistance)
+
+	if bottomLeftCollision || bottomRightCollision || bottomCenterCollision {
+		// We hit the ground - stop falling and snap to ground
+		if z.VY > 0 { // Only if moving downward
+			z.VY = 0
+			z.OnGround = true
+
+			// Find exact ground position
+			for checkY := feetY; checkY <= feetY+groundCheckDistance; checkY += 1.0 {
+				if checkCollision(minX, checkY, maxX, checkY+1) {
+					z.Y = checkY - z.Height
+					break
+				}
+			}
+		}
+	} else {
+		// No ground below - zombie is falling
+		z.OnGround = false
+	}
+
+	// Check horizontal collision (walls)
+	if z.VX < 0 { // Moving left
+		leftCollision := checkCollision(minX-1, minY+5, minX, maxY-5)
+		if leftCollision {
+			z.X = minX + 1
+			z.VX = 0
+		}
+	} else if z.VX > 0 { // Moving right
+		rightCollision := checkCollision(maxX, minY+5, maxX+1, maxY-5)
+		if rightCollision {
+			z.X = maxX - z.Width - 1
+			z.VX = 0
+		}
+	}
+
+	// Check ceiling collision (head bump)
+	if z.VY < 0 { // Moving upward
+		ceilingLeftCollision := checkCollision(minX, minY-1, minX+z.Width/2, minY)
+		ceilingRightCollision := checkCollision(minX+z.Width/2, minY-1, maxX, minY)
+		if ceilingLeftCollision || ceilingRightCollision {
+			z.VY = 0
+			z.Y = minY + 1
+		}
+	}
+}
+
+// moveTowardsPlayerHex moves zombie towards player on hex grid (only horizontal)
+// Zombies move left/right like players, falling with gravity, no diagonal/angled movement
+func (z *Zombie) moveTowardsPlayerHex(playerX float64, deltaTime float64) {
+	dx := playerX - z.X
+
+	// Only move horizontally on hex grid - no angled movement
+	if math.Abs(dx) > 5 { // Small threshold to prevent jitter
+		// Accelerate towards player
+		if dx > 0 {
+			z.VX += z.Speed * deltaTime * 10 // Move right
+		} else {
+			z.VX -= z.Speed * deltaTime * 10 // Move left
+		}
+
+		// Clamp velocity
+		const TerminalVelX = 300.0
+		if z.VX > TerminalVelX {
+			z.VX = TerminalVelX
+		} else if z.VX < -TerminalVelX {
+			z.VX = -TerminalVelX
+		}
 	}
 }
 

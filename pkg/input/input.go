@@ -33,6 +33,7 @@ func DefaultInputConfig() *InputConfig {
 			"move_up":    {Key: ebiten.KeyW, Action: "move_up"},
 			"move_down":  {Key: ebiten.KeyS, Action: "move_down"},
 			"jump":       {Key: ebiten.KeySpace, Action: "jump"},
+			"jump_w":     {Key: ebiten.KeyW, Action: "jump"},
 			"mine":       {Mouse: 0, IsMouse: true, Action: "mine"},
 			"place":      {Mouse: 1, IsMouse: true, Action: "place"},
 			"drop":       {Key: ebiten.KeyQ, Action: "drop"},

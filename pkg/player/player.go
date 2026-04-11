@@ -60,8 +60,8 @@ func NewPlayer(x, y float64) *Player {
 		Width:          PlayerWidth,
 		Height:         PlayerHeight,
 		SelectedSlot:   0,
-		Health:         100.0,
-		MaxHealth:      100.0,
+		Health:         20.0,
+		MaxHealth:      20.0,
 		LastUpdateTime: time.Now(),
 	}
 }
@@ -213,6 +213,19 @@ func (p *Player) UpdateWithCollision(deltaTime float64, checkCollision func(floa
 			p.VY = 0
 			p.Y = minY + 1
 		}
+	}
+
+	// Check for suffocation (stuck inside blocks - head, feet, left, right all blocked)
+	// This prevents collision bugs from trapping the player permanently
+	headBlocked := checkCollision(minX+5, minY-5, maxX-5, minY)
+	feetBlocked := checkCollision(minX+5, maxY, maxX-5, maxY+5)
+	leftBlocked := checkCollision(minX-5, minY+10, minX, maxY-10)
+	rightBlocked := checkCollision(maxX, minY+10, maxX+5, maxY-10)
+
+	if headBlocked && feetBlocked && leftBlocked && rightBlocked {
+		// Player is completely trapped - apply suffocation damage
+		const suffocationDamage = 2.0 // Damage per second when stuck
+		p.TakeDamage(suffocationDamage * deltaTime)
 	}
 }
 
