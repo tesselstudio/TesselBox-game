@@ -729,6 +729,35 @@ func (w *World) GetVisibleBlocks(cameraX, cameraY float64) []*Hexagon {
 	return visibleBlocks
 }
 
+// GetVisibleBlocksForLayer returns visible blocks for a specific layer
+func (w *World) GetVisibleBlocksForLayer(cameraX, cameraY float64, layer int) []*Hexagon {
+	// Calculate visible area with some padding for smoother edge transitions
+	visibleWidth := 1280.0 + 200.0 // ScreenWidth + padding
+	visibleHeight := 720.0 + 200.0 // ScreenHeight + padding
+
+	// Convert to world coordinates
+	halfWidth := visibleWidth / 2.0
+	halfHeight := visibleHeight / 2.0
+
+	left := cameraX - halfWidth
+	right := cameraX + halfWidth
+	top := cameraY - halfHeight
+	bottom := cameraY + halfHeight
+
+	// Get blocks in the visible area
+	allBlocks := w.GetNearbyHexagons(cameraX, cameraY, float64(RenderDistance)*GetChunkWidth())
+
+	// Filter blocks by layer and visibility
+	var visibleBlocks []*Hexagon
+	for _, hex := range allBlocks {
+		if hex.X >= left && hex.X <= right && hex.Y >= top && hex.Y <= bottom && hex.Z == layer {
+			visibleBlocks = append(visibleBlocks, hex)
+		}
+	}
+
+	return visibleBlocks
+}
+
 // GetChunksInRange ensures chunks are generated around the given position
 func (w *World) GetChunksInRange(x, y float64) {
 	chunkX, chunkY := w.GetChunkCoords(x, y)
