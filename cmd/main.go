@@ -3237,19 +3237,64 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor--
 				}
 			case "down", "j":
-				if m.cursor < len(m.worlds) {
+				if m.cursor < len(m.worlds)+1 { // +1 for Back option
 					m.cursor++
 				}
 			case "enter", " ":
 				if m.cursor < len(m.worlds) {
 					m.selectedWorld = m.cursor
 					return m, tea.Quit // Start game with selected world
-				} else if m.cursor == len(m.worlds) { // Back option
+				} else if m.cursor == len(m.worlds) { // Delete option
+					if len(m.worlds) > 0 {
+						m.currentScreen = "delete_world"
+						m.cursor = 0
+					}
+				} else if m.cursor == len(m.worlds)+1 { // Back option
 					m.currentScreen = "main"
 					m.cursor = 0
 				}
 			case "ctrl+c", "q":
 				m.currentScreen = "main"
+				m.cursor = 0
+			}
+		} else if m.currentScreen == "delete_world" {
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.worlds) {
+					m.cursor++
+				}
+			case "enter", " ":
+				if m.cursor < len(m.worlds) {
+					// Delete selected world
+					worldToDelete := m.worlds[m.cursor]
+
+					// Remove from worlds slice
+					m.worlds = append(m.worlds[:m.cursor], m.worlds[m.cursor+1:]...)
+
+					// Remove from seeds map
+					delete(m.worldSeeds, worldToDelete)
+
+					// Try to delete from disk
+					worldDir := filepath.Join(getTesselboxDir(), "worlds", worldToDelete)
+					os.RemoveAll(worldDir)
+
+					// Reset cursor if needed
+					if m.cursor >= len(m.worlds) && m.cursor > 0 {
+						m.cursor--
+					}
+
+					// Return to worlds screen
+					m.currentScreen = "worlds"
+				} else if m.cursor == len(m.worlds) { // Cancel option
+					m.currentScreen = "worlds"
+					m.cursor = 0
+				}
+			case "ctrl+c", "q":
+				m.currentScreen = "worlds"
 				m.cursor = 0
 			}
 		} else if m.currentScreen == "create_world" {
@@ -3366,6 +3411,10 @@ func (m model) View() string {
 		title = "\033[38;5;51m╔══════════════════════════════════════════════════════════╗\033[0m\n"
 		title += "\033[38;5;51m║\033[38;5;46m  🌍 \033[38;5;99mS\033[38;5;129mE\033[38;5;165mL\033[38;5;196mE\033[38;5;208mC\033[38;5;226mT\033[38;5;46m \033[38;5;51mW\033[38;5;99mO\033[38;5;129mR\033[38;5;165mL\033[38;5;196mD\033[38;5;208m  🌍  \033[38;5;51m║\033[0m\n"
 		title += "\033[38;5;51m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	case "delete_world":
+		title = "\033[38;5;196m╔══════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;196m║\033[38;5;196m  🗑️ \033[38;5;196mD\033[38;5;208mE\033[38;5;226mL\033[38;5;46mE\033[38;5;51mT\033[38;5;99mE\033[38;5;196m  🗑️  \033[38;5;196m║\033[0m\n"
+		title += "\033[38;5;196m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
 	case "create_world":
 		title = "\033[38;5;46m╔══════════════════════════════════════════════════════════╗\033[0m\n"
 		title += "\033[38;5;46m║\033[38;5;51m  ✨ \033[38;5;99mC\033[38;5;129mR\033[38;5;165mE\033[38;5;196mA\033[38;5;208mT\033[38;5;226mE\033[38;5;46m \033[38;5;51mW\033[38;5;99mO\033[38;5;129mR\033[38;5;165mL\033[38;5;196mD\033[38;5;208m  ✨  \033[38;5;46m║\033[0m\n"
@@ -3463,13 +3512,57 @@ func (m model) View() string {
 			}
 			s.WriteString("\n")
 		}
+		// Delete option
+		if len(m.worlds) > 0 {
+			padding := (m.width - 14) / 2
+			s.WriteString(strings.Repeat(" ", padding))
+			if m.cursor == len(m.worlds) {
+				s.WriteString("\033[38;5;196;1m👉 Delete World\033[0m")
+			} else {
+				s.WriteString("\033[38;5;250m   Delete World\033[0m")
+			}
+			s.WriteString("\n")
+		}
+
 		// Back option
 		padding := (m.width - 6) / 2
 		s.WriteString(strings.Repeat(" ", padding))
-		if m.cursor == len(m.worlds) {
+		if m.cursor == len(m.worlds)+1 {
 			s.WriteString("\033[38;5;208;1m👉 Back\033[0m")
 		} else {
 			s.WriteString("\033[38;5;250m   Back\033[0m")
+		}
+		s.WriteString("\n")
+
+	case "delete_world":
+		// Delete world screen
+		s.WriteString("\n")
+		titlePadding := (m.width - 26) / 2
+		s.WriteString(strings.Repeat(" ", titlePadding))
+		s.WriteString("\033[38;5;196;1m⚠ Select World to Delete:\033[0m\n\n")
+
+		for i, worldName := range m.worlds {
+			itemPadding := (m.width - len(worldName) - 4) / 2
+			s.WriteString(strings.Repeat(" ", itemPadding))
+			if m.cursor == i {
+				s.WriteString("\033[38;5;196;1m👉 ")
+				s.WriteString(worldName)
+				s.WriteString("\033[0m")
+			} else {
+				s.WriteString("   \033[38;5;250m")
+				s.WriteString(worldName)
+				s.WriteString("\033[0m")
+			}
+			s.WriteString("\n")
+		}
+
+		// Cancel option
+		itemPadding := (m.width - 10) / 2
+		s.WriteString(strings.Repeat(" ", itemPadding))
+		if m.cursor == len(m.worlds) {
+			s.WriteString("\033[38;5;46;1m👉 Cancel\033[0m")
+		} else {
+			s.WriteString("\033[38;5;250m   Cancel\033[0m")
 		}
 		s.WriteString("\n")
 
@@ -3615,6 +3708,8 @@ func (m model) View() string {
 		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Quit"
 	case "worlds", "plugins":
 		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Back"
+	case "delete_world":
+		footer = "↑/k: Move    ↓/j: Move    Enter: Delete    q: Cancel"
 	case "create_world":
 		footer = "Type: Name    Enter: Create    q: Cancel"
 	default:
