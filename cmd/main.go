@@ -3133,7 +3133,6 @@ type model struct {
 	// Settings state
 	soundEnabled    bool
 	graphicsQuality string // "low", "medium", "high"
-	difficulty      string // "easy", "normal", "hard"
 
 	// Multi-world state
 	worlds        []string
@@ -3183,7 +3182,6 @@ func initialModel() model {
 		shouldExit:      false,
 		soundEnabled:    true,
 		graphicsQuality: "medium",
-		difficulty:      "normal",
 		worlds:          []string{"World 1", "World 2"}, // Default worlds
 		worldSeeds:      worldSeeds,
 		selectedWorld:   0,
@@ -3219,7 +3217,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				choice := m.choices[m.cursor]
 				if choice == "Settings" {
 					m.currentScreen = "settings"
-					m.choices = []string{"Sound: ON", "Graphics: Medium", "Difficulty: Normal", "Back"}
+					m.choices = []string{"Sound: ON", "Graphics: Medium", "Back"}
 					m.cursor = 0
 				} else if choice == "Exit" {
 					fmt.Println("Goodbye!")
@@ -3275,18 +3273,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else {
 						m.graphicsQuality = "low"
 						m.choices[1] = "Graphics: Low"
-					}
-				} else if m.choices[m.cursor] == "Difficulty: Easy" || m.choices[m.cursor] == "Difficulty: Normal" || m.choices[m.cursor] == "Difficulty: Hard" {
-					// Cycle through difficulty
-					if m.difficulty == "easy" {
-						m.difficulty = "normal"
-						m.choices[2] = "Difficulty: Normal"
-					} else if m.difficulty == "normal" {
-						m.difficulty = "hard"
-						m.choices[2] = "Difficulty: Hard"
-					} else {
-						m.difficulty = "easy"
-						m.choices[2] = "Difficulty: Easy"
 					}
 				} else if m.choices[m.cursor] == "Back" {
 					m.currentScreen = "main"
