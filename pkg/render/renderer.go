@@ -538,7 +538,7 @@ func (g *Game) drawHexagon(screen *ebiten.Image, hex *world.Hexagon) {
 	}
 
 	// Get humidity at current position from biome system
-	biomeType := biomes.GetBiomeAtPosition(hex.X, hex.Y, g.World.noiseGenerator)
+	biomeType := biomes.GetBiomeAtPosition(hex.X, hex.Y, g.World.GetNoiseGenerator())
 	biomeProps := biomes.BiomeDefinitions[biomeType]
 	var humidity float64
 	if biomeProps != nil {

@@ -85,6 +85,11 @@ func (w *World) GetSeed() int64 {
 	return w.Seed
 }
 
+// GetNoiseGenerator returns the world's noise generator
+func (w *World) GetNoiseGenerator() *biomes.SimplexNoise {
+	return w.noiseGenerator
+}
+
 // ValidateSeed checks if a seed is valid
 func (w *World) ValidateSeed(seed int64) bool {
 	// Seeds can be any int64, but we could add validation here

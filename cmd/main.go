@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"hash/fnv"
 	"image/color"
 	"log"
 	"math"
@@ -15,10 +16,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"tesselbox/pkg/audio"
+	"tesselbox/pkg/biomes"
 	"tesselbox/pkg/blocks"
+	"tesselbox/pkg/chest"
+	"tesselbox/pkg/combat"
 	"tesselbox/pkg/crafting"
-	"tesselbox/pkg/entities"
+	"tesselbox/pkg/enemies"
+	"tesselbox/pkg/equipment"
 	"tesselbox/pkg/gametime"
+	"tesselbox/pkg/health"
 	"tesselbox/pkg/hexagon"
 	"tesselbox/pkg/input"
 	"tesselbox/pkg/items"
@@ -26,6 +32,8 @@ import (
 	"tesselbox/pkg/plugins"
 	"tesselbox/pkg/save"
 	"tesselbox/pkg/skin"
+	"tesselbox/pkg/survival"
+	"tesselbox/pkg/ui"
 	"tesselbox/pkg/weather"
 	"tesselbox/pkg/world"
 
@@ -137,7 +145,7 @@ type Game struct {
 	// Systems
 	craftingSystem  *crafting.CraftingSystem
 	craftingUI      *crafting.CraftingUI
-	pluginManager   *entities.EnhancedPluginManager
+	pluginManager   *plugins.PluginManager
 	pluginUI        *plugins.PluginUI
 	pluginInstaller *plugins.PluginInstaller
 	skinEditor      *skin.SkinEditor
@@ -210,20 +218,51 @@ type Game struct {
 
 	// For solid color drawing
 	whiteImage *ebiten.Image
+
+	// Survival mode systems
+	survivalManager *survival.SurvivalManager
+	equipmentSet    *equipment.EquipmentSet
+	healthSystem    *health.LocationalHealthSystem
+	backpackUI      *ui.BackpackUI
+	hud             *ui.HUD
+
+	// Chest system
+	chestManager *chest.ChestManager
+	chestUI      *ui.ChestUI
+
+	// Combat system
+	weaponSystem *combat.WeaponSystem
+
+	// Damage indicators
+	damageIndicators  *ui.DamageIndicatorManager
+	screenFlash       *ui.ScreenFlash
+	directionalHitInd *ui.DirectionalHitManager
+
+	// Death screen
+	deathScreen *ui.DeathScreen
+	isDead      bool
+
+	// Enemy systems
+	zombieSpawner *enemies.ZombieSpawner
 }
 
-// NewGame creates a new game
+// NewGame creates a new game with default world
 func NewGame() *Game {
+	return NewGameWithWorld("default", 0)
+}
+
+// NewGameWithWorld creates a new game with a specific world name and seed
+func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	// Create a 1x1 white image for solid color drawing
 	whiteImage := ebiten.NewImage(1, 1)
 	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
 
 	g := &Game{
-		world:                  world.NewWorld("default"),  // Default world name
-		player:                 player.NewPlayer(400, 300), // Start at ground level
+		world:                  world.NewWorld(worldName), // Create world with name
+		player:                 player.NewPlayer(400, 300),
 		inventory:              items.NewInventory(32),
-		selectedBlock:          "dirt", // Default to dirt in creative mode
-		CreativeMode:           true,   // Enable creative mode by default
+		selectedBlock:          "dirt",
+		CreativeMode:           true,
 		cameraX:                0,
 		cameraY:                0,
 		lastTime:               time.Now(),
@@ -238,20 +277,25 @@ func NewGame() *Game {
 		UnlockedRecipes:        make(map[string]bool),
 	}
 
+	// Set the world seed if provided (non-zero)
+	if worldSeed != 0 {
+		g.world.SetSeed(worldSeed)
+		log.Printf("World '%s' created with seed: %d", worldName, worldSeed)
+	} else {
+		log.Printf("World '%s' created with random seed: %d", worldName, g.world.GetSeed())
+	}
+
 	// Initialize object pools for rendering optimization
 	g.vertexPool = make([][]ebiten.Vertex, 10)
 	g.indicesPool = make([][]uint16, 10)
 	for i := range g.vertexPool {
-		g.vertexPool[i] = make([]ebiten.Vertex, 0, 1000) // Pre-allocate for up to 166 blocks
+		g.vertexPool[i] = make([]ebiten.Vertex, 0, 1000)
 		g.indicesPool[i] = make([]uint16, 0, 1000)
 	}
 	g.poolIndex = 0
 
-	// Find a suitable spawn position and set player position
-	// Spawn at origin where terrain should be generated
+	// Find spawn position
 	spawnX, spawnY := g.world.FindSpawnPosition(0, 0)
-
-	// Find actual ground level and spawn above it
 	groundY := spawnY
 	for checkY := spawnY; checkY < spawnY+1000; checkY += 30 {
 		hex := g.world.GetHexagonAt(spawnX, checkY)
@@ -264,135 +308,54 @@ func NewGame() *Game {
 			}
 		}
 	}
-
-	// Spawn 200 pixels above ground (terrain is much lower than expected)
 	if groundY > spawnY {
 		spawnY = groundY - 200
 	}
-
 	g.player.SetPosition(spawnX, spawnY)
-
-	// Ensure chunks are loaded around spawn position
 	g.world.GetChunksInRange(spawnX, spawnY)
-
-	// Debug: Log spawn position
-	log.Printf("Player spawned at: (%.1f, %.1f)", spawnX, spawnY)
+	log.Printf("Player spawned at: (%.1f, %.1f) in world '%s'", spawnX, spawnY, worldName)
 
 	// Initialize crafting system
 	g.craftingSystem = crafting.NewCraftingSystem()
 	if err := g.craftingSystem.LoadRecipesFromAssets(); err != nil {
 		log.Printf("Warning: Failed to load crafting recipes: %v", err)
-		log.Printf("Game will continue with default recipes")
 	}
-
-	// Set up crafting callback for statistics tracking
 	g.craftingSystem.OnItemCrafted = func(recipeID string) {
 		g.ItemsCrafted++
 		g.UnlockedRecipes[recipeID] = true
 	}
-
 	g.craftingUI = crafting.NewCraftingUI(g.craftingSystem, g.inventory)
 
 	// Initialize input manager
 	g.inputManager = input.NewInputManager()
 
-	// Load game assets with validation
-	log.Printf("Loading game assets...")
-	assetLoadErrors := []string{}
-
-	// Load items
-	log.Printf("Loading items...")
+	// Load game assets
+	log.Printf("Loading game assets for world '%s'...", worldName)
 	items.LoadItems()
-	if len(items.ItemDefinitions) == 0 {
-		assetLoadErrors = append(assetLoadErrors, "No items loaded")
-	} else {
-		log.Printf("Successfully loaded %d item definitions", len(items.ItemDefinitions))
-	}
-
-	// Load blocks
-	log.Printf("Loading blocks...")
 	blocks.LoadBlocks()
-	if len(blocks.BlockDefinitions) == 0 {
-		assetLoadErrors = append(assetLoadErrors, "No blocks loaded")
-	} else {
-		log.Printf("Successfully loaded %d block definitions", len(blocks.BlockDefinitions))
-	}
 
-	// Validate essential game assets
-	essentialAssets := map[string]int{
-		"items":   len(items.ItemDefinitions),
-		"blocks":  len(blocks.BlockDefinitions),
-		"recipes": g.craftingSystem.GetRecipeCount(),
-	}
-
-	assetValidationPassed := true
-	for assetType, count := range essentialAssets {
-		if count == 0 {
-			assetValidationPassed = false
-			log.Printf("CRITICAL: No %s loaded - game may not function properly", assetType)
-		} else {
-			log.Printf("Asset validation passed: %d %s loaded", count, assetType)
-		}
-	}
-
-	if !assetValidationPassed {
-		log.Printf("WARNING: Some essential assets failed to load")
-		log.Printf("Asset errors: %v", assetLoadErrors)
-		log.Printf("Game will attempt to continue with fallback systems")
-	} else {
-		log.Printf("All essential assets loaded successfully")
-	}
-
-	// Add some initial items to inventory for testing
+	// Add initial items
 	g.inventory.AddItem(items.DIRT_BLOCK, 64)
 	g.inventory.AddItem(items.STONE_BLOCK, 64)
 	g.inventory.AddItem(items.GRASS_BLOCK, 64)
 	g.inventory.AddItem(items.WORKBENCH, 1)
-	g.inventory.AddItem(items.FURNACE, 1)
 	g.inventory.AddItem(items.WOODEN_PICKAXE, 1)
-	g.inventory.AddItem(items.STONE_PICKAXE, 1)
 	g.inventory.AddItem(items.COAL, 10)
-	g.inventory.AddItem(items.DIAMOND, 5)
-	// Add some new blocks for testing
-	g.inventory.AddItem(items.COBBLESTONE, 32)
-	g.inventory.AddItem(items.SANDSTONE, 32)
-	g.inventory.AddItem(items.GRAVEL, 32)
-	g.inventory.AddItem(items.WOOL, 16)
-	g.inventory.AddItem(items.GLASS, 16)
-	g.inventory.AddItem(items.TORCH, 16)
 
 	// Initialize plugin system
-	log.Printf("Initializing plugin system...")
-	// Create entity manager and system manager first
-	entityManager := entities.NewEntityManager()
-	systemManager := entities.NewSystemManager()
-	eventBus := entities.NewEventBus()
-
-	g.pluginManager = entities.NewEnhancedPluginManager(entityManager, systemManager, eventBus)
-	if g.pluginManager == nil {
-		log.Printf("Warning: Plugin manager initialization failed")
-	}
-	// Note: pluginUI and pluginInstaller may need to be updated to work with EnhancedPluginManager
-	log.Printf("Plugin system initialized")
+	g.pluginManager = plugins.NewPluginManager()
+	defaultPlugin := plugins.NewDefaultPlugin()
+	g.pluginManager.RegisterPlugin(defaultPlugin)
+	g.pluginManager.EnablePlugin("default")
 
 	// Initialize skin editor
-	log.Printf("Initializing skin editor...")
 	g.skinEditor = skin.NewSkinEditor()
-	log.Printf("Skin editor initialized")
 
-	// Initialize save system
-	worldName := "default"
-	playerName := "player"
-	g.saveManager = save.NewSaveManager(worldName, playerName)
+	// Initialize save system with world name
+	g.saveManager = save.NewSaveManager(worldName, "player")
 
-	// Initialize day/night cycle (10 minute days for gameplay) - must be done before autoSaver
+	// Initialize day/night cycle
 	g.dayNightCycle = gametime.NewDayNightCycle(600.0)
-
-	// Create initial save state for auto-saver
-	saveState := g.createSaveState()
-
-	// Initialize auto-saver with 5-minute interval
-	g.autoSaver = save.NewAutoSaver(g.saveManager, saveState, 5*time.Minute)
 
 	// Initialize weather system
 	g.weatherSystem = weather.NewWeatherSystem()
@@ -406,7 +369,6 @@ func NewGame() *Game {
 	loader := audio.NewAudioLoader(g.audioManager)
 	if err := loader.LoadAllAudio(); err != nil {
 		log.Printf("Warning: Failed to load audio files: %v", err)
-		assetLoadErrors = append(assetLoadErrors, "Audio loading failed")
 		// Clean up any partially loaded resources before loading placeholders
 		g.audioManager.Cleanup()
 		// Load placeholder sounds if real audio files are missing
@@ -425,7 +387,6 @@ func NewGame() *Game {
 	// Validate audio system
 	loadedSounds := g.audioManager.GetLoadedSounds()
 	if len(loadedSounds) == 0 {
-		assetLoadErrors = append(assetLoadErrors, "No audio sounds loaded")
 		log.Printf("WARNING: No audio sounds available")
 	} else {
 		log.Printf("Audio validation passed: %d sounds loaded", len(loadedSounds))
@@ -434,6 +395,108 @@ func NewGame() *Game {
 	// Initialize footstep tracking
 	g.lastFootstepTime = time.Now()
 	g.footstepCooldown = 400 * time.Millisecond // Footstep every 400ms when walking
+
+	// Initialize survival mode systems
+	log.Printf("Initializing survival mode systems...")
+
+	// Create survival manager (start in survival mode)
+	gameMode := survival.ModeSurvival
+	if g.CreativeMode {
+		gameMode = survival.ModeCreative
+	}
+	g.survivalManager = survival.NewSurvivalManager(gameMode, g.player, g.inventory)
+
+	// Create equipment set
+	g.equipmentSet = equipment.NewEquipmentSet()
+
+	// Create locational health system
+	g.healthSystem = health.NewLocationalHealthSystem()
+
+	// Create backpack UI
+	g.backpackUI = ui.NewBackpackUI(ScreenWidth, ScreenHeight, g.inventory, g.equipmentSet, g.healthSystem)
+	g.backpackUI.SetSelectedSlot(g.player.GetSelectedSlot())
+
+	// Create zombie spawner
+	g.zombieSpawner = enemies.NewZombieSpawner(g.dayNightCycle)
+
+	// Set up damage callback for zombie attacks
+	g.zombieSpawner.OnPlayerDamage = func(damage float64, zombieX, zombieY float64) {
+		// Trigger screen flash
+		if g.screenFlash != nil {
+			g.screenFlash.Trigger(color.RGBA{255, 0, 0, 100}, 500*time.Millisecond)
+		}
+
+		// Determine damage tier based on damage amount
+		var tier ui.DamageTier
+		isCritical := false
+		switch {
+		case damage >= 15:
+			tier = ui.TierPurple // Fatal
+			isCritical = true
+		case damage >= 10:
+			tier = ui.TierRed // Severe
+			isCritical = true
+		case damage >= 5:
+			tier = ui.TierYellow // Moderate
+		default:
+			tier = ui.TierGreen // Low
+		}
+
+		// Spawn damage indicator
+		if g.damageIndicators != nil {
+			g.damageIndicators.SpawnDamageIndicator(g.player.X, g.player.Y, damage, tier, isCritical)
+		}
+
+		// Trigger directional hit indicator
+		if g.directionalHitInd != nil {
+			// Determine direction based on zombie position relative to player
+			if zombieX < g.player.X {
+				g.directionalHitInd.TriggerHit(ui.DirLeft)
+			} else {
+				g.directionalHitInd.TriggerHit(ui.DirRight)
+			}
+		}
+	}
+
+	// Add some starter equipment for testing
+	g.equipmentSet.EquipItem(equipment.CreateArmor("Leather Cap", equipment.SlotHelmet, equipment.MaterialLeather, equipment.ArmorLight), equipment.SlotHelmet)
+	g.equipmentSet.EquipItem(equipment.CreateArmor("Leather Tunic", equipment.SlotChestplate, equipment.MaterialLeather, equipment.ArmorLight), equipment.SlotChestplate)
+	g.equipmentSet.EquipItem(equipment.CreateArmor("Leather Pants", equipment.SlotLeggings, equipment.MaterialLeather, equipment.ArmorLight), equipment.SlotLeggings)
+	g.equipmentSet.EquipItem(equipment.CreateArmor("Leather Boots", equipment.SlotBoots, equipment.MaterialLeather, equipment.ArmorLight), equipment.SlotBoots)
+
+	// Create wings and equip them
+	wings := equipment.CreateWings("Angel", equipment.MaterialCloth)
+	g.equipmentSet.EquipItem(wings, equipment.SlotWings)
+
+	// Create HUD
+	g.hud = ui.NewHUD(ScreenWidth, ScreenHeight, g.survivalManager, g.equipmentSet, g.healthSystem, g.dayNightCycle)
+
+	// Create chest system
+	g.chestManager = chest.NewChestManager(worldName)
+
+	// Create combat system
+	g.weaponSystem = combat.NewWeaponSystem()
+	// Load existing chests
+	if err := g.chestManager.LoadChests(); err != nil {
+		log.Printf("Failed to load chests: %v", err)
+	}
+	g.chestUI = ui.NewChestUI(ScreenWidth, ScreenHeight, g.chestManager, g.inventory)
+
+	// Create damage indicators
+	g.damageIndicators = ui.NewDamageIndicatorManager(ScreenWidth, ScreenHeight)
+	g.screenFlash = ui.NewScreenFlash()
+	g.directionalHitInd = ui.NewDirectionalHitManager()
+
+	// Create death screen
+	g.deathScreen = ui.NewDeathScreen(ScreenWidth, ScreenHeight)
+	g.deathScreen.OnRespawn = func() {
+		g.respawnPlayer()
+	}
+	g.deathScreen.OnMainMenu = func() {
+		g.returnToMainMenu()
+	}
+
+	log.Printf("Survival systems initialized: Equipment slots filled, wings equipped, HUD ready")
 
 	// Start in game mode (no menu)
 	g.inMenu = false
@@ -461,6 +524,32 @@ func (g *Game) Update() error {
 		// Handle escape to close crafting
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			g.inCrafting = false
+		}
+		return nil
+	}
+
+	// Handle backpack UI
+	if g.backpackUI.IsOpen() {
+		if err := g.backpackUI.Update(); err != nil {
+			return err
+		}
+
+		// Handle escape to close backpack
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.backpackUI.Toggle()
+		}
+		return nil
+	}
+
+	// Handle chest UI
+	if g.chestUI != nil && g.chestUI.IsOpen() {
+		if err := g.chestUI.Update(); err != nil {
+			return err
+		}
+
+		// Handle escape to close chest
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.chestUI.Close()
 		}
 		return nil
 	}
@@ -497,6 +586,15 @@ func (g *Game) Update() error {
 		return nil
 	}
 
+	// Handle death screen
+	if g.deathScreen != nil && g.deathScreen.IsActive() {
+		if err := g.deathScreen.Update(); err != nil {
+			return err
+		}
+		// Skip other updates when dead
+		return nil
+	}
+
 	// Handle game state
 	if g.inGame {
 		g.handleGameInput()
@@ -507,8 +605,30 @@ func (g *Game) Update() error {
 		// Update mining progress
 		g.updateMining(deltaTime)
 
+		// Check if player died
+		g.checkPlayerDeath()
+
 		// Update day/night cycle
 		g.dayNightCycle.Update()
+
+		// Update survival systems
+		g.survivalManager.Update(deltaTime)
+		g.healthSystem.Update(deltaTime)
+
+		// Update damage indicators
+		if g.damageIndicators != nil {
+			g.damageIndicators.Update(deltaTime)
+		}
+		if g.screenFlash != nil {
+			g.screenFlash.Update()
+		}
+		if g.directionalHitInd != nil {
+			g.directionalHitInd.Update()
+		}
+
+		// Update zombies
+		ambientLight := g.dayNightCycle.AmbientLight
+		g.zombieSpawner.Update(deltaTime, g.player, ambientLight)
 
 		// Update weather system
 		g.weatherSystem.Update(deltaTime, ScreenWidth, ScreenHeight)
@@ -583,9 +703,17 @@ func (g *Game) handleGameInput() {
 		g.player.Jump()
 	}
 
-	// Toggle flying with F key
+	// Toggle flying with F key (requires wings in survival mode)
 	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
-		g.player.SetFlying(!g.player.GetIsFlying())
+		canFly := g.CreativeMode || g.equipmentSet.CanFly()
+		if canFly {
+			g.player.SetFlying(!g.player.GetIsFlying())
+			if g.player.GetIsFlying() {
+				log.Printf("Flying enabled - wings equipped")
+			}
+		} else if !g.CreativeMode {
+			log.Printf("Cannot fly - no wings equipped")
+		}
 	}
 
 	// Handle vertical movement when flying
@@ -603,10 +731,16 @@ func (g *Game) handleGameInput() {
 	}
 
 	// Open crafting menu
-	if g.inputManager.IsActionJustPressed("crafting") || g.inputManager.IsActionJustPressed("inventory") {
+	if g.inputManager.IsActionJustPressed("crafting") {
 		g.playUISound("open")
 		g.inCrafting = true
 		g.craftingUI.Toggle()
+	}
+
+	// Open backpack with 'I' key
+	if g.inputManager.IsActionJustPressed("inventory") || inpututil.IsKeyJustPressed(ebiten.KeyI) {
+		g.playUISound("open")
+		g.backpackUI.Toggle()
 	}
 
 	// Open plugin manager (P key)
@@ -694,8 +828,9 @@ func (g *Game) handleGameInput() {
 
 	// Track previous state to detect "just pressed"
 	if !g.leftMouseWasPressed && staticLeftPressed {
-		// Left mouse just pressed - start mining
+		// Left mouse just pressed - start mining and weapon attack
 		g.startMining()
+		g.performWeaponAttack()
 	}
 	if g.leftMouseWasPressed && !staticLeftPressed {
 		// Left mouse just released - stop mining
@@ -1134,7 +1269,7 @@ func (g *Game) updateMining(deltaTime float64) {
 	}
 }
 
-// completeMining handles the completion of mining (block destruction and item pickup)
+// completeMining handles the completion of mining (block destruction and item drop)
 func (g *Game) completeMining(targetHex *world.Hexagon) {
 	// Get the block type before removing
 	blockType := targetHex.BlockType
@@ -1149,13 +1284,24 @@ func (g *Game) completeMining(targetHex *world.Hexagon) {
 	// Use item durability
 	g.inventory.UseItem()
 
-	// Add mined item to inventory
+	// Drop mined item as floating item (like Minecraft) instead of adding directly to inventory
 	minedItemType := g.getItemFromBlockType(blockType)
 	if minedItemType != items.NONE {
-		if !g.inventory.AddItem(minedItemType, 1) {
-			// Inventory full - could implement dropping item here
-			log.Printf("Inventory full, cannot pick up %v", minedItemType)
+		// Spawn floating item at the mined block position with slight random velocity
+		vx := float64(rand.Intn(60)-30) / 10.0   // Random horizontal velocity: -3.0 to 3.0
+		vy := -3.0 - float64(rand.Intn(20))/10.0 // Upward velocity with variation: -3.0 to -5.0
+
+		droppedItem := &DroppedItem{
+			Type:     minedItemType,
+			Quantity: 1,
+			X:        x,
+			Y:        y - 10, // Slightly above the block center
+			VX:       vx,
+			VY:       vy,
+			Lifetime: time.Now().Add(5 * time.Minute), // Items disappear after 5 minutes
 		}
+
+		g.droppedItems = append(g.droppedItems, droppedItem)
 	}
 
 	// Trigger gravity fall
@@ -1276,6 +1422,11 @@ func (g *Game) handleBlockPlacement() {
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
 
+	// Check if clicking on an existing chest block
+	if g.handleChestInteraction(mouseWorldX, mouseWorldY) {
+		return // Opened chest, don't place block
+	}
+
 	// Find which hexagon the mouse is over using the same system as world generation
 	// Convert world coordinates to local chunk coordinates
 	chunkX, chunkY := g.world.GetChunkCoords(mouseWorldX, mouseWorldY)
@@ -1329,6 +1480,56 @@ func (g *Game) handleBlockPlacement() {
 	if !g.CreativeMode {
 		g.inventory.RemoveItem(1)
 	}
+}
+
+// handleChestInteraction checks if player clicked on a chest and opens it
+// Returns true if a chest was interacted with
+func (g *Game) handleChestInteraction(mouseWorldX, mouseWorldY float64) bool {
+	// Check reach distance
+	playerX, playerY := g.player.GetCenter()
+	dist := math.Sqrt(math.Pow(mouseWorldX-playerX, 2) + math.Pow(mouseWorldY-playerY, 2))
+	if dist > 150 { // Chest interaction range
+		return false
+	}
+
+	// Get the chunk at mouse position
+	chunkX, chunkY := g.world.GetChunkCoords(mouseWorldX, mouseWorldY)
+	chunk := g.world.GetChunk(chunkX, chunkY)
+	if chunk == nil {
+		return false
+	}
+
+	// Check if there's a chest block at the clicked position
+	worldX, worldY := chunk.GetWorldPosition()
+	localRow := int((mouseWorldY - worldY) / world.HexVSpacing)
+	var localCol int
+	if localRow%2 == 0 {
+		localCol = int((mouseWorldX - worldX - world.HexWidth/2) / world.HexWidth)
+	} else {
+		localCol = int((mouseWorldX - worldX - world.HexWidth) / world.HexWidth)
+	}
+
+	// Calculate block position
+	var blockX, blockY float64
+	if localRow%2 == 0 {
+		blockX = worldX + float64(localCol)*world.HexWidth + world.HexWidth/2
+	} else {
+		blockX = worldX + float64(localCol)*world.HexWidth + world.HexWidth
+	}
+	blockY = worldY + float64(localRow)*world.HexVSpacing + world.HexSize
+
+	// Check if there's a chest at this position
+	// We need to check the hexagon at this position
+	hex := chunk.GetHexagon(float64(localCol), float64(localRow))
+	if hex != nil && hex.BlockType == blocks.CHEST {
+		// Open the chest UI
+		if g.chestUI != nil && g.chestManager != nil {
+			g.chestUI.OpenChest(blockX, blockY)
+			return true
+		}
+	}
+
+	return false
 }
 
 // canPlaceBlockAt checks if a block can be placed at the given position
@@ -1419,8 +1620,8 @@ func (g *Game) drawMiningProgress(screen *ebiten.Image) {
 
 // updateDroppedItems updates physics for all dropped items
 func (g *Game) updateDroppedItems(deltaTime float64) {
-	gravity := 9.8 * 50.0 // Scale gravity for pixel space
-	friction := 0.98      // Air friction
+	gravity := 9.8 * 100.0 // Scale gravity for pixel space
+	friction := 0.98       // Air friction
 
 	// Update items in reverse order to safely remove expired items
 	for i := len(g.droppedItems) - 1; i >= 0; i-- {
@@ -1473,6 +1674,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
+	if g.backpackUI.IsOpen() {
+		// Draw game in background
+		g.drawGameScene(screen)
+		// Draw backpack UI overlay
+		g.backpackUI.Draw(screen)
+		return
+	}
+
+	if g.chestUI != nil && g.chestUI.IsOpen() {
+		// Draw game in background
+		g.drawGameScene(screen)
+		// Draw chest UI overlay
+		g.chestUI.Draw(screen)
+		return
+	}
+
 	if g.inPluginUI {
 		// Draw game in background
 		g.drawGameScene(screen)
@@ -1491,6 +1708,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawGameScene(screen)
 		g.drawUI(screen)
 		g.drawDebugInfo(screen)
+
+		// Draw damage indicators (on top of everything)
+		if g.damageIndicators != nil {
+			g.damageIndicators.Draw(screen, g.cameraX, g.cameraY)
+		}
+		if g.screenFlash != nil {
+			g.screenFlash.Draw(screen, ScreenWidth, ScreenHeight)
+		}
+		if g.directionalHitInd != nil {
+			g.directionalHitInd.Draw(screen, ScreenWidth, ScreenHeight)
+		}
+
+		// Draw death screen on top of everything
+		if g.deathScreen != nil {
+			g.deathScreen.Draw(screen)
+		}
 	}
 }
 
@@ -1510,6 +1743,12 @@ func (g *Game) drawGameScene(screen *ebiten.Image) {
 
 	// Draw player
 	g.drawPlayer(screen)
+
+	// Draw weapon swing effect
+	g.drawWeaponSwing(screen)
+
+	// Draw zombies
+	g.drawZombies(screen)
 
 	// Draw dropped items
 	g.drawDroppedItems(screen)
@@ -1742,6 +1981,11 @@ func (g *Game) drawBlocksBatched(screen *ebiten.Image, blockList []*world.Hexago
 
 // drawUI draws the user interface
 func (g *Game) drawUI(screen *ebiten.Image) {
+	// Draw HUD (survival bars)
+	if g.hud != nil {
+		g.hud.Draw(screen)
+	}
+
 	// Draw hotbar
 	hotbarWidth := 400
 	hotbarHeight := 50
@@ -2057,6 +2301,15 @@ func (g *Game) drawPlayer(screen *ebiten.Image) {
 	screenX := g.player.X - g.cameraX
 	screenY := g.player.Y - g.cameraY
 
+	// Draw floating player name above player
+	playerName := "Player" // Could be customizable
+	nameX := int(screenX + float64(g.player.Width)/2 - float64(len(playerName)*4))
+	nameY := int(screenY - 35)
+
+	// Draw name background for visibility
+	ebitenutil.DrawRect(screen, float64(nameX-5), float64(nameY-2), float64(len(playerName)*8+10), 14, color.RGBA{0, 0, 0, 150})
+	ebitenutil.DebugPrintAt(screen, playerName, nameX, nameY)
+
 	// Draw player using custom skin renderer
 	if g.skinEditor != nil && g.skinEditor.GetSkinData() != nil {
 		renderer := skin.NewPlayerRenderer(g.skinEditor.GetSkinData())
@@ -2095,6 +2348,264 @@ func (g *Game) drawPlayer(screen *ebiten.Image) {
 		ebitenutil.DrawRect(screen, screenX+8, screenY+float64(g.player.Height)-legHeight, legWidth, legHeight, legColor)
 		// Right leg
 		ebitenutil.DrawRect(screen, screenX+float64(g.player.Width)-legWidth-8, screenY+float64(g.player.Height)-legHeight, legWidth, legHeight, legColor)
+	}
+}
+
+// drawZombies draws all active zombies
+func (g *Game) drawZombies(screen *ebiten.Image) {
+	for _, zombie := range g.zombieSpawner.Zombies {
+		if !zombie.IsAlive {
+			continue
+		}
+
+		screenX := zombie.X - g.cameraX
+		screenY := zombie.Y - g.cameraY
+
+		// Don't draw if off screen
+		if screenX < -100 || screenX > ScreenWidth+100 || screenY < -100 || screenY > ScreenHeight+100 {
+			continue
+		}
+
+		// Determine zombie color based on type and state
+		var bodyColor color.RGBA
+		if zombie.IsBurning {
+			// Burning zombies are orange/red
+			bodyColor = color.RGBA{255, 100, 50, 255}
+		} else {
+			switch zombie.Type {
+			case enemies.ZombieNormal:
+				bodyColor = color.RGBA{50, 100, 50, 255} // Green
+			case enemies.ZombieFast:
+				bodyColor = color.RGBA{100, 150, 50, 255} // Yellow-green
+			case enemies.ZombieStrong:
+				bodyColor = color.RGBA{80, 80, 80, 255} // Dark gray
+			case enemies.ZombieTank:
+				bodyColor = color.RGBA{30, 60, 30, 255} // Dark green
+			default:
+				bodyColor = color.RGBA{50, 100, 50, 255}
+			}
+		}
+
+		// Draw zombie body
+		ebitenutil.DrawRect(screen, screenX, screenY, zombie.Width, zombie.Height, bodyColor)
+
+		// Draw zombie head (slightly smaller)
+		headSize := zombie.Width * 0.7
+		headX := screenX + (zombie.Width-headSize)/2
+		headY := screenY - headSize/2
+		ebitenutil.DrawRect(screen, headX, headY, headSize, headSize, color.RGBA{100, 150, 100, 255})
+
+		// Draw eyes (white with red pupils when hostile)
+		eyeSize := headSize / 5
+		ebitenutil.DrawRect(screen, headX+headSize*0.2, headY+headSize*0.3, eyeSize, eyeSize, color.RGBA{255, 255, 255, 255})
+		ebitenutil.DrawRect(screen, headX+headSize*0.6, headY+headSize*0.3, eyeSize, eyeSize, color.RGBA{255, 255, 255, 255})
+
+		// Draw red pupils
+		pupilSize := eyeSize / 2
+		ebitenutil.DrawRect(screen, headX+headSize*0.2+eyeSize/4, headY+headSize*0.3+eyeSize/4, pupilSize, pupilSize, color.RGBA{255, 0, 0, 255})
+		ebitenutil.DrawRect(screen, headX+headSize*0.6+eyeSize/4, headY+headSize*0.3+eyeSize/4, pupilSize, pupilSize, color.RGBA{255, 0, 0, 255})
+
+		// Draw health bar above zombie
+		healthBarWidth := zombie.Width
+		healthBarHeight := 4.0
+		healthPct := zombie.Health / zombie.MaxHealth
+		healthWidth := healthBarWidth * healthPct
+
+		// Background (gray)
+		ebitenutil.DrawRect(screen, screenX, screenY-10, healthBarWidth, healthBarHeight, color.RGBA{50, 50, 50, 255})
+
+		// Health (green to red based on health)
+		var healthColor color.RGBA
+		if healthPct > 0.5 {
+			healthColor = color.RGBA{0, 255, 0, 255}
+		} else if healthPct > 0.25 {
+			healthColor = color.RGBA{255, 255, 0, 255}
+		} else {
+			healthColor = color.RGBA{255, 0, 0, 255}
+		}
+		ebitenutil.DrawRect(screen, screenX, screenY-10, healthWidth, healthBarHeight, healthColor)
+	}
+}
+
+// drawWeaponSwing draws the weapon swing effect
+func (g *Game) drawWeaponSwing(screen *ebiten.Image) {
+	if g.weaponSystem == nil || !g.weaponSystem.IsSwinging() {
+		return
+	}
+
+	// Get player position
+	playerX, playerY := g.player.GetCenter()
+	screenX := playerX - g.cameraX
+	screenY := playerY - g.cameraY
+
+	// Get swing arc
+	startAngle, endAngle, radius := g.weaponSystem.GetSwingArc()
+	progress := g.weaponSystem.GetSwingProgress()
+
+	// Draw swing arc visualization
+	arcColor := color.RGBA{255, 255, 255, 150}
+	if progress < 0.5 {
+		// Swing is active - brighter color
+		arcColor = color.RGBA{255, 255, 200, 200}
+	}
+
+	// Draw a simple arc representation (triangular sweep)
+	midAngle := (startAngle + endAngle) / 2
+	angleRad := midAngle * math.Pi / 180
+
+	// Draw line from player to arc edge
+	endX := screenX + math.Cos(angleRad)*radius
+	endY := screenY + math.Sin(angleRad)*radius
+
+	// Draw the swing line
+	ebitenutil.DrawLine(screen, screenX, screenY, endX, endY, arcColor)
+
+	// Draw arc edges
+	startRad := startAngle * math.Pi / 180
+	endRad := endAngle * math.Pi / 180
+	ebitenutil.DrawLine(screen, screenX, screenY, screenX+math.Cos(startRad)*radius*0.5, screenY+math.Sin(startRad)*radius*0.5, arcColor)
+	ebitenutil.DrawLine(screen, screenX, screenY, screenX+math.Cos(endRad)*radius*0.5, screenY+math.Sin(endRad)*radius*0.5, arcColor)
+}
+
+// performWeaponAttack executes a weapon swing attack
+func (g *Game) performWeaponAttack() {
+	if g.weaponSystem == nil || g.zombieSpawner == nil {
+		return
+	}
+
+	// Get player center position
+	playerX, playerY := g.player.GetCenter()
+
+	// Get mouse position in world coordinates
+	mouseWorldX := float64(g.mouseX) + g.cameraX
+	mouseWorldY := float64(g.mouseY) + g.cameraY
+
+	// Calculate weapon damage based on equipped weapon
+	damage := 5.0 // Base unarmed damage
+	selectedItem := g.inventory.GetSelectedItem()
+	if selectedItem != nil && selectedItem.Type != items.NONE {
+		props := items.ItemDefinitions[selectedItem.Type]
+		if props != nil && props.IsWeapon {
+			damage = props.WeaponDamage
+		}
+	}
+
+	// Perform attack
+	results := g.weaponSystem.PerformAttack(playerX, playerY, mouseWorldX, mouseWorldY, damage, g.zombieSpawner.Zombies)
+
+	// Apply damage to hit zombies and show indicators
+	for _, result := range results {
+		if result.Hit {
+			// Find the zombie that was hit and apply damage
+			for _, zombie := range g.zombieSpawner.Zombies {
+				if zombie.IsAlive &&
+					math.Abs(zombie.X+zombie.Width/2-result.HitX) < 10 &&
+					math.Abs(zombie.Y+zombie.Height/2-result.HitY) < 10 {
+					// Apply damage
+					zombie.TakeDamage(result.Damage)
+
+					// Show damage indicator with appropriate tier color
+					if g.damageIndicators != nil {
+						var tier ui.DamageTier
+						switch result.Tier {
+						case combat.CritTierPurple:
+							tier = ui.TierPurple // Fatal - instant death
+						case combat.CritTierRed:
+							tier = ui.TierRed // Severe damage
+						case combat.CritTierYellow:
+							tier = ui.TierYellow // Moderate damage
+						default:
+							tier = ui.TierGreen // Low damage
+						}
+						g.damageIndicators.SpawnDamageIndicator(zombie.X, zombie.Y, result.Damage, tier, result.IsCritical)
+					}
+
+					break
+				}
+			}
+		}
+	}
+}
+
+// respawnPlayer respawns the player at a safe location
+func (g *Game) respawnPlayer() {
+	// Reset player position (spawn at world origin or safe location)
+	g.player.X = 0
+	g.player.Y = 0
+	g.player.VX = 0
+	g.player.VY = 0
+
+	// Restore health
+	g.player.Health = g.player.MaxHealth
+	if g.healthSystem != nil {
+		// Heal all body parts
+		for i := 0; i < 6; i++ {
+			g.healthSystem.HealBodyPart(health.BodyPart(i), 9999) // Full heal
+		}
+	}
+
+	// Restore survival stats
+	if g.survivalManager != nil {
+		g.survivalManager.Hunger = g.survivalManager.MaxHunger * 0.5 // 50% hunger on respawn
+		g.survivalManager.Thirst = g.survivalManager.MaxThirst * 0.5
+		g.survivalManager.Stamina = g.survivalManager.MaxStamina
+		g.survivalManager.IsStarving = false
+		g.survivalManager.IsDehydrated = false
+	}
+
+	// Clear death state
+	g.isDead = false
+
+	// In hardcore mode, we might want to drop inventory or reset progress
+	// For now, just respawn with current inventory
+
+	log.Printf("Player respawned at (%.0f, %.0f)", g.player.X, g.player.Y)
+}
+
+// returnToMainMenu returns the player to the main menu
+func (g *Game) returnToMainMenu() {
+	// Save game before returning to menu
+	if err := g.SaveGame(); err != nil {
+		log.Printf("Failed to save game before returning to menu: %v", err)
+	}
+
+	// Reset game state
+	g.inGame = false
+	g.inMenu = true
+	g.isDead = false
+
+	// Stop auto-save
+	g.StopAutoSave()
+
+	log.Printf("Returning to main menu")
+}
+
+// checkPlayerDeath checks if player has died and triggers death screen
+func (g *Game) checkPlayerDeath() {
+	if g.isDead {
+		return
+	}
+
+	// Check if player health is 0
+	if g.player.Health <= 0 || (g.healthSystem != nil && g.healthSystem.OverallHealth <= 0) {
+		g.isDead = true
+
+		// Determine cause of death
+		cause := "Unknown"
+		if g.survivalManager != nil && g.survivalManager.IsStarving {
+			cause = "Starvation"
+		} else if g.survivalManager != nil && g.survivalManager.IsDehydrated {
+			cause = "Dehydration"
+		} else {
+			cause = "Killed by Zombie"
+		}
+
+		// Trigger death screen
+		if g.deathScreen != nil {
+			g.deathScreen.Trigger(cause)
+		}
+
+		log.Printf("Player died: %s", cause)
 	}
 }
 
@@ -2249,6 +2760,11 @@ func (g *Game) createSaveState() *save.GameState {
 		BlocksDestroyed: g.BlocksDestroyed,
 		ItemsCrafted:    g.ItemsCrafted,
 		PlayTime:        g.TotalPlayTime.Seconds(),
+
+		// Survival systems
+		SurvivalManager: g.survivalManager,
+		EquipmentSet:    g.equipmentSet,
+		HealthSystem:    g.healthSystem,
 	}
 }
 
@@ -2266,7 +2782,21 @@ func (g *Game) SaveGame() error {
 	if g.saveManager == nil {
 		return fmt.Errorf("save manager not initialized")
 	}
-	return g.saveManager.SaveGame(g.createSaveState())
+
+	// Save main game state
+	if err := g.saveManager.SaveGame(g.createSaveState()); err != nil {
+		return err
+	}
+
+	// Save chests
+	if g.chestManager != nil {
+		if err := g.chestManager.SaveChests(); err != nil {
+			log.Printf("Failed to save chests: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 // LoadGame loads a game state
@@ -2368,9 +2898,9 @@ func (g *Game) playMusic(context string) {
 // updateAudioContext updates the audio context based on game state
 func (g *Game) updateAudioContext() {
 	// Determine current biome (simplified)
-	biome := "plains" // Default biome
+	biome := biomes.PLAINS // Default biome
 	if g.player.Y < -500 {
-		biome = "underground"
+		biome = biomes.PLAINS // Keep as plains for underground for now
 	}
 
 	// Determine if underground
@@ -2399,13 +2929,37 @@ type model struct {
 	selected      int
 	width         int
 	height        int
-	currentScreen string // "main" or "settings"
-	shouldExit    bool   // New field to track if we should exit
+	currentScreen string // "main", "worlds", "settings", "skin_editor", "plugins"
+	shouldExit    bool
 
 	// Settings state
 	soundEnabled    bool
 	graphicsQuality string // "low", "medium", "high"
 	difficulty      string // "easy", "normal", "hard"
+
+	// Multi-world state
+	worlds        []string
+	worldSeeds    map[string]int64 // Map world names to their seeds
+	selectedWorld int
+	newWorldName  string
+	newWorldSeed  string // Seed as string input (empty = random)
+
+	// Skin editor state
+	skinColors    []string
+	selectedColor int
+	skinName      string
+
+	// Plugin manager state
+	plugins        []PluginInfo
+	selectedPlugin int
+}
+
+// PluginInfo holds plugin information for the plugin manager
+type PluginInfo struct {
+	Name        string
+	Version     string
+	Enabled     bool
+	Description string
 }
 
 // Init implements tea.Model interface
@@ -2415,8 +2969,14 @@ func (m model) Init() tea.Cmd {
 
 // Initial model for TUI
 func initialModel() model {
+	// Initialize with sample worlds and their seeds (like Minecraft)
+	worldSeeds := map[string]int64{
+		"World 1": 12345, // Known seed for sharing
+		"World 2": 67890, // Another known seed
+	}
+
 	return model{
-		choices:         []string{"Start Game", "Settings", "Exit"},
+		choices:         []string{"Play (Select World)", "Create New World", "Skin Editor", "Plugin Manager", "Settings", "Exit"},
 		cursor:          0,
 		selected:        0,
 		width:           80,
@@ -2426,6 +2986,19 @@ func initialModel() model {
 		soundEnabled:    true,
 		graphicsQuality: "medium",
 		difficulty:      "normal",
+		worlds:          []string{"World 1", "World 2"}, // Default worlds
+		worldSeeds:      worldSeeds,
+		selectedWorld:   0,
+		newWorldSeed:    "", // Empty = random seed
+		skinColors:      []string{"Default", "Red", "Blue", "Green", "Purple"},
+		selectedColor:   0,
+		skinName:        "Player",
+		plugins: []PluginInfo{
+			{Name: "Minimap", Version: "1.0", Enabled: true, Description: "Shows a minimap"},
+			{Name: "Auto-Save", Version: "2.1", Enabled: true, Description: "Auto-saves every 5 minutes"},
+			{Name: "Debug Tools", Version: "0.5", Enabled: false, Description: "Developer debugging tools"},
+		},
+		selectedPlugin: 0,
 	}
 }
 
@@ -2445,14 +3018,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter", " ":
 				m.selected = m.cursor
-				if m.choices[m.cursor] == "Settings" {
+				choice := m.choices[m.cursor]
+				if choice == "Settings" {
 					m.currentScreen = "settings"
 					m.choices = []string{"Sound: ON", "Graphics: Medium", "Difficulty: Normal", "Back"}
 					m.cursor = 0
-				} else if m.choices[m.cursor] == "Exit" {
+				} else if choice == "Exit" {
 					fmt.Println("Goodbye!")
 					os.Exit(0)
-				} else if m.choices[m.cursor] == "Back" {
+				} else if choice == "Play (Select World)" {
+					m.currentScreen = "worlds"
+					m.cursor = 0
+				} else if choice == "Create New World" {
+					m.currentScreen = "create_world"
+					m.newWorldName = ""
+					m.cursor = 0
+				} else if choice == "Skin Editor" {
+					m.currentScreen = "skin_editor"
+					m.cursor = 0
+				} else if choice == "Plugin Manager" {
+					m.currentScreen = "plugins"
+					m.cursor = 0
+				} else if choice == "Back" {
 					// This shouldn't happen in main screen
 				} else {
 					// Start Game
@@ -2505,11 +3092,119 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				} else if m.choices[m.cursor] == "Back" {
 					m.currentScreen = "main"
-					m.choices = []string{"Start Game", "Settings", "Exit"}
-					m.cursor = 1 // Return to Settings option
+					m.choices = []string{"Play (Select World)", "Create New World", "Skin Editor", "Plugin Manager", "Settings", "Exit"}
+					m.cursor = 4 // Return to Settings option
 				}
 			case "ctrl+c", "q":
 				return m, tea.Quit
+			}
+		} else if m.currentScreen == "worlds" {
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.worlds) {
+					m.cursor++
+				}
+			case "enter", " ":
+				if m.cursor < len(m.worlds) {
+					m.selectedWorld = m.cursor
+					return m, tea.Quit // Start game with selected world
+				} else if m.cursor == len(m.worlds) { // Back option
+					m.currentScreen = "main"
+					m.cursor = 0
+				}
+			case "ctrl+c", "q":
+				m.currentScreen = "main"
+				m.cursor = 0
+			}
+		} else if m.currentScreen == "create_world" {
+			switch msg.String() {
+			case "tab":
+				// Toggle between name and seed fields
+				if m.cursor == 0 {
+					m.cursor = 1
+				} else {
+					m.cursor = 0
+				}
+			case "enter", " ":
+				if m.newWorldName != "" {
+					// Generate or parse seed
+					var seed int64
+					if m.newWorldSeed == "" {
+						// Random seed
+						seed = time.Now().UnixNano()
+					} else {
+						// Try to parse seed as integer
+						parsedSeed, err := strconv.ParseInt(m.newWorldSeed, 10, 64)
+						if err != nil {
+							// Use string hash as seed
+							h := fnv.New64a()
+							h.Write([]byte(m.newWorldSeed))
+							seed = int64(h.Sum64())
+						} else {
+							seed = parsedSeed
+						}
+					}
+
+					// Add world with seed
+					m.worlds = append(m.worlds, m.newWorldName)
+					if m.worldSeeds == nil {
+						m.worldSeeds = make(map[string]int64)
+					}
+					m.worldSeeds[m.newWorldName] = seed
+
+					m.currentScreen = "worlds"
+					m.cursor = len(m.worlds) - 1
+				}
+			case "ctrl+c", "q":
+				m.currentScreen = "main"
+				m.cursor = 1
+			}
+		} else if m.currentScreen == "skin_editor" {
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.skinColors)+1 {
+					m.cursor++
+				}
+			case "enter", " ":
+				if m.cursor < len(m.skinColors) {
+					m.selectedColor = m.cursor
+				} else if m.cursor == len(m.skinColors) { // Save & Back
+					m.currentScreen = "main"
+					m.cursor = 2
+				}
+			case "ctrl+c", "q":
+				m.currentScreen = "main"
+				m.cursor = 2
+			}
+		} else if m.currentScreen == "plugins" {
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.plugins) {
+					m.cursor++
+				}
+			case "enter", " ":
+				if m.cursor < len(m.plugins) {
+					// Toggle plugin enabled state
+					m.plugins[m.cursor].Enabled = !m.plugins[m.cursor].Enabled
+				} else if m.cursor == len(m.plugins) { // Back
+					m.currentScreen = "main"
+					m.cursor = 3
+				}
+			case "ctrl+c", "q":
+				m.currentScreen = "main"
+				m.cursor = 3
 			}
 		}
 	}
@@ -2521,24 +3216,43 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	s := strings.Builder{}
 
-	// Magnified colorful game title with larger appearance
+	// Determine title based on screen
 	var title string
-	if m.currentScreen == "main" {
-		// Large rainbow title with magnified effect
+	switch m.currentScreen {
+	case "main":
 		title = "\033[38;5;196m╔════════════════════════════════════════════════════════════════════╗\033[0m\n"
 		title += "\033[38;5;196m║\033[38;5;208m  ╔══╗  \033[38;5;226mT\033[38;5;46mE\033[38;5;51mS\033[38;5;99mS\033[38;5;129mE\033[38;5;165mL\033[38;5;196mB\033[38;5;208mO\033[38;5;226mX  ╔══╗  \033[38;5;196m║\033[0m\n"
 		title += "\033[38;5;196m║\033[38;5;208m  ║  ║  \033[38;5;46m║\033[38;5;51m║\033[38;5;99m║\033[38;5;129m║\033[38;5;165m║\033[38;5;196m║\033[38;5;208m║\033[38;5;226m║  ║  ║  \033[38;5;196m║\033[0m\n"
 		title += "\033[38;5;196m║\033[38;5;208m  ╚══╝  ╚══╝  \033[38;5;46m╚══╝\033[38;5;51m╚══╝\033[38;5;99m╚══╝\033[38;5;129m╚══╝\033[38;5;165m╚══╝\033[38;5;196m╚══╝\033[38;5;208m╚══╝\033[38;5;226m╚══╝  ║  ║  \033[38;5;196m║\033[0m\n"
 		title += "\033[38;5;196m╚══════════════════════════════════════════════════════════════════════════╝\033[0m\n"
-	} else {
-		// Settings title with magnified effect
+	case "settings":
 		title = "\033[38;5;208m╔══════════════════════════════════════════════════════════╗\033[0m\n"
 		title += "\033[38;5;208m║\033[38;5;226m  ⚙ \033[38;5;46mS\033[38;5;51mE\033[38;5;129mT\033[38;5;165mT\033[38;5;196mI\033[38;5;208mN\033[38;5;226mG\033[38;5;208mS  ⚙  \033[38;5;208m║\033[0m\n"
 		title += "\033[38;5;208m║\033[38;5;226m                                             ║  \033[38;5;208m║\033[0m\n"
 		title += "\033[38;5;208m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	case "worlds":
+		title = "\033[38;5;51m╔══════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;51m║\033[38;5;46m  🌍 \033[38;5;99mS\033[38;5;129mE\033[38;5;165mL\033[38;5;196mE\033[38;5;208mC\033[38;5;226mT\033[38;5;46m \033[38;5;51mW\033[38;5;99mO\033[38;5;129mR\033[38;5;165mL\033[38;5;196mD\033[38;5;208m  🌍  \033[38;5;51m║\033[0m\n"
+		title += "\033[38;5;51m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	case "create_world":
+		title = "\033[38;5;46m╔══════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;46m║\033[38;5;51m  ✨ \033[38;5;99mC\033[38;5;129mR\033[38;5;165mE\033[38;5;196mA\033[38;5;208mT\033[38;5;226mE\033[38;5;46m \033[38;5;51mW\033[38;5;99mO\033[38;5;129mR\033[38;5;165mL\033[38;5;196mD\033[38;5;208m  ✨  \033[38;5;46m║\033[0m\n"
+		title += "\033[38;5;46m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	case "skin_editor":
+		title = "\033[38;5;165m╔══════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;165m║\033[38;5;196m  🎨 \033[38;5;208mS\033[38;5;226mK\033[38;5;46mI\033[38;5;51mN\033[38;5;99m \033[38;5;129mE\033[38;5;165mD\033[38;5;196mI\033[38;5;208mT\033[38;5;226mO\033[38;5;46mR\033[38;5;165m  🎨  \033[38;5;165m║\033[0m\n"
+		title += "\033[38;5;165m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	case "plugins":
+		title = "\033[38;5;226m╔══════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;226m║\033[38;5;46m  🔌 \033[38;5;51mP\033[38;5;99mL\033[38;5;129mU\033[38;5;165mG\033[38;5;196mI\033[38;5;208mN\033[38;5;226m \033[38;5;46mM\033[38;5;51mA\033[38;5;99mN\033[38;5;129mA\033[38;5;165mG\033[38;5;196mE\033[38;5;208mR\033[38;5;226m  🔌  \033[38;5;226m║\033[0m\n"
+		title += "\033[38;5;226m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	default:
+		title = "\033[38;5;196m╔══════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;196m║\033[38;5;226m  TESSELBOX  \033[38;5;196m║\033[0m\n"
+		title += "\033[38;5;196m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
 	}
 
-	titlePadding := (m.width - 60) / 2 // Adjusted for larger title
+	titlePadding := (m.width - 60) / 2
 	if titlePadding < 0 {
 		titlePadding = 0
 	}
@@ -2547,51 +3261,231 @@ func (m model) View() string {
 	s.WriteString(strings.Repeat(" ", titlePadding))
 	s.WriteString("\n\n")
 
-	// Menu items with color highlighting
-	for i, choice := range m.choices {
-		padding := (m.width - len(choice) - 4) / 2
-		s.WriteString(strings.Repeat(" ", padding))
+	// Render content based on screen
+	switch m.currentScreen {
+	case "main", "settings":
+		// Menu items with color highlighting
+		for i, choice := range m.choices {
+			padding := (m.width - len(choice) - 4) / 2
+			s.WriteString(strings.Repeat(" ", padding))
 
-		if m.cursor == i {
-			// Enhanced highlighted selection with gradient effect
-			if m.currentScreen == "main" {
-				s.WriteString("\033[38;5;46;1m") // Bright green bold
+			if m.cursor == i {
+				if m.currentScreen == "main" {
+					s.WriteString("\033[38;5;46;1m") // Bright green bold
+				} else {
+					s.WriteString("\033[38;5;208;1m") // Bright orange bold
+				}
+				s.WriteString("👉 ")
+				s.WriteString(choice)
+				s.WriteString("\033[0m")
 			} else {
-				s.WriteString("\033[38;5;208;1m") // Bright orange bold for settings
+				if strings.Contains(choice, "ON") {
+					s.WriteString("\033[38;5;46m")
+				} else if strings.Contains(choice, "OFF") {
+					s.WriteString("\033[38;5;196m")
+				} else if strings.Contains(choice, "High") {
+					s.WriteString("\033[38;5;51m")
+				} else if strings.Contains(choice, "Low") {
+					s.WriteString("\033[38;5;208m")
+				} else if strings.Contains(choice, "Hard") {
+					s.WriteString("\033[38;5;196m")
+				} else if strings.Contains(choice, "Easy") {
+					s.WriteString("\033[38;5;46m")
+				} else {
+					s.WriteString("\033[38;5;250m")
+				}
+				s.WriteString("  ")
+				s.WriteString(choice)
+				s.WriteString("\033[0m")
 			}
-			s.WriteString("👉 ")
-			s.WriteString(choice)
-			s.WriteString("\033[0m") // Reset color
+			s.WriteString("\n")
+		}
+
+	case "worlds":
+		// World selection list with seeds
+		s.WriteString("  Available Worlds:\n\n")
+		for i, worldName := range m.worlds {
+			// Get seed for this world
+			seed := int64(0)
+			if m.worldSeeds != nil {
+				if s, ok := m.worldSeeds[worldName]; ok {
+					seed = s
+				}
+			}
+
+			// Format: "World Name (seed: 12345)"
+			seedStr := fmt.Sprintf(" (seed: %d)", seed)
+			fullText := worldName + seedStr
+
+			padding := (m.width - len(fullText) - 4) / 2
+			s.WriteString(strings.Repeat(" ", padding))
+
+			if m.cursor == i {
+				s.WriteString("\033[38;5;46;1m👉 ")
+				s.WriteString(worldName)
+				s.WriteString("\033[38;5;240m" + seedStr + "\033[0m")
+			} else {
+				s.WriteString("   \033[38;5;250m")
+				s.WriteString(worldName)
+				s.WriteString("\033[38;5;240m" + seedStr + "\033[0m")
+			}
+			s.WriteString("\n")
+		}
+		// Back option
+		padding := (m.width - 6) / 2
+		s.WriteString(strings.Repeat(" ", padding))
+		if m.cursor == len(m.worlds) {
+			s.WriteString("\033[38;5;208;1m👉 Back\033[0m")
 		} else {
-			// Normal choices with subtle colors
-			if strings.Contains(choice, "ON") {
-				s.WriteString("\033[38;5;46m") // Green for enabled options
-			} else if strings.Contains(choice, "OFF") {
-				s.WriteString("\033[38;5;196m") // Red for disabled options
-			} else if strings.Contains(choice, "High") {
-				s.WriteString("\033[38;5;51m") // Cyan for high settings
-			} else if strings.Contains(choice, "Low") {
-				s.WriteString("\033[38;5;208m") // Orange for low settings
-			} else if strings.Contains(choice, "Hard") {
-				s.WriteString("\033[38;5;196m") // Red for hard difficulty
-			} else if strings.Contains(choice, "Easy") {
-				s.WriteString("\033[38;5;46m") // Green for easy difficulty
-			} else {
-				s.WriteString("\033[38;5;250m") // Light gray for normal options
+			s.WriteString("\033[38;5;250m   Back\033[0m")
+		}
+		s.WriteString("\n")
+
+	case "create_world":
+		// Create world screen with seed input
+		s.WriteString("\n")
+
+		// World name field
+		nameLabel := "World Name:"
+		namePadding := (m.width - len(nameLabel) - 25) / 2
+		s.WriteString(strings.Repeat(" ", namePadding))
+		if m.cursor == 0 {
+			s.WriteString("\033[38;5;46;1m👉 " + nameLabel + "\033[0m ")
+		} else {
+			s.WriteString("   " + nameLabel + " ")
+		}
+		s.WriteString(m.newWorldName)
+		if m.cursor == 0 {
+			s.WriteString("_") // Cursor indicator
+		}
+		s.WriteString("\n\n")
+
+		// Seed field
+		seedLabel := "Seed (optional):"
+		seedDisplay := m.newWorldSeed
+		if seedDisplay == "" {
+			seedDisplay = "(random)"
+		}
+		seedPadding := (m.width - len(seedLabel) - 25) / 2
+		s.WriteString(strings.Repeat(" ", seedPadding))
+		if m.cursor == 1 {
+			s.WriteString("\033[38;5;208;1m👉 " + seedLabel + "\033[0m ")
+		} else {
+			s.WriteString("   " + seedLabel + " ")
+		}
+		if m.newWorldSeed == "" {
+			s.WriteString("\033[38;5;240m" + seedDisplay + "\033[0m")
+		} else {
+			s.WriteString(seedDisplay)
+		}
+		if m.cursor == 1 {
+			s.WriteString("_") // Cursor indicator
+		}
+		s.WriteString("\n\n")
+
+		// Show some example seeds
+		s.WriteString("\033[38;5;240m")
+		seedHint := "Known seeds: 12345, 67890, 42, 1337, 69420"
+		hintPadding := (m.width - len(seedHint)) / 2
+		s.WriteString(strings.Repeat(" ", hintPadding))
+		s.WriteString(seedHint)
+		s.WriteString("\033[0m\n\n")
+
+		// Instructions
+		instr := "Tab: Switch fields  •  Enter: Create  •  q: Cancel"
+		padding2 := (m.width - len(instr)) / 2
+		s.WriteString(strings.Repeat(" ", padding2))
+		s.WriteString("\033[38;5;240m" + instr + "\033[0m")
+		s.WriteString("\n")
+
+	case "skin_editor":
+		// Skin color selection
+		s.WriteString("  Select Skin Color:\n\n")
+		for i, color := range m.skinColors {
+			padding := (m.width - len(color) - 4) / 2
+			s.WriteString(strings.Repeat(" ", padding))
+
+			var colorCode string
+			switch color {
+			case "Red":
+				colorCode = "\033[38;5;196m"
+			case "Blue":
+				colorCode = "\033[38;5;51m"
+			case "Green":
+				colorCode = "\033[38;5;46m"
+			case "Purple":
+				colorCode = "\033[38;5;165m"
+			default:
+				colorCode = "\033[38;5;226m"
 			}
-			s.WriteString("  ")
-			s.WriteString(choice)
-			s.WriteString("\033[0m") // Reset color
+
+			if m.cursor == i {
+				s.WriteString("\033[38;5;46;1m👉 " + colorCode + color + "\033[0m")
+			} else if m.selectedColor == i {
+				s.WriteString("   " + colorCode + color + "\033[0m")
+			} else {
+				s.WriteString("   \033[38;5;250m" + color + "\033[0m")
+			}
+			s.WriteString("\n")
+		}
+		// Save & Back option
+		padding := (m.width - 14) / 2
+		s.WriteString(strings.Repeat(" ", padding))
+		if m.cursor == len(m.skinColors) {
+			s.WriteString("\033[38;5;46;1m👉 Save & Back\033[0m")
+		} else {
+			s.WriteString("   \033[38;5;250mSave & Back\033[0m")
+		}
+		s.WriteString("\n")
+
+	case "plugins":
+		// Plugin list
+		s.WriteString("  Installed Plugins:\n\n")
+		for i, plugin := range m.plugins {
+			padding := (m.width - len(plugin.Name) - 15) / 2
+			s.WriteString(strings.Repeat(" ", padding))
+
+			if m.cursor == i {
+				s.WriteString("\033[38;5;46;1m👉 ")
+			} else {
+				s.WriteString("   ")
+			}
+
+			if plugin.Enabled {
+				s.WriteString("\033[38;5;46m[ON]\033[0m ")
+			} else {
+				s.WriteString("\033[38;5;196m[OFF]\033[0m ")
+			}
+
+			s.WriteString(plugin.Name)
+			s.WriteString(" \033[38;5;240mv" + plugin.Version + "\033[0m")
+			if m.cursor == i {
+				s.WriteString("\033[0m")
+			}
+			s.WriteString("\n")
+		}
+		// Back option
+		padding := (m.width - 6) / 2
+		s.WriteString(strings.Repeat(" ", padding))
+		if m.cursor == len(m.plugins) {
+			s.WriteString("\033[38;5;208;1m👉 Back\033[0m")
+		} else {
+			s.WriteString("\033[38;5;250m   Back\033[0m")
 		}
 		s.WriteString("\n")
 	}
 
-	// Enhanced footer with instructions
+	// Footer with instructions
 	s.WriteString("\n")
 	var footer string
-	if m.currentScreen == "main" {
+	switch m.currentScreen {
+	case "main":
 		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Quit"
-	} else {
+	case "worlds", "plugins":
+		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Back"
+	case "create_world":
+		footer = "Type: Name    Enter: Create    q: Cancel"
+	default:
 		footer = "↑/k: Change    ↓/j: Change    Enter: Toggle    q/Ctrl+C: Back"
 	}
 	footerPadding := (m.width - len(footer)) / 2
@@ -2614,15 +3508,36 @@ func runTUI() {
 
 	m := finalModel.(model)
 
-	// Handle Start Game
-	if m.currentScreen == "main" && m.selected == 0 {
-		startGameWithGUI()
+	// Handle game start from different screens
+	worldName := "default"
+	worldSeed := int64(0)
+
+	if m.currentScreen == "worlds" && m.selectedWorld >= 0 && m.selectedWorld < len(m.worlds) {
+		// User selected a world from the list
+		worldName = m.worlds[m.selectedWorld]
+		if m.worldSeeds != nil {
+			if seed, ok := m.worldSeeds[worldName]; ok {
+				worldSeed = seed
+			}
+		}
+		startGameWithGUI(worldName, worldSeed)
+	} else if m.currentScreen == "main" && m.selected == 0 {
+		// Legacy: Start Game from main menu (use first world or default)
+		if len(m.worlds) > 0 {
+			worldName = m.worlds[0]
+			if m.worldSeeds != nil {
+				if seed, ok := m.worldSeeds[worldName]; ok {
+					worldSeed = seed
+				}
+			}
+		}
+		startGameWithGUI(worldName, worldSeed)
 	}
 }
 
 // startGameWithGUI starts the game with Ebiten GUI engine
-func startGameWithGUI() {
-	fmt.Printf("🚀 Starting game with GUI...\n")
+func startGameWithGUI(worldName string, worldSeed int64) {
+	fmt.Printf("🚀 Starting game with world '%s' (seed: %d)...\n", worldName, worldSeed)
 
 	// Load block definitions before any world generation
 	blocks.LoadBlocks()
@@ -2634,7 +3549,8 @@ func startGameWithGUI() {
 	// Enable input
 	ebiten.SetCursorMode(ebiten.CursorModeVisible)
 
-	game := NewGame()
+	// Create game with specified world and seed
+	game := NewGameWithWorld(worldName, worldSeed)
 
 	// Start auto-saver
 	game.StartAutoSave()

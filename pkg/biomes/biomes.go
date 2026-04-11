@@ -11,6 +11,7 @@ const (
 	PLAINS BiomeType = iota
 	FOREST
 	DESERT
+	BADLANDS
 	MOUNTAINS
 	OCEAN
 	SWAMP
@@ -59,6 +60,15 @@ var BiomeDefinitions = map[BiomeType]*BiomeProperties{
 		Name:         "Desert",
 		SurfaceBlock: "sand",
 		UnderBlock:   "sand",
+		TreeDensity:  0.0,
+		OreFrequency: 0.5,
+		Temperature:  0.9,
+		Humidity:     0.1,
+	},
+	BADLANDS: {
+		Name:         "Badlands",
+		SurfaceBlock: "red_sand",
+		UnderBlock:   "red_sand",
 		TreeDensity:  0.0,
 		OreFrequency: 0.5,
 		Temperature:  0.9,
@@ -205,79 +215,79 @@ func GetBiomeAtPosition(x, y float64, noise *SimplexNoise) BiomeType {
 	continental = (continental + 1) / 2.0
 
 	// Enhanced biome determination following BLOCKS_LIST.md patterns
-	// Water bodies first (oceans and deep water)
-	if elev < 0.35 {
-		if continental > 0.6 {
-			return CORAL_REEF // Coral reefs in deep ocean
-		}
-		return OCEAN // Regular ocean
-	}
+	var biomeType BiomeType
 
-	// Land biomes with temperature and humidity classification
-	// Temperature zones: Cold (<0.3), Cool (0.3-0.5), Temperate (0.5-0.7), Warm (0.7-0.9), Hot (>0.9)
-	// Humidity zones: Arid (<0.3), Dry (0.3-0.5), Moderate (0.5-0.7), Humid (>0.7)
-
-	if temp < 0.3 { // Cold biomes
-		if humid < 0.3 {
-			return TUNDRA // Cold & Arid
-		} else if humid < 0.5 {
-			return ICE_FIELDS // Cold & Dry
-		} else if humid < 0.7 {
-			return TAIGA // Cold & Moderate
-		} else {
-			return TUNDRA // Cold & Humid (tundra dominates)
-		}
-	} else if temp < 0.5 { // Cool biomes
-		if humid < 0.3 {
-			return DESERT // Cool & Arid (rare cold deserts)
-		} else if humid < 0.5 {
-			return SAVANNA // Cool & Dry
-		} else if humid < 0.7 {
-			return PLAINS // Cool & Moderate
-		} else {
-			return SWAMP // Cool & Humid
-		}
-	} else if temp < 0.7 { // Temperate biomes
-		if humid < 0.3 {
-			return DESERT // Temperate & Arid
-		} else if humid < 0.5 {
-			return SAVANNA // Temperate & Dry
-		} else if humid < 0.7 {
-			return FOREST // Temperate & Moderate
-		} else {
-			return SWAMP // Temperate & Humid
-		}
-	} else if temp < 0.9 { // Warm biomes
-		if humid < 0.3 {
-			return DESERT // Warm & Arid
-		} else if humid < 0.5 {
-			return SAVANNA // Warm & Dry
-		} else if humid < 0.7 {
-			return JUNGLE // Warm & Moderate
-		} else {
-			return SWAMP // Warm & Humid
-		}
-	} else { // Hot biomes (>0.9)
-		if humid < 0.3 {
-			return DESERT // Hot & Arid
-		} else if humid < 0.7 {
-			return SAVANNA // Hot & Dry/Moderate
-		} else {
-			return JUNGLE // Hot & Humid
-		}
-	}
-
-	// Special biome overrides
+	// Special biome overrides first (highest priority)
 	if continental < 0.3 && elev > 0.8 {
-		return MOUNTAINS // Mountain peaks
+		biomeType = MOUNTAINS // Mountain peaks
 	} else if continental > 0.7 && elev > 0.6 {
-		return VOLCANIC // Volcanic regions
+		biomeType = VOLCANIC // Volcanic regions
 	} else if continental > 0.6 && temp > 0.8 && humid > 0.8 {
-		return MANGROVE // Mangrove swamps
+		biomeType = MANGROVE // Mangrove swamps
+	} else if elev < 0.35 {
+		// Water bodies (oceans and deep water)
+		if continental > 0.6 {
+			biomeType = CORAL_REEF // Coral reefs in deep ocean
+		} else {
+			biomeType = OCEAN // Regular ocean
+		}
+	} else {
+		// Land biomes with temperature and humidity classification
+		// Temperature zones: Cold (<0.3), Cool (0.3-0.5), Temperate (0.5-0.7), Warm (0.7-0.9), Hot (>0.9)
+		// Humidity zones: Arid (<0.3), Dry (0.3-0.5), Moderate (0.5-0.7), Humid (>0.7)
+
+		if temp < 0.3 { // Cold biomes
+			if humid < 0.3 {
+				biomeType = TUNDRA // Cold & Arid
+			} else if humid < 0.5 {
+				biomeType = ICE_FIELDS // Cold & Dry
+			} else if humid < 0.7 {
+				biomeType = TAIGA // Cold & Moderate
+			} else {
+				biomeType = TUNDRA // Cold & Humid (tundra dominates)
+			}
+		} else if temp < 0.5 { // Cool biomes
+			if humid < 0.3 {
+				biomeType = DESERT // Cool & Arid (rare cold deserts)
+			} else if humid < 0.5 {
+				biomeType = SAVANNA // Cool & Dry
+			} else if humid < 0.7 {
+				biomeType = PLAINS // Cool & Moderate
+			} else {
+				biomeType = SWAMP // Cool & Humid
+			}
+		} else if temp < 0.7 { // Temperate biomes
+			if humid < 0.3 {
+				biomeType = DESERT // Temperate & Arid
+			} else if humid < 0.5 {
+				biomeType = SAVANNA // Temperate & Dry
+			} else if humid < 0.7 {
+				biomeType = FOREST // Temperate & Moderate
+			} else {
+				biomeType = SWAMP // Temperate & Humid
+			}
+		} else if temp < 0.9 { // Warm biomes
+			if humid < 0.3 {
+				biomeType = DESERT // Warm & Arid
+			} else if humid < 0.5 {
+				biomeType = SAVANNA // Warm & Dry
+			} else if humid < 0.7 {
+				biomeType = JUNGLE // Warm & Moderate
+			} else {
+				biomeType = SWAMP // Warm & Humid
+			}
+		} else { // Hot biomes (>0.9)
+			if humid < 0.3 {
+				biomeType = DESERT // Hot & Arid
+			} else if humid < 0.7 {
+				biomeType = SAVANNA // Hot & Dry/Moderate
+			} else {
+				biomeType = JUNGLE // Hot & Humid
+			}
+		}
 	}
 
-	// Default fallback
-	return PLAINS
+	return biomeType
 }
 
 // GetSurfaceHeightVariation returns the surface height variation at the given position

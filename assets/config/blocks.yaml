@@ -134,6 +134,15 @@ dirt:
     gravity: false
     viscosity: 0
     pattern: solid
+    hasHumidityVariation: true
+    humidityColors:
+        - [200, 150, 100, 255] # Dry: light brown
+        - [139, 90, 43, 255]   # Normal: medium brown
+        - [100, 60, 30, 255]   # Wet: dark brown
+    humidityPatterns:
+        - solid
+        - cracked
+        - damp
     ui: {}
     function: {}
 glass:
@@ -201,6 +210,15 @@ grass:
     gravity: false
     viscosity: 0
     pattern: solid
+    hasHumidityVariation: true
+    humidityColors:
+        - [180, 220, 140, 255] # Dry: yellowish green
+        - [124, 169, 84, 255]   # Normal: green
+        - [80, 120, 60, 255]    # Wet: dark green
+    humidityPatterns:
+        - sparse
+        - uniform
+        - lush
     ui: {}
     function: {}
 iron_ore:
