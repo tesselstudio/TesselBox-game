@@ -296,6 +296,70 @@ func (h *HUD) drawDefenseIndicator(screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, moveText, int(x), int(y+12))
 }
 
+// drawBodyPartHealth draws a body diagram showing health of each body part
+func (h *HUD) drawBodyPartHealth(screen *ebiten.Image) {
+	if h.HealthSystem == nil {
+		return
+	}
+
+	// Position at bottom-right corner
+	diagramX := float64(h.ScreenWidth) - 120
+	diagramY := float64(h.ScreenHeight) - 120
+	diagramWidth := 100.0
+	diagramHeight := 100.0
+
+	// Draw background panel
+	bgColor := color.RGBA{20, 20, 20, 180}
+	ebitenutil.DrawRect(screen, diagramX, diagramY, diagramWidth, diagramHeight, bgColor)
+
+	// Scale factor for body parts (diagram is 140x200, we scale to fit)
+	scale := 0.45
+	offsetX := diagramX + 15
+	offsetY := diagramY + 10
+
+	// Draw each body part
+	parts := []health.BodyPart{
+		health.PartHead,
+		health.PartTorso,
+		health.PartLeftArm,
+		health.PartRightArm,
+		health.PartLeftLeg,
+		health.PartRightLeg,
+	}
+
+	for _, part := range parts {
+		healthPct := h.HealthSystem.GetPartHealthPercentage(part)
+		partColor := health.GetBodyPartColor(healthPct)
+
+		// Get position and dimensions
+		x, y, w, hgt := health.BodyPartPosition(part)
+
+		// Scale and translate
+		scaledX := offsetX + x*scale
+		scaledY := offsetY + y*scale
+		scaledW := w * scale
+		scaledH := hgt * scale
+
+		// Draw body part rectangle
+		ebitenutil.DrawRect(screen, scaledX, scaledY, scaledW, scaledH, partColor)
+
+		// Draw border
+		borderColor := color.RGBA{100, 100, 100, 255}
+		if h.HealthSystem.IsPartInjured(part) {
+			borderColor = color.RGBA{255, 0, 0, 255} // Red border for injured parts
+		}
+		// Draw outline (4 thin rectangles)
+		thickness := 1.0
+		ebitenutil.DrawRect(screen, scaledX, scaledY, scaledW, thickness, borderColor)                   // Top
+		ebitenutil.DrawRect(screen, scaledX, scaledY+scaledH-thickness, scaledW, thickness, borderColor) // Bottom
+		ebitenutil.DrawRect(screen, scaledX, scaledY, thickness, scaledH, borderColor)                   // Left
+		ebitenutil.DrawRect(screen, scaledX+scaledW-thickness, scaledY, thickness, scaledH, borderColor) // Right
+	}
+
+	// Draw label
+	ebitenutil.DebugPrintAt(screen, "BODY", int(diagramX+35), int(diagramY+diagramHeight-15))
+}
+
 // drawIcon draws a simple icon for a bar
 func (h *HUD) drawIcon(screen *ebiten.Image, x, y float64, col color.RGBA, label string) {
 	size := h.IconSize

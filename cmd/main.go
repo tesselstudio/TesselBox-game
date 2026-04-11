@@ -867,8 +867,8 @@ func (g *Game) handleGameInput() {
 		g.playUISound("open")
 	}
 
-	// Open skin editor (S key) - only in creative mode and not during gameplay
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) && g.CreativeMode && !g.inGame {
+	// Open skin editor (S key) - in creative mode
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) && g.CreativeMode && !g.inSkinEditor {
 		g.inSkinEditor = true
 		g.playUISound("open")
 	}
@@ -3190,7 +3190,7 @@ func initialModel() model {
 	}
 
 	return model{
-		choices:         []string{"Play (Select World)", "Create New World", "Skin Editor", "Plugin Manager", "Settings", "Exit"},
+		choices:         []string{"Play (Select World)", "Create New World", "Plugin Manager", "Settings", "Exit"},
 		cursor:          0,
 		selected:        0,
 		width:           80,
@@ -3245,9 +3245,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else if choice == "Create New World" {
 					m.currentScreen = "create_world"
 					m.newWorldName = ""
-					m.cursor = 0
-				} else if choice == "Skin Editor" {
-					m.currentScreen = "skin_editor"
 					m.cursor = 0
 				} else if choice == "Plugin Manager" {
 					m.currentScreen = "plugins"
@@ -3409,27 +3406,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.currentScreen = "main"
 				m.cursor = 1
 			}
-		} else if m.currentScreen == "skin_editor" {
-			switch msg.String() {
-			case "up", "k":
-				if m.cursor > 0 {
-					m.cursor--
-				}
-			case "down", "j":
-				if m.cursor < len(m.skinColors)+1 {
-					m.cursor++
-				}
-			case "enter", " ":
-				if m.cursor < len(m.skinColors) {
-					m.selectedColor = m.cursor
-				} else if m.cursor == len(m.skinColors) { // Save & Back
-					m.currentScreen = "main"
-					m.cursor = 2
-				}
-			case "ctrl+c", "q":
-				m.currentScreen = "main"
-				m.cursor = 2
-			}
 		} else if m.currentScreen == "plugins" {
 			switch msg.String() {
 			case "up", "k":
@@ -3495,12 +3471,6 @@ func (m model) View() string {
 		title += "\033[38;5;46m║\033[38;5;226m                  ✨  C R E A T E   W O R L D  ✨                \033[38;5;46m║\033[0m\n"
 		title += "\033[38;5;46m║                                                              ║\033[0m\n"
 		title += "\033[38;5;46m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
-	case "skin_editor":
-		title = "\033[38;5;165m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
-		title += "\033[38;5;165m║                                                              ║\033[0m\n"
-		title += "\033[38;5;165m║\033[38;5;226m                   🎨  S K I N   E D I T O R  🎨                  \033[38;5;165m║\033[0m\n"
-		title += "\033[38;5;165m║                                                              ║\033[0m\n"
-		title += "\033[38;5;165m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
 	case "plugins":
 		title = "\033[38;5;226m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
 		title += "\033[38;5;226m║                                                              ║\033[0m\n"
@@ -3703,46 +3673,6 @@ func (m model) View() string {
 		padding2 := (m.width - len(instr)) / 2
 		s.WriteString(strings.Repeat(" ", padding2))
 		s.WriteString("\033[38;5;240m" + instr + "\033[0m")
-		s.WriteString("\n")
-
-	case "skin_editor":
-		// Skin color selection
-		s.WriteString("  Select Skin Color:\n\n")
-		for i, color := range m.skinColors {
-			padding := (m.width - len(color) - 4) / 2
-			s.WriteString(strings.Repeat(" ", padding))
-
-			var colorCode string
-			switch color {
-			case "Red":
-				colorCode = "\033[38;5;196m"
-			case "Blue":
-				colorCode = "\033[38;5;51m"
-			case "Green":
-				colorCode = "\033[38;5;46m"
-			case "Purple":
-				colorCode = "\033[38;5;165m"
-			default:
-				colorCode = "\033[38;5;226m"
-			}
-
-			if m.cursor == i {
-				s.WriteString("\033[38;5;46;1m👉 " + colorCode + color + "\033[0m")
-			} else if m.selectedColor == i {
-				s.WriteString("   " + colorCode + color + "\033[0m")
-			} else {
-				s.WriteString("   \033[38;5;250m" + color + "\033[0m")
-			}
-			s.WriteString("\n")
-		}
-		// Save & Back option
-		padding := (m.width - 14) / 2
-		s.WriteString(strings.Repeat(" ", padding))
-		if m.cursor == len(m.skinColors) {
-			s.WriteString("\033[38;5;46;1m👉 Save & Back\033[0m")
-		} else {
-			s.WriteString("   \033[38;5;250mSave & Back\033[0m")
-		}
 		s.WriteString("\n")
 
 	case "plugins":
