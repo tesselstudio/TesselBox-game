@@ -22,6 +22,7 @@ import (
 	"tesselbox/pkg/chest"
 	"tesselbox/pkg/combat"
 	"tesselbox/pkg/crafting"
+	"tesselbox/pkg/debug"
 	"tesselbox/pkg/enemies"
 	"tesselbox/pkg/equipment"
 	"tesselbox/pkg/gametime"
@@ -205,6 +206,10 @@ type Game struct {
 	// Audio system
 	audioManager *audio.AudioManager
 	soundLibrary *audio.SoundLibrary
+
+	// Debug/Panic recovery
+	recoveryHandler *debug.RecoveryHandler
+	profiler        *debug.PerformanceProfiler
 
 	// Footstep audio tracking
 	lastFootstepTime time.Time
@@ -408,6 +413,18 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	g.audioManager = audio.NewAudioManager()
 	g.soundLibrary = audio.NewSoundLibrary(g.audioManager)
 
+	// Initialize panic recovery handler
+	g.recoveryHandler = debug.NewRecoveryHandler(getTesselboxDir(), func(info debug.PanicInfo) {
+		log.Printf("Recovered from panic: %s", info.Message)
+		// Attempt emergency save
+		g.recoveryHandler.TryEmergencySave(func() error {
+			return g.SaveGame()
+		})
+	})
+
+	// Initialize performance profiler
+	g.profiler = debug.NewPerformanceProfiler()
+
 	// Load audio files with validation
 	log.Printf("Loading audio system...")
 	loader := audio.NewAudioLoader(g.audioManager)
@@ -556,6 +573,9 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 
 // Update updates the game state
 func (g *Game) Update() error {
+	// Panic recovery - catches crashes and logs them
+	defer g.recoveryHandler.Recover()
+
 	// Calculate delta time for framerate-independent movement
 	currentTime := time.Now()
 	deltaTime := currentTime.Sub(g.lastTime).Seconds()
@@ -1731,6 +1751,9 @@ func (g *Game) updateDroppedItems(deltaTime float64) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	// Panic recovery for rendering - prevents crash from bad frame
+	defer g.recoveryHandler.Recover()
+
 	if g.inCrafting {
 		// Draw game in background
 		g.drawGameScene(screen)
@@ -1789,6 +1812,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if g.deathScreen != nil {
 			g.deathScreen.Draw(screen)
 		}
+
+		// Draw profiler overlay (if enabled)
+		g.profiler.Draw(screen)
 	}
 }
 
