@@ -189,14 +189,8 @@ func (g *Game) Update() error {
 		return nil
 	}
 
-	// Player movement input handling
+	// Player update (input handled by main.go via input manager)
 	if g.Player != nil {
-		g.Player.MovingLeft = ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)
-		g.Player.MovingRight = ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
-		if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyW) || inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
-			g.Player.Jump()
-		}
-
 		g.Player.Update(deltaTime)
 
 		// Mining logic with right mouse button
@@ -410,8 +404,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				creatureColor = color.RGBA{128, 128, 128, 255} // Gray
 			}
 
-			// Draw creature as a circle (approximated with rectangle for simplicity)
+			// Draw creature as a square (zombies same size as player: 50x50)
 			size := 20.0
+			if creature.Type == creatures.ZOMBIE {
+				size = 50.0 // Same size as player
+			}
 			ebitenutil.DrawRect(screen, cX-size/2, cY-size/2, size, size, creatureColor)
 
 			// Draw health bar above creature if damaged

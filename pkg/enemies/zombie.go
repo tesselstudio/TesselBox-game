@@ -94,20 +94,20 @@ func NewZombieSpawner(dayNight *gametime.DayNightCycle) *ZombieSpawner {
 }
 
 // Update updates all zombies and handles spawning/despawning
-func (zs *ZombieSpawner) Update(deltaTime float64, player *player.Player, ambientLight float64) {
+func (zs *ZombieSpawner) Update(deltaTime float64, player *player.Player, ambientLight float64,
+	checkCollision func(float64, float64, float64, float64) bool, worldSpawnFunc func(float64, float64) (float64, float64)) {
+
 	// Check if it's night time (light < 0.3)
 	isNight := ambientLight < 0.3
 
 	// Spawn new zombies at night
 	if isNight && len(zs.Zombies) < zs.MaxZombies {
 		if time.Since(zs.LastSpawnTime) > zs.SpawnCooldown {
-			// Check if player is in a dark area
-			if zs.canSpawnAt(player.X, player.Y, ambientLight) {
-				zombie := zs.spawnZombie(player.X, player.Y)
-				if zombie != nil {
-					zs.Zombies = append(zs.Zombies, zombie)
-					zs.LastSpawnTime = time.Now()
-				}
+			// Spawn everywhere - find valid spawn positions like player
+			zombie := zs.spawnZombieEverywhere(player.X, player.Y, worldSpawnFunc)
+			if zombie != nil {
+				zs.Zombies = append(zs.Zombies, zombie)
+				zs.LastSpawnTime = time.Now()
 			}
 		}
 	}
@@ -116,6 +116,11 @@ func (zs *ZombieSpawner) Update(deltaTime float64, player *player.Player, ambien
 	activeZombies := []*Zombie{}
 	for _, zombie := range zs.Zombies {
 		zombie.Update(deltaTime, player, ambientLight, zs.OnPlayerDamage)
+
+		// Apply collision detection if collision function provided
+		if checkCollision != nil {
+			zombie.UpdateWithCollision(deltaTime, checkCollision)
+		}
 
 		// Despawn if too far or dead
 		distance := distance(zombie.X, zombie.Y, player.X, player.Y)
@@ -136,10 +141,10 @@ func (zs *ZombieSpawner) canSpawnAt(px, py float64, ambientLight float64) bool {
 func (zs *ZombieSpawner) spawnZombie(px, py float64) *Zombie {
 	// Random position around player (but not too close)
 	angle := rand.Float64() * 2 * math.Pi
-	distance := zs.SpawnRadius*0.5 + rand.Float64()*zs.SpawnRadius*0.5
+	dist := zs.SpawnRadius*0.5 + rand.Float64()*zs.SpawnRadius*0.5
 
-	sx := px + math.Cos(angle)*distance
-	sy := py + math.Sin(angle)*distance
+	sx := px + math.Cos(angle)*dist
+	sy := py + math.Sin(angle)*dist
 
 	// Determine zombie type based on random chance
 	var ztype ZombieType
@@ -156,6 +161,49 @@ func (zs *ZombieSpawner) spawnZombie(px, py float64) *Zombie {
 	}
 
 	return NewZombie(zs.NextID, ztype, sx, sy)
+}
+
+// spawnZombieEverywhere spawns a zombie at a valid position using the world's spawn function
+// This allows zombies to spawn everywhere with proper terrain, same as player spawning
+func (zs *ZombieSpawner) spawnZombieEverywhere(playerX, playerY float64, worldSpawnFunc func(float64, float64) (float64, float64)) *Zombie {
+	// Try multiple spawn positions
+	for attempts := 0; attempts < 10; attempts++ {
+		// Random position around player
+		angle := rand.Float64() * 2 * math.Pi
+		dist := zs.SpawnRadius*0.3 + rand.Float64()*zs.SpawnRadius*0.7
+
+		tryX := playerX + math.Cos(angle)*dist
+		tryY := playerY + math.Sin(angle)*dist
+
+		// Use world spawn function to find valid ground position
+		spawnX, spawnY := worldSpawnFunc(tryX, tryY)
+
+		// Make sure we found a valid position above ground
+		if spawnY < 10000 { // Valid spawn found (not the fallback max value)
+			// Place zombie above ground like player
+			zombieY := spawnY - 200
+
+			// Determine zombie type based on random chance
+			var ztype ZombieType
+			r := rand.Float64()
+			switch {
+			case r < 0.6:
+				ztype = ZombieNormal
+			case r < 0.8:
+				ztype = ZombieFast
+			case r < 0.95:
+				ztype = ZombieStrong
+			default:
+				ztype = ZombieTank
+			}
+
+			zombie := NewZombie(zs.NextID, ztype, spawnX, zombieY)
+			zs.NextID++
+			return zombie
+		}
+	}
+
+	return nil // Could not find valid spawn
 }
 
 // NewZombie creates a new zombie - decaying version of player
@@ -298,6 +346,65 @@ func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight f
 	// Stop very small movements
 	if z.VX > -0.1 && z.VX < 0.1 {
 		z.VX = 0
+	}
+}
+
+// UpdateWithCollision updates zombie position with collision detection
+// Similar to player's UpdateWithCollision
+func (z *Zombie) UpdateWithCollision(deltaTime float64, checkCollision func(float64, float64, float64, float64) bool) {
+	// Get zombie bounds
+	minX, minY, maxX, maxY := z.GetBounds()
+
+	// Check vertical collision (ground detection) - check from zombie's feet downward
+	feetY := maxY // Zombie's feet position
+	groundCheckDistance := 5.0
+
+	bottomLeftCollision := checkCollision(minX, feetY, minX+z.Width/2, feetY+groundCheckDistance)
+	bottomRightCollision := checkCollision(minX+z.Width/2, feetY, maxX, feetY+groundCheckDistance)
+	bottomCenterCollision := checkCollision(minX+z.Width/2, feetY, minX+z.Width/2+1, feetY+groundCheckDistance)
+
+	if bottomLeftCollision || bottomRightCollision || bottomCenterCollision {
+		// We hit the ground - stop falling and snap to ground
+		if z.VY > 0 { // Only if moving downward
+			z.VY = 0
+			z.OnGround = true
+
+			// Find exact ground position
+			for checkY := feetY; checkY <= feetY+groundCheckDistance; checkY += 1.0 {
+				if checkCollision(minX, checkY, maxX, checkY+1) {
+					z.Y = checkY - z.Height
+					break
+				}
+			}
+		}
+	} else {
+		// No ground below - zombie is falling
+		z.OnGround = false
+	}
+
+	// Check horizontal collision (walls)
+	if z.VX < 0 { // Moving left
+		leftCollision := checkCollision(minX-1, minY+5, minX, maxY-5)
+		if leftCollision {
+			z.X = minX + 1
+			z.VX = 0
+		}
+	} else if z.VX > 0 { // Moving right
+		rightCollision := checkCollision(maxX, minY+5, maxX+1, maxY-5)
+		if rightCollision {
+			z.X = maxX - z.Width - 1
+			z.VX = 0
+		}
+	}
+
+	// Check ceiling collision (head bump)
+	if z.VY < 0 { // Moving upward
+		ceilingLeftCollision := checkCollision(minX, minY-1, minX+z.Width/2, minY)
+		ceilingRightCollision := checkCollision(minX+z.Width/2, minY-1, maxX, minY)
+		if ceilingLeftCollision || ceilingRightCollision {
+			z.VY = 0
+			z.Y = minY + 1
+		}
 	}
 }
 

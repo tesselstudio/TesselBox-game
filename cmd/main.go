@@ -727,9 +727,42 @@ func (g *Game) Update() error {
 			g.directionalHitInd.Update()
 		}
 
+		// Generate chunks around player first to ensure terrain exists for collision
+		centerX, centerY := g.player.GetCenter()
+		g.world.GetChunksInRange(centerX, centerY)
+
+		// Get nearby hexagons for collision detection (shared for player and zombies)
+		nearbyHexagons := g.world.GetNearbyHexagons(g.player.X, g.player.Y, 300)
+
 		// Update zombies
 		ambientLight := g.dayNightCycle.AmbientLight
-		g.zombieSpawner.Update(deltaTime, g.player, ambientLight)
+		// Create collision function for zombies (same as player collision)
+		zombieCollisionFunc := func(minX, minY, maxX, maxY float64) bool {
+			for _, hex := range nearbyHexagons {
+				if hex == nil {
+					continue
+				}
+				blockKey := getBlockKeyFromType(hex.BlockType)
+				def := blocks.BlockDefinitions[blockKey]
+				if def == nil || !def.Solid {
+					continue
+				}
+				hexMinX := hex.X - hex.Size
+				hexMinY := hex.Y - hex.Size
+				hexMaxX := hex.X + hex.Size
+				hexMaxY := hex.Y + hex.Size
+				collision := !(maxX < hexMinX || minX > hexMaxX || maxY < hexMinY || minY > hexMaxY)
+				if collision {
+					return true
+				}
+			}
+			return false
+		}
+		// Use world FindSpawnPosition for zombie spawning (spawn everywhere with terrain)
+		zombieSpawnFunc := func(x, y float64) (float64, float64) {
+			return g.world.FindSpawnPosition(x, y)
+		}
+		g.zombieSpawner.Update(deltaTime, g.player, ambientLight, zombieCollisionFunc, zombieSpawnFunc)
 
 		// Update weather system
 		g.weatherSystem.Update(deltaTime, ScreenWidth, ScreenHeight)
@@ -743,13 +776,7 @@ func (g *Game) Update() error {
 		// Update dropped items physics
 		g.updateDroppedItems(deltaTime)
 
-		// Generate chunks around player first to ensure terrain exists for collision
-		centerX, centerY := g.player.GetCenter()
-		g.world.GetChunksInRange(centerX, centerY)
-
-		// Apply collision-aware position update
-		nearbyHexagons := g.world.GetNearbyHexagons(g.player.X, g.player.Y, 300)
-
+		// Apply collision-aware position update using nearbyHexagons already fetched above
 		g.player.UpdateWithCollision(deltaTime, func(minX, minY, maxX, maxY float64) bool {
 			for _, hex := range nearbyHexagons {
 				if hex == nil {
@@ -800,7 +827,7 @@ func (g *Game) handleGameInput() {
 		g.player.MovingRight = false
 	}
 
-	if g.inputManager.IsActionPressed("jump") {
+	if g.inputManager.IsActionPressed("jump") || g.inputManager.IsActionPressed("jump_w") {
 		g.player.Jump()
 	}
 
@@ -2590,29 +2617,71 @@ func (g *Game) drawZombies(screen *ebiten.Image) {
 			continue
 		}
 
-		// Decaying-green cube zombies (decayed version of player)
-		var bodyColor color.RGBA
+		// Calculate decaying-green color based on zombie type and burning state
+		var bodyColor, headColor, armColor, legColor color.RGBA
 		if zombie.IsBurning {
 			// Burning zombies are orange/red
 			bodyColor = color.RGBA{255, 100, 50, 255}
+			headColor = color.RGBA{255, 120, 60, 255}
+			armColor = color.RGBA{255, 100, 50, 255}
+			legColor = color.RGBA{200, 80, 40, 255}
 		} else {
-			// All zombies are decaying green cubes - varying shades based on type
+			// Decaying-green version of player colors
 			switch zombie.Type {
 			case enemies.ZombieNormal:
-				bodyColor = color.RGBA{60, 120, 60, 255} // Decaying green
+				bodyColor = color.RGBA{60, 120, 60, 255}  // Decaying green body
+				headColor = color.RGBA{100, 180, 80, 255} // Lighter green head
+				armColor = color.RGBA{60, 120, 60, 255}   // Same as body
+				legColor = color.RGBA{40, 80, 40, 255}    // Darker green pants
 			case enemies.ZombieFast:
-				bodyColor = color.RGBA{80, 140, 60, 255} // Lighter decaying green
+				bodyColor = color.RGBA{80, 140, 60, 255}  // Lighter decaying green
+				headColor = color.RGBA{120, 200, 80, 255} // Brighter green head
+				armColor = color.RGBA{80, 140, 60, 255}   // Same as body
+				legColor = color.RGBA{50, 100, 40, 255}   // Darker green
 			case enemies.ZombieStrong:
 				bodyColor = color.RGBA{50, 100, 50, 255} // Darker decaying green
+				headColor = color.RGBA{80, 140, 70, 255} // Muted green head
+				armColor = color.RGBA{50, 100, 50, 255}  // Same as body
+				legColor = color.RGBA{30, 60, 30, 255}   // Very dark green
 			case enemies.ZombieTank:
-				bodyColor = color.RGBA{40, 80, 40, 255} // Very dark decaying green
+				bodyColor = color.RGBA{40, 80, 40, 255}  // Very dark decaying green
+				headColor = color.RGBA{60, 100, 50, 255} // Dark muted green head
+				armColor = color.RGBA{40, 80, 40, 255}   // Same as body
+				legColor = color.RGBA{25, 50, 25, 255}   // Darkest green
 			default:
 				bodyColor = color.RGBA{60, 120, 60, 255}
+				headColor = color.RGBA{100, 180, 80, 255}
+				armColor = color.RGBA{60, 120, 60, 255}
+				legColor = color.RGBA{40, 80, 40, 255}
 			}
 		}
 
-		// Draw zombie as decaying-green cube (single 50x50 square like player)
-		ebitenutil.DrawRect(screen, screenX, screenY, zombie.Width, zombie.Height, bodyColor)
+		// Draw zombie body (50x50) - same structure as player
+		bodyWidth := 50.0
+		bodyHeight := 50.0
+		ebitenutil.DrawRect(screen, screenX-5, screenY+10, bodyWidth+10, bodyHeight-10, bodyColor)
+
+		// Draw zombie head (25x25) - centered on top like player
+		headSize := 25.0
+		headX := screenX + (bodyWidth-headSize)/2
+		headY := screenY - 5
+		ebitenutil.DrawRect(screen, headX, headY, headSize, headSize, headColor)
+
+		// Draw zombie arms (10x30) - same as player
+		armWidth := 10.0
+		armHeight := 30.0
+		// Left arm
+		ebitenutil.DrawRect(screen, screenX-armWidth-5, screenY+20, armWidth, armHeight, armColor)
+		// Right arm
+		ebitenutil.DrawRect(screen, screenX+bodyWidth+5, screenY+20, armWidth, armHeight, armColor)
+
+		// Draw zombie legs (12x20) - same as player
+		legWidth := 12.0
+		legHeight := 20.0
+		// Left leg
+		ebitenutil.DrawRect(screen, screenX+8, screenY+bodyHeight-legHeight, legWidth, legHeight, legColor)
+		// Right leg
+		ebitenutil.DrawRect(screen, screenX+bodyWidth-legWidth-8, screenY+bodyHeight-legHeight, legWidth, legHeight, legColor)
 
 		// Draw health bar above zombie
 		healthBarWidth := zombie.Width
@@ -2621,7 +2690,7 @@ func (g *Game) drawZombies(screen *ebiten.Image) {
 		healthWidth := healthBarWidth * healthPct
 
 		// Background (gray)
-		ebitenutil.DrawRect(screen, screenX, screenY-10, healthBarWidth, healthBarHeight, color.RGBA{50, 50, 50, 255})
+		ebitenutil.DrawRect(screen, screenX, screenY-15, healthBarWidth, healthBarHeight, color.RGBA{50, 50, 50, 255})
 
 		// Health (green to red based on health)
 		var healthColor color.RGBA
@@ -2632,7 +2701,7 @@ func (g *Game) drawZombies(screen *ebiten.Image) {
 		} else {
 			healthColor = color.RGBA{255, 0, 0, 255}
 		}
-		ebitenutil.DrawRect(screen, screenX, screenY-10, healthWidth, healthBarHeight, healthColor)
+		ebitenutil.DrawRect(screen, screenX, screenY-15, healthWidth, healthBarHeight, healthColor)
 	}
 }
 
@@ -3190,7 +3259,7 @@ func initialModel() model {
 	}
 
 	return model{
-		choices:         []string{"Play (Select World)", "Create New World", "Plugin Manager", "Settings", "Exit"},
+		choices:         []string{"Play (Select World)", "Create New World", "Skin Editor", "Plugin Manager", "Settings", "Exit"},
 		cursor:          0,
 		selected:        0,
 		width:           80,
@@ -3246,6 +3315,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.currentScreen = "create_world"
 					m.newWorldName = ""
 					m.cursor = 0
+				} else if choice == "Skin Editor" {
+					m.currentScreen = "skin_editor"
+					m.cursor = 0
 				} else if choice == "Plugin Manager" {
 					m.currentScreen = "plugins"
 					m.cursor = 0
@@ -3291,7 +3363,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else if m.choices[m.cursor] == "Back" {
 					m.currentScreen = "main"
 					m.choices = []string{"Play (Select World)", "Create New World", "Skin Editor", "Plugin Manager", "Settings", "Exit"}
-					m.cursor = 4 // Return to Settings option
+					m.cursor = 4 // Return to Settings option (now at index 4)
 				}
 			case "ctrl+c", "q":
 				return m, tea.Quit
@@ -3364,15 +3436,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 			}
 		} else if m.currentScreen == "create_world" {
-			switch msg.String() {
-			case "tab":
+			switch msg.Type {
+			case tea.KeyTab:
 				// Toggle between name and seed fields
 				if m.cursor == 0 {
 					m.cursor = 1
 				} else {
 					m.cursor = 0
 				}
-			case "enter", " ":
+			case tea.KeyEnter:
 				if m.newWorldName != "" {
 					// Generate or parse seed
 					var seed int64
@@ -3402,9 +3474,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.currentScreen = "worlds"
 					m.cursor = len(m.worlds) - 1
 				}
-			case "ctrl+c", "q":
-				m.currentScreen = "main"
-				m.cursor = 1
+			case tea.KeyBackspace:
+				// Handle backspace
+				if m.cursor == 0 && len(m.newWorldName) > 0 {
+					m.newWorldName = m.newWorldName[:len(m.newWorldName)-1]
+				} else if m.cursor == 1 && len(m.newWorldSeed) > 0 {
+					m.newWorldSeed = m.newWorldSeed[:len(m.newWorldSeed)-1]
+				}
+			case tea.KeyDelete:
+				// Handle delete (clear field)
+				if m.cursor == 0 {
+					m.newWorldName = ""
+				} else if m.cursor == 1 {
+					m.newWorldSeed = ""
+				}
+			default:
+				// Handle text input - add typed character to active field
+				if msg.Type == tea.KeyRunes {
+					if m.cursor == 0 {
+						// World name field - limit to 32 chars
+						if len(m.newWorldName) < 32 {
+							m.newWorldName += string(msg.Runes)
+						}
+					} else if m.cursor == 1 {
+						// Seed field - accept numbers and letters
+						if len(m.newWorldSeed) < 20 {
+							m.newWorldSeed += string(msg.Runes)
+						}
+					}
+				} else if msg.String() == "q" || msg.String() == "ctrl+c" {
+					// Cancel and go back
+					m.currentScreen = "main"
+					m.cursor = 1
+				}
 			}
 		} else if m.currentScreen == "plugins" {
 			switch msg.String() {
@@ -3428,6 +3530,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.currentScreen = "main"
 				m.cursor = 3
 			}
+		} else if m.currentScreen == "skin_editor" {
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.skinColors) {
+					m.cursor++
+				}
+			case "enter", " ":
+				if m.cursor < len(m.skinColors) {
+					m.selectedColor = m.cursor
+				} else if m.cursor == len(m.skinColors) { // Back
+					m.currentScreen = "main"
+					m.cursor = 2 // Return to Skin Editor option
+				}
+			case "ctrl+c", "q":
+				m.currentScreen = "main"
+				m.cursor = 2
+			}
 		}
 	}
 
@@ -3438,61 +3561,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	s := strings.Builder{}
 
-	// Determine title based on screen
+	// Determine title based on screen - clean simple titles
 	var title string
 	switch m.currentScreen {
 	case "main":
-		title = "\033[38;5;196m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
-		title += "\033[38;5;196m║                                                              ║\033[0m\n"
-		title += "\033[38;5;196m║\033[38;5;226m           T E S S E L B O X   S A N D B O X                  \033[38;5;196m║\033[0m\n"
-		title += "\033[38;5;196m║                                                              ║\033[0m\n"
-		title += "\033[38;5;196m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
+		title = "\n  \033[1;36mTESSELBOX\033[0m  \033[36mSandbox Game\033[0m\n"
 	case "settings":
-		title = "\033[38;5;208m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
-		title += "\033[38;5;208m║                                                              ║\033[0m\n"
-		title += "\033[38;5;208m║\033[38;5;226m                     ⚙  S E T T I N G S  ⚙                      \033[38;5;208m║\033[0m\n"
-		title += "\033[38;5;208m║                                                              ║\033[0m\n"
-		title += "\033[38;5;208m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
+		title = "\n  \033[1;33mSETTINGS\033[0m\n"
 	case "worlds":
-		title = "\033[38;5;51m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
-		title += "\033[38;5;51m║                                                              ║\033[0m\n"
-		title += "\033[38;5;51m║\033[38;5;226m                  🌍  S E L E C T   W O R L D  🌍                 \033[38;5;51m║\033[0m\n"
-		title += "\033[38;5;51m║                                                              ║\033[0m\n"
-		title += "\033[38;5;51m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
+		title = "\n  \033[1;34mSELECT WORLD\033[0m\n"
 	case "delete_world":
-		title = "\033[38;5;196m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
-		title += "\033[38;5;196m║                                                              ║\033[0m\n"
-		title += "\033[38;5;196m║\033[38;5;226m                    🗑️   D E L E T E   🗑️                       \033[38;5;196m║\033[0m\n"
-		title += "\033[38;5;196m║                                                              ║\033[0m\n"
-		title += "\033[38;5;196m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
+		title = "\n  \033[1;31mDELETE WORLD\033[0m\n"
 	case "create_world":
-		title = "\033[38;5;46m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
-		title += "\033[38;5;46m║                                                              ║\033[0m\n"
-		title += "\033[38;5;46m║\033[38;5;226m                  ✨  C R E A T E   W O R L D  ✨                \033[38;5;46m║\033[0m\n"
-		title += "\033[38;5;46m║                                                              ║\033[0m\n"
-		title += "\033[38;5;46m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
+		title = "\n  \033[1;32mCREATE NEW WORLD\033[0m\n"
+	case "skin_editor":
+		title = "\n  \033[1;35mSKIN EDITOR\033[0m\n"
 	case "plugins":
-		title = "\033[38;5;226m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
-		title += "\033[38;5;226m║                                                              ║\033[0m\n"
-		title += "\033[38;5;226m║\033[38;5;226m                 🔌  P L U G I N   M A N A G E R  🔌              \033[38;5;226m║\033[0m\n"
-		title += "\033[38;5;226m║                                                              ║\033[0m\n"
-		title += "\033[38;5;226m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
+		title = "\n  \033[1;33mPLUGIN MANAGER\033[0m\n"
 	default:
-		title = "\033[38;5;196m╔══════════════════════════════════════════════════════════════╗\033[0m\n"
-		title += "\033[38;5;196m║                                                              ║\033[0m\n"
-		title += "\033[38;5;196m║\033[38;5;226m                       T E S S E L B O X                        \033[38;5;196m║\033[0m\n"
-		title += "\033[38;5;196m║                                                              ║\033[0m\n"
-		title += "\033[38;5;196m╚══════════════════════════════════════════════════════════════╝\033[0m\n"
+		title = "\n  \033[1;36mTESSELBOX\033[0m\n"
 	}
 
-	titlePadding := (m.width - 60) / 2
-	if titlePadding < 0 {
-		titlePadding = 0
-	}
-	s.WriteString(strings.Repeat(" ", titlePadding))
 	s.WriteString(title)
-	s.WriteString(strings.Repeat(" ", titlePadding))
-	s.WriteString("\n\n")
+	s.WriteString("\n")
 
 	// Render content based on screen
 	switch m.currentScreen {
@@ -3675,6 +3766,43 @@ func (m model) View() string {
 		s.WriteString("\033[38;5;240m" + instr + "\033[0m")
 		s.WriteString("\n")
 
+	case "skin_editor":
+		// Simple skin color selector
+		s.WriteString("\n  Select Skin Color:\n\n")
+
+		colorCodes := map[string]string{
+			"Default": "\033[38;5;226m",
+			"Red":     "\033[38;5;196m",
+			"Blue":    "\033[38;5;51m",
+			"Green":   "\033[38;5;46m",
+			"Purple":  "\033[38;5;165m",
+		}
+
+		for i, color := range m.skinColors {
+			padding := (m.width - len(color) - 8) / 2
+			s.WriteString(strings.Repeat(" ", padding))
+
+			colorCode := colorCodes[color]
+			if m.cursor == i {
+				s.WriteString("\033[1;46m👉 " + colorCode + color + "\033[0m")
+			} else if m.selectedColor == i {
+				s.WriteString("   " + colorCode + color + "\033[0m")
+			} else {
+				s.WriteString("   \033[38;5;250m" + color + "\033[0m")
+			}
+			s.WriteString("\n")
+		}
+
+		// Back option
+		backPadding := (m.width - 6) / 2
+		s.WriteString(strings.Repeat(" ", backPadding))
+		if m.cursor == len(m.skinColors) {
+			s.WriteString("\033[38;5;208;1m👉 Back\033[0m")
+		} else {
+			s.WriteString("\033[38;5;250m   Back\033[0m")
+		}
+		s.WriteString("\n")
+
 	case "plugins":
 		// Plugin list
 		s.WriteString("  Installed Plugins:\n\n")
@@ -3718,7 +3846,7 @@ func (m model) View() string {
 	switch m.currentScreen {
 	case "main":
 		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Quit"
-	case "worlds", "plugins":
+	case "worlds", "plugins", "skin_editor":
 		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Back"
 	case "delete_world":
 		footer = "↑/k: Move    ↓/j: Move    Enter: Delete    q: Cancel"
