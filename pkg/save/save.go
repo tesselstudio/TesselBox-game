@@ -9,8 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"tesselbox/pkg/equipment"
+	"tesselbox/pkg/health"
 	"tesselbox/pkg/items"
 	"tesselbox/pkg/player"
+	"tesselbox/pkg/survival"
 	"tesselbox/pkg/world"
 )
 
@@ -58,6 +61,13 @@ type SaveData struct {
 	BlocksDestroyed int     `json:"blocks_destroyed"`
 	ItemsCrafted    int     `json:"items_crafted"`
 	PlayTime        float64 `json:"play_time_seconds"`
+
+	// Survival systems
+	SurvivalStats  *SurvivalStatsData   `json:"survival_stats,omitempty"`
+	Equipment      []EquipmentSlotData  `json:"equipment,omitempty"`
+	BodyPartHealth []BodyPartHealthData `json:"body_part_health,omitempty"`
+	Zombies        []ZombieData         `json:"zombies,omitempty"`
+	Chests         []ChestData          `json:"chests,omitempty"`
 }
 
 // InventorySlotData represents a single inventory slot for serialization
@@ -65,6 +75,57 @@ type InventorySlotData struct {
 	Type       items.ItemType `json:"type"`
 	Quantity   int            `json:"quantity"`
 	Durability int            `json:"durability"`
+}
+
+// SurvivalStatsData stores survival mode statistics
+type SurvivalStatsData struct {
+	Hunger         float64   `json:"hunger"`
+	MaxHunger      float64   `json:"max_hunger"`
+	Thirst         float64   `json:"thirst"`
+	MaxThirst      float64   `json:"max_thirst"`
+	Stamina        float64   `json:"stamina"`
+	MaxStamina     float64   `json:"max_stamina"`
+	LastDamageTime time.Time `json:"last_damage_time"`
+	IsStarving     bool      `json:"is_starving"`
+	IsDehydrated   bool      `json:"is_dehydrated"`
+}
+
+// EquipmentSlotData stores a single equipment item
+type EquipmentSlotData struct {
+	Name          string  `json:"name"`
+	Slot          int     `json:"slot"`
+	Material      int     `json:"material"`
+	ArmorType     int     `json:"armor_type"`
+	BaseDefense   float64 `json:"base_defense"`
+	Durability    int     `json:"durability"`
+	MaxDurability int     `json:"max_durability"`
+	GrantsFlight  bool    `json:"grants_flight"`
+}
+
+// BodyPartHealthData stores health for each body part
+type BodyPartHealthData struct {
+	Name      string  `json:"name"`
+	Health    float64 `json:"health"`
+	MaxHealth float64 `json:"max_health"`
+	IsVital   bool    `json:"is_vital"`
+}
+
+// ZombieData stores zombie state
+type ZombieData struct {
+	ID        string  `json:"id"`
+	X, Y      float64 `json:"x,omitempty;y,omitempty"`
+	Health    float64 `json:"health"`
+	MaxHealth float64 `json:"max_health"`
+	Type      int     `json:"type"`
+	IsAlive   bool    `json:"is_alive"`
+	State     int     `json:"state"`
+}
+
+// ChestData stores chest contents and position
+type ChestData struct {
+	X     float64             `json:"x"`
+	Y     float64             `json:"y"`
+	Slots []InventorySlotData `json:"slots"`
 }
 
 // SaveManager handles unified save game management
@@ -164,6 +225,53 @@ func (sm *SaveManager) SaveGame(gameState *GameState) error {
 				Type:       slot.Type,
 				Quantity:   slot.Quantity,
 				Durability: slot.Durability,
+			}
+		}
+	}
+
+	// Save survival systems
+	if gameState.SurvivalManager != nil {
+		saveData.SurvivalStats = &SurvivalStatsData{
+			Hunger:         gameState.SurvivalManager.Hunger,
+			MaxHunger:      gameState.SurvivalManager.MaxHunger,
+			Thirst:         gameState.SurvivalManager.Thirst,
+			MaxThirst:      gameState.SurvivalManager.MaxThirst,
+			Stamina:        gameState.SurvivalManager.Stamina,
+			MaxStamina:     gameState.SurvivalManager.MaxStamina,
+			LastDamageTime: gameState.SurvivalManager.LastDamageTime,
+			IsStarving:     gameState.SurvivalManager.IsStarving,
+			IsDehydrated:   gameState.SurvivalManager.IsDehydrated,
+		}
+	}
+
+	// Save equipment
+	if gameState.EquipmentSet != nil {
+		saveData.Equipment = make([]EquipmentSlotData, 0, len(gameState.EquipmentSet.Slots))
+		for slotType, item := range gameState.EquipmentSet.Slots {
+			if item != nil {
+				saveData.Equipment = append(saveData.Equipment, EquipmentSlotData{
+					Name:          item.Name,
+					Slot:          int(slotType),
+					Material:      int(item.Material),
+					ArmorType:     int(item.ArmorType),
+					BaseDefense:   item.BaseDefense,
+					Durability:    item.Durability,
+					MaxDurability: item.MaxDurability,
+					GrantsFlight:  item.GrantsFlight,
+				})
+			}
+		}
+	}
+
+	// Save body part health
+	if gameState.HealthSystem != nil {
+		saveData.BodyPartHealth = make([]BodyPartHealthData, len(gameState.HealthSystem.Parts))
+		for i, part := range gameState.HealthSystem.Parts {
+			saveData.BodyPartHealth[i] = BodyPartHealthData{
+				Name:      part.Name,
+				Health:    part.Health,
+				MaxHealth: part.MaxHealth,
+				IsVital:   part.IsVital,
 			}
 		}
 	}
@@ -291,6 +399,61 @@ func (sm *SaveManager) ApplySaveData(saveData *SaveData, gameState *GameState) e
 		}
 	}
 
+	// Apply survival stats
+	if saveData.SurvivalStats != nil && gameState.SurvivalManager != nil {
+		gameState.SurvivalManager.Hunger = saveData.SurvivalStats.Hunger
+		gameState.SurvivalManager.MaxHunger = saveData.SurvivalStats.MaxHunger
+		gameState.SurvivalManager.Thirst = saveData.SurvivalStats.Thirst
+		gameState.SurvivalManager.MaxThirst = saveData.SurvivalStats.MaxThirst
+		gameState.SurvivalManager.Stamina = saveData.SurvivalStats.Stamina
+		gameState.SurvivalManager.MaxStamina = saveData.SurvivalStats.MaxStamina
+		gameState.SurvivalManager.LastDamageTime = saveData.SurvivalStats.LastDamageTime
+		gameState.SurvivalManager.IsStarving = saveData.SurvivalStats.IsStarving
+		gameState.SurvivalManager.IsDehydrated = saveData.SurvivalStats.IsDehydrated
+	}
+
+	// Apply equipment
+	if len(saveData.Equipment) > 0 && gameState.EquipmentSet != nil {
+		for _, eqData := range saveData.Equipment {
+			slot := equipment.EquipmentSlot(eqData.Slot)
+			item := &equipment.EquipmentItem{
+				Name:          eqData.Name,
+				Slot:          slot,
+				Material:      equipment.ArmorMaterial(eqData.Material),
+				ArmorType:     equipment.ArmorType(eqData.ArmorType),
+				BaseDefense:   eqData.BaseDefense,
+				Durability:    eqData.Durability,
+				MaxDurability: eqData.MaxDurability,
+				GrantsFlight:  eqData.GrantsFlight,
+			}
+			gameState.EquipmentSet.EquipItem(item, slot)
+		}
+	}
+
+	// Apply body part health
+	if len(saveData.BodyPartHealth) > 0 && gameState.HealthSystem != nil {
+		totalHealth := 0.0
+		totalMax := 0.0
+		for i, partData := range saveData.BodyPartHealth {
+			if i < len(gameState.HealthSystem.Parts) {
+				gameState.HealthSystem.Parts[i].Health = partData.Health
+				gameState.HealthSystem.Parts[i].MaxHealth = partData.MaxHealth
+				gameState.HealthSystem.Parts[i].IsVital = partData.IsVital
+				// Weight vital parts more heavily
+				if partData.IsVital {
+					totalHealth += partData.Health * 2
+					totalMax += partData.MaxHealth * 2
+				} else {
+					totalHealth += partData.Health
+					totalMax += partData.MaxHealth
+				}
+			}
+		}
+		// Recalculate overall health
+		gameState.HealthSystem.OverallHealth = totalHealth
+		gameState.HealthSystem.MaxOverallHealth = totalMax
+	}
+
 	// Load world chunks around player position
 	worldStorage := world.NewWorldStorage(sm.WorldName)
 	if err := worldStorage.LoadWorld(gameState.World, saveData.PlayerX, saveData.PlayerY, 5); err != nil {
@@ -410,6 +573,11 @@ type GameState struct {
 	BlocksDestroyed int
 	ItemsCrafted    int
 	PlayTime        float64
+
+	// Survival systems
+	SurvivalManager *survival.SurvivalManager
+	EquipmentSet    *equipment.EquipmentSet
+	HealthSystem    *health.LocationalHealthSystem
 }
 
 // AutoSaver handles automatic saving at intervals

@@ -2,6 +2,7 @@ package audio
 
 import (
 	"log"
+	"tesselbox/pkg/biomes"
 )
 
 // SoundEffect represents different game sound effects
@@ -87,7 +88,7 @@ type SoundLibrary struct {
 	miningVariations   map[SoundEffect][]string
 
 	// Current context
-	currentBiome   string
+	currentBiome   biomes.BiomeType
 	currentWeather string
 	isUnderground  bool
 	timeOfDay      string
@@ -285,18 +286,18 @@ func (sl *SoundLibrary) PlayAmbientSound() {
 		if sl.currentWeather == "storm" {
 			// Thunder would be played randomly
 		}
-	} else if sl.currentBiome == "forest" && sl.timeOfDay == "day" {
+	} else if sl.currentBiome == biomes.FOREST && sl.timeOfDay == "day" {
 		sl.manager.PlaySound(string(SFXBirds))
 	}
 
 	// Always play wind in certain conditions
-	if sl.currentBiome == "mountains" || sl.currentBiome == "tundra" {
+	if sl.currentBiome == biomes.MOUNTAINS || sl.currentBiome == biomes.TUNDRA {
 		sl.manager.PlaySound(string(SFXWind))
 	}
 }
 
 // UpdateContext updates the current game context for audio
-func (sl *SoundLibrary) UpdateContext(biome, weather string, isUnderground bool, timeOfDay string) {
+func (sl *SoundLibrary) UpdateContext(biome biomes.BiomeType, weather string, isUnderground bool, timeOfDay string) {
 	sl.currentBiome = biome
 	sl.currentWeather = weather
 	sl.isUnderground = isUnderground

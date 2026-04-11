@@ -285,6 +285,182 @@ func (cs *CraftingSystem) loadDefaultRecipes() error {
 			RequiredTool:    items.IRON_PICKAXE,
 			RequiredStation: STATION_WORKBENCH,
 		},
+		// Armor recipes - using wool as leather substitute
+		{
+			ID:          "leather_helmet",
+			Name:        "Leather Cap",
+			Description: "Basic head protection",
+			Inputs: []RecipeInput{
+				{ItemType: items.WOOL, Quantity: 5},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.LEATHER_HELMET, Quantity: 1},
+			},
+			CraftingTime:    3.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "leather_chestplate",
+			Name:        "Leather Tunic",
+			Description: "Basic body protection",
+			Inputs: []RecipeInput{
+				{ItemType: items.WOOL, Quantity: 8},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.LEATHER_CHESTPLATE, Quantity: 1},
+			},
+			CraftingTime:    4.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "leather_leggings",
+			Name:        "Leather Pants",
+			Description: "Basic leg protection",
+			Inputs: []RecipeInput{
+				{ItemType: items.WOOL, Quantity: 7},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.LEATHER_LEGGINGS, Quantity: 1},
+			},
+			CraftingTime:    4.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "leather_boots",
+			Name:        "Leather Boots",
+			Description: "Basic foot protection",
+			Inputs: []RecipeInput{
+				{ItemType: items.WOOL, Quantity: 4},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.LEATHER_BOOTS, Quantity: 1},
+			},
+			CraftingTime:    3.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		{
+			ID:          "iron_helmet",
+			Name:        "Iron Helmet",
+			Description: "Metal head protection",
+			Inputs: []RecipeInput{
+				{ItemType: items.IRON_INGOT, Quantity: 5},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.IRON_HELMET, Quantity: 1},
+			},
+			CraftingTime:    5.0,
+			RequiredTool:    items.STONE_PICKAXE,
+			RequiredStation: STATION_ANVIL,
+		},
+		{
+			ID:          "iron_chestplate",
+			Name:        "Iron Chestplate",
+			Description: "Metal body protection",
+			Inputs: []RecipeInput{
+				{ItemType: items.IRON_INGOT, Quantity: 8},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.IRON_CHESTPLATE, Quantity: 1},
+			},
+			CraftingTime:    6.0,
+			RequiredTool:    items.STONE_PICKAXE,
+			RequiredStation: STATION_ANVIL,
+		},
+		{
+			ID:          "iron_leggings",
+			Name:        "Iron Leggings",
+			Description: "Metal leg protection",
+			Inputs: []RecipeInput{
+				{ItemType: items.IRON_INGOT, Quantity: 7},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.IRON_LEGGINGS, Quantity: 1},
+			},
+			CraftingTime:    6.0,
+			RequiredTool:    items.STONE_PICKAXE,
+			RequiredStation: STATION_ANVIL,
+		},
+		{
+			ID:          "iron_boots",
+			Name:        "Iron Boots",
+			Description: "Metal foot protection",
+			Inputs: []RecipeInput{
+				{ItemType: items.IRON_INGOT, Quantity: 4},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.IRON_BOOTS, Quantity: 1},
+			},
+			CraftingTime:    5.0,
+			RequiredTool:    items.STONE_PICKAXE,
+			RequiredStation: STATION_ANVIL,
+		},
+		// Chest recipe
+		{
+			ID:          "chest",
+			Name:        "Chest",
+			Description: "Storage container",
+			Inputs: []RecipeInput{
+				{ItemType: items.PLANKS, Quantity: 8},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.CHEST, Quantity: 1},
+			},
+			CraftingTime:    4.0,
+			RequiredTool:    items.NONE,
+			RequiredStation: STATION_WORKBENCH,
+		},
+		// Wings recipe - using string as feather substitute
+		{
+			ID:          "wings",
+			Name:        "Wings",
+			Description: "Allows flight",
+			Inputs: []RecipeInput{
+				{ItemType: items.WOOL, Quantity: 6},
+				{ItemType: items.STRING, Quantity: 20},
+				{ItemType: items.IRON_INGOT, Quantity: 2},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.BOW, Quantity: 1}, // Using BOW as wings placeholder
+			},
+			CraftingTime:    8.0,
+			RequiredTool:    items.IRON_PICKAXE,
+			RequiredStation: STATION_ANVIL,
+		},
+		// Advanced tools
+		{
+			ID:          "diamond_pickaxe",
+			Name:        "Diamond Pickaxe",
+			Description: "The ultimate mining tool",
+			Inputs: []RecipeInput{
+				{ItemType: items.DIAMOND, Quantity: 3},
+				{ItemType: items.STICK, Quantity: 2},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.DIAMOND_SWORD, Quantity: 1}, // Using DIAMOND_SWORD as placeholder
+			},
+			CraftingTime:    6.0,
+			RequiredTool:    items.IRON_PICKAXE,
+			RequiredStation: STATION_ANVIL,
+		},
+		{
+			ID:          "diamond_sword",
+			Name:        "Diamond Sword",
+			Description: "The ultimate weapon",
+			Inputs: []RecipeInput{
+				{ItemType: items.DIAMOND, Quantity: 2},
+				{ItemType: items.STICK, Quantity: 1},
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.DIAMOND_SWORD, Quantity: 1},
+			},
+			CraftingTime:    6.0,
+			RequiredTool:    items.IRON_PICKAXE,
+			RequiredStation: STATION_ANVIL,
+		},
 	}
 
 	// Load default recipes

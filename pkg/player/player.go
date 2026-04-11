@@ -7,7 +7,7 @@ import (
 
 const (
 	// Physics constants
-	Gravity      = 0.5
+	Gravity      = 2.0
 	PlayerSpeed  = 300.0 // Speed in pixels per second (framerate independent)
 	JumpForce    = -8.0  // Jump force in pixels per second
 	Friction     = 0.85
