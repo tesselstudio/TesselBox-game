@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,6 +22,7 @@ import (
 	"tesselbox/pkg/chest"
 	"tesselbox/pkg/combat"
 	"tesselbox/pkg/crafting"
+	"tesselbox/pkg/debug"
 	"tesselbox/pkg/enemies"
 	"tesselbox/pkg/equipment"
 	"tesselbox/pkg/gametime"
@@ -50,6 +52,30 @@ func getTesselboxDir() string {
 		return ".tesselbox"
 	}
 	return filepath.Join(home, ".tesselbox")
+}
+
+// initTesselboxStorage creates the .tesselbox directory structure on startup
+// This ensures all subdirectories exist when running on a new device
+func initTesselboxStorage() error {
+	tesselboxDir := getTesselboxDir()
+
+	// Create all necessary subdirectories
+	dirs := []string{
+		tesselboxDir,                           // ~/.tesselbox
+		filepath.Join(tesselboxDir, "worlds"),  // ~/.tesselbox/worlds
+		filepath.Join(tesselboxDir, "saves"),   // ~/.tesselbox/saves
+		filepath.Join(tesselboxDir, "skins"),   // ~/.tesselbox/skins
+		filepath.Join(tesselboxDir, "plugins"), // ~/.tesselbox/plugins
+	}
+
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+	}
+
+	log.Printf("Tesselbox storage initialized: %s", tesselboxDir)
+	return nil
 }
 
 // stringToBlockType converts a string block type name to blocks.BlockType
@@ -119,6 +145,22 @@ func minFloat32(a, b float32) float32 {
 	return b
 }
 
+var (
+	// sharedWhiteImage is a singleton 1x1 white image used for all solid color drawing
+	// This avoids creating multiple ebiten.Image instances
+	sharedWhiteImage *ebiten.Image
+	sharedWhiteOnce  sync.Once
+)
+
+// getSharedWhiteImage returns the singleton white image, creating it if needed
+func getSharedWhiteImage() *ebiten.Image {
+	sharedWhiteOnce.Do(func() {
+		sharedWhiteImage = ebiten.NewImage(1, 1)
+		sharedWhiteImage.Fill(color.RGBA{255, 255, 255, 255})
+	})
+	return sharedWhiteImage
+}
+
 const (
 	ScreenWidth  = 1280
 	ScreenHeight = 720
@@ -164,6 +206,10 @@ type Game struct {
 	// Audio system
 	audioManager *audio.AudioManager
 	soundLibrary *audio.SoundLibrary
+
+	// Debug/Panic recovery
+	recoveryHandler *debug.RecoveryHandler
+	profiler        *debug.PerformanceProfiler
 
 	// Footstep audio tracking
 	lastFootstepTime time.Time
@@ -257,9 +303,8 @@ func NewGame() *Game {
 
 // NewGameWithWorld creates a new game with a specific world name and seed
 func NewGameWithWorld(worldName string, worldSeed int64) *Game {
-	// Create a 1x1 white image for solid color drawing
-	whiteImage := ebiten.NewImage(1, 1)
-	whiteImage.Fill(color.RGBA{255, 255, 255, 255})
+	// Use shared white image singleton for better resource management
+	whiteImage := getSharedWhiteImage()
 
 	g := &Game{
 		world:                  world.NewWorld(worldName), // Create world with name
@@ -367,6 +412,18 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	// Initialize audio system
 	g.audioManager = audio.NewAudioManager()
 	g.soundLibrary = audio.NewSoundLibrary(g.audioManager)
+
+	// Initialize panic recovery handler
+	g.recoveryHandler = debug.NewRecoveryHandler(getTesselboxDir(), func(info debug.PanicInfo) {
+		log.Printf("Recovered from panic: %s", info.Message)
+		// Attempt emergency save
+		g.recoveryHandler.TryEmergencySave(func() error {
+			return g.SaveGame()
+		})
+	})
+
+	// Initialize performance profiler
+	g.profiler = debug.NewPerformanceProfiler()
 
 	// Load audio files with validation
 	log.Printf("Loading audio system...")
@@ -516,6 +573,9 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 
 // Update updates the game state
 func (g *Game) Update() error {
+	// Panic recovery - catches crashes and logs them
+	defer g.recoveryHandler.Recover()
+
 	// Calculate delta time for framerate-independent movement
 	currentTime := time.Now()
 	deltaTime := currentTime.Sub(g.lastTime).Seconds()
@@ -1691,6 +1751,9 @@ func (g *Game) updateDroppedItems(deltaTime float64) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	// Panic recovery for rendering - prevents crash from bad frame
+	defer g.recoveryHandler.Recover()
+
 	if g.inCrafting {
 		// Draw game in background
 		g.drawGameScene(screen)
@@ -1749,6 +1812,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if g.deathScreen != nil {
 			g.deathScreen.Draw(screen)
 		}
+
+		// Draw profiler overlay (if enabled)
+		g.profiler.Draw(screen)
 	}
 }
 
@@ -3237,19 +3303,64 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor--
 				}
 			case "down", "j":
-				if m.cursor < len(m.worlds) {
+				if m.cursor < len(m.worlds)+1 { // +1 for Back option
 					m.cursor++
 				}
 			case "enter", " ":
 				if m.cursor < len(m.worlds) {
 					m.selectedWorld = m.cursor
 					return m, tea.Quit // Start game with selected world
-				} else if m.cursor == len(m.worlds) { // Back option
+				} else if m.cursor == len(m.worlds) { // Delete option
+					if len(m.worlds) > 0 {
+						m.currentScreen = "delete_world"
+						m.cursor = 0
+					}
+				} else if m.cursor == len(m.worlds)+1 { // Back option
 					m.currentScreen = "main"
 					m.cursor = 0
 				}
 			case "ctrl+c", "q":
 				m.currentScreen = "main"
+				m.cursor = 0
+			}
+		} else if m.currentScreen == "delete_world" {
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.worlds) {
+					m.cursor++
+				}
+			case "enter", " ":
+				if m.cursor < len(m.worlds) {
+					// Delete selected world
+					worldToDelete := m.worlds[m.cursor]
+
+					// Remove from worlds slice
+					m.worlds = append(m.worlds[:m.cursor], m.worlds[m.cursor+1:]...)
+
+					// Remove from seeds map
+					delete(m.worldSeeds, worldToDelete)
+
+					// Try to delete from disk
+					worldDir := filepath.Join(getTesselboxDir(), "worlds", worldToDelete)
+					os.RemoveAll(worldDir)
+
+					// Reset cursor if needed
+					if m.cursor >= len(m.worlds) && m.cursor > 0 {
+						m.cursor--
+					}
+
+					// Return to worlds screen
+					m.currentScreen = "worlds"
+				} else if m.cursor == len(m.worlds) { // Cancel option
+					m.currentScreen = "worlds"
+					m.cursor = 0
+				}
+			case "ctrl+c", "q":
+				m.currentScreen = "worlds"
 				m.cursor = 0
 			}
 		} else if m.currentScreen == "create_world" {
@@ -3366,6 +3477,10 @@ func (m model) View() string {
 		title = "\033[38;5;51m╔══════════════════════════════════════════════════════════╗\033[0m\n"
 		title += "\033[38;5;51m║\033[38;5;46m  🌍 \033[38;5;99mS\033[38;5;129mE\033[38;5;165mL\033[38;5;196mE\033[38;5;208mC\033[38;5;226mT\033[38;5;46m \033[38;5;51mW\033[38;5;99mO\033[38;5;129mR\033[38;5;165mL\033[38;5;196mD\033[38;5;208m  🌍  \033[38;5;51m║\033[0m\n"
 		title += "\033[38;5;51m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
+	case "delete_world":
+		title = "\033[38;5;196m╔══════════════════════════════════════════════════════════╗\033[0m\n"
+		title += "\033[38;5;196m║\033[38;5;196m  🗑️ \033[38;5;196mD\033[38;5;208mE\033[38;5;226mL\033[38;5;46mE\033[38;5;51mT\033[38;5;99mE\033[38;5;196m  🗑️  \033[38;5;196m║\033[0m\n"
+		title += "\033[38;5;196m╚══════════════════════════════════════════════════════════════════════════════╝\033[0m\n"
 	case "create_world":
 		title = "\033[38;5;46m╔══════════════════════════════════════════════════════════╗\033[0m\n"
 		title += "\033[38;5;46m║\033[38;5;51m  ✨ \033[38;5;99mC\033[38;5;129mR\033[38;5;165mE\033[38;5;196mA\033[38;5;208mT\033[38;5;226mE\033[38;5;46m \033[38;5;51mW\033[38;5;99mO\033[38;5;129mR\033[38;5;165mL\033[38;5;196mD\033[38;5;208m  ✨  \033[38;5;46m║\033[0m\n"
@@ -3463,13 +3578,57 @@ func (m model) View() string {
 			}
 			s.WriteString("\n")
 		}
+		// Delete option
+		if len(m.worlds) > 0 {
+			padding := (m.width - 14) / 2
+			s.WriteString(strings.Repeat(" ", padding))
+			if m.cursor == len(m.worlds) {
+				s.WriteString("\033[38;5;196;1m👉 Delete World\033[0m")
+			} else {
+				s.WriteString("\033[38;5;250m   Delete World\033[0m")
+			}
+			s.WriteString("\n")
+		}
+
 		// Back option
 		padding := (m.width - 6) / 2
 		s.WriteString(strings.Repeat(" ", padding))
-		if m.cursor == len(m.worlds) {
+		if m.cursor == len(m.worlds)+1 {
 			s.WriteString("\033[38;5;208;1m👉 Back\033[0m")
 		} else {
 			s.WriteString("\033[38;5;250m   Back\033[0m")
+		}
+		s.WriteString("\n")
+
+	case "delete_world":
+		// Delete world screen
+		s.WriteString("\n")
+		titlePadding := (m.width - 26) / 2
+		s.WriteString(strings.Repeat(" ", titlePadding))
+		s.WriteString("\033[38;5;196;1m⚠ Select World to Delete:\033[0m\n\n")
+
+		for i, worldName := range m.worlds {
+			itemPadding := (m.width - len(worldName) - 4) / 2
+			s.WriteString(strings.Repeat(" ", itemPadding))
+			if m.cursor == i {
+				s.WriteString("\033[38;5;196;1m👉 ")
+				s.WriteString(worldName)
+				s.WriteString("\033[0m")
+			} else {
+				s.WriteString("   \033[38;5;250m")
+				s.WriteString(worldName)
+				s.WriteString("\033[0m")
+			}
+			s.WriteString("\n")
+		}
+
+		// Cancel option
+		itemPadding := (m.width - 10) / 2
+		s.WriteString(strings.Repeat(" ", itemPadding))
+		if m.cursor == len(m.worlds) {
+			s.WriteString("\033[38;5;46;1m👉 Cancel\033[0m")
+		} else {
+			s.WriteString("\033[38;5;250m   Cancel\033[0m")
 		}
 		s.WriteString("\n")
 
@@ -3615,6 +3774,8 @@ func (m model) View() string {
 		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Quit"
 	case "worlds", "plugins":
 		footer = "↑/k: Move    ↓/j: Move    Enter: Select    q/Ctrl+C: Back"
+	case "delete_world":
+		footer = "↑/k: Move    ↓/j: Move    Enter: Delete    q: Cancel"
 	case "create_world":
 		footer = "Type: Name    Enter: Create    q: Cancel"
 	default:
@@ -3803,6 +3964,11 @@ func (g *Game) cleanupAudio() {
 
 // Main function
 func main() {
+	// Initialize storage directory on startup (creates ~/.tesselbox if needed)
+	if err := initTesselboxStorage(); err != nil {
+		fmt.Printf("⚠️ Failed to initialize storage: %v\n", err)
+	}
+
 	// Default to TUI mode
 	fmt.Println("🎮 TESSELBOX - Beautiful Terminal Interface 🎮")
 	runTUI()

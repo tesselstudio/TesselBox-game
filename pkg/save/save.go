@@ -331,24 +331,82 @@ func (sm *SaveManager) SaveGame(gameState *GameState) error {
 		return fmt.Errorf("failed to save world metadata: %w", err)
 	}
 
-	// Save player data
-	saveFilename := filepath.Join(sm.SaveDir, fmt.Sprintf("player_%s.json", sm.PlayerName))
-	saveDataJSON, err := json.MarshalIndent(saveData, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal save data: %w", err)
-	}
-
-	if err := os.WriteFile(saveFilename, saveDataJSON, 0644); err != nil {
-		return fmt.Errorf("failed to write save file: %w", err)
+	// Save player data with atomic write and backup
+	if err := sm.saveGameAtomic(saveData); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-// LoadGame loads the complete game state
+// saveGameAtomic performs an atomic save with backup
+func (sm *SaveManager) saveGameAtomic(saveData *SaveData) error {
+	saveFilename := filepath.Join(sm.SaveDir, fmt.Sprintf("player_%s.json", sm.PlayerName))
+	tempFilename := saveFilename + ".tmp"
+
+	// Marshal save data
+	saveDataJSON, err := json.MarshalIndent(saveData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal save data: %w", err)
+	}
+
+	// Create backup of existing save (if it exists)
+	if _, err := os.Stat(saveFilename); err == nil {
+		backupManager := NewBackupManager(sm.WorldName, sm.PlayerName, sm.SaveDir)
+		if err := backupManager.CreateBackup(saveData); err != nil {
+			// Log but don't fail - backup is best effort
+			fmt.Printf("Warning: Failed to create backup: %v\n", err)
+		}
+	}
+
+	// Write to temp file
+	if err := os.WriteFile(tempFilename, saveDataJSON, 0644); err != nil {
+		return fmt.Errorf("failed to write temp save file: %w", err)
+	}
+
+	// Validate the temp file
+	backupManager := NewBackupManager(sm.WorldName, sm.PlayerName, sm.SaveDir)
+	validator := NewSaveValidator(backupManager)
+	result := validator.ValidateSaveFile(tempFilename)
+
+	if !result.Valid {
+		os.Remove(tempFilename)
+		return fmt.Errorf("save validation failed: %v", result.Errors)
+	}
+
+	// Atomic rename (replaces existing file atomically)
+	if err := os.Rename(tempFilename, saveFilename); err != nil {
+		os.Remove(tempFilename)
+		return fmt.Errorf("failed to commit save file: %w", err)
+	}
+
+	return nil
+}
+
+// LoadGame loads the complete game state with validation and recovery
 func (sm *SaveManager) LoadGame() (*SaveData, error) {
 	saveFilename := filepath.Join(sm.SaveDir, fmt.Sprintf("player_%s.json", sm.PlayerName))
 
+	// First, validate the save file
+	backupManager := NewBackupManager(sm.WorldName, sm.PlayerName, sm.SaveDir)
+	validator := NewSaveValidator(backupManager)
+	result := validator.ValidateSaveFile(saveFilename)
+
+	if !result.Valid {
+		// Save is corrupted - attempt recovery
+		if result.CanRecover && result.BackupPath != "" {
+			fmt.Printf("Save file is corrupted. Attempting recovery from backup: %s\n", result.BackupPath)
+			recoveredData, err := validator.TryRecover()
+			if err != nil {
+				return nil, fmt.Errorf("save file corrupted and recovery failed: %v (errors: %v)", err, result.Errors)
+			}
+			fmt.Printf("Successfully recovered from backup. Warnings: %v\n", result.Warnings)
+			return recoveredData, nil
+		}
+		return nil, fmt.Errorf("save file corrupted and no backup available: %v", result.Errors)
+	}
+
+	// Validate passed, load the data
 	data, err := os.ReadFile(saveFilename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -361,6 +419,11 @@ func (sm *SaveManager) LoadGame() (*SaveData, error) {
 	err = json.Unmarshal(data, &saveData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal save data: %w", err)
+	}
+
+	// Log any warnings
+	if len(result.Warnings) > 0 {
+		fmt.Printf("Save loaded with warnings: %v\n", result.Warnings)
 	}
 
 	return &saveData, nil

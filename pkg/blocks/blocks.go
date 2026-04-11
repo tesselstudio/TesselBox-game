@@ -1,6 +1,7 @@
 package blocks
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 	"math"
@@ -1077,19 +1078,43 @@ func loadMods() {
 }
 
 // generateProceduralTexture creates a texture using a color palette with random pixels
+// Uses caching to avoid regenerating the same textures
 func generateProceduralTexture(colors []color.RGBA, id BlockType) *ebiten.Image {
 	if len(colors) == 0 {
 		return nil
 	}
+
+	// Create cache key from colors and block ID
+	cacheKey := fmt.Sprintf("proc:%d", id)
+
+	// Try to get from cache first
+	if tex, ok := textureCache.Get(cacheKey); ok {
+		return tex
+	}
+
 	const size = 64
 	img := ebiten.NewImage(size, size)
 	rand.Seed(int64(id) * 1000) // Deterministic seed per block type
-	for x := 0; x < size; x++ {
-		for y := 0; y < size; y++ {
+
+	// Batch pixel operations using a pre-allocated slice
+	pixels := make([]byte, size*size*4)
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
 			idx := rand.Intn(len(colors))
-			img.Set(x, y, colors[idx])
+			c := colors[idx]
+			offset := (y*size + x) * 4
+			pixels[offset] = c.R
+			pixels[offset+1] = c.G
+			pixels[offset+2] = c.B
+			pixels[offset+3] = c.A
 		}
 	}
+
+	// Write pixels to image (much faster than individual Set calls)
+	img.WritePixels(pixels)
+
+	// Cache the texture
+	textureCache.Set(cacheKey, img)
 	return img
 }
 

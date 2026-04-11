@@ -1,6 +1,7 @@
 package blocks
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 	"math/rand"
@@ -8,6 +9,69 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+// SimpleLRUCache is a thread-safe LRU cache for ebiten images
+type SimpleLRUCache struct {
+	data    map[string]*ebiten.Image
+	keys    []string
+	size    int
+	maxSize int
+}
+
+// NewSimpleLRUCache creates a new LRU cache with max size
+func NewSimpleLRUCache(maxSize int) *SimpleLRUCache {
+	return &SimpleLRUCache{
+		data:    make(map[string]*ebiten.Image),
+		keys:    make([]string, 0, maxSize),
+		size:    0,
+		maxSize: maxSize,
+	}
+}
+
+// Get retrieves an item from the cache
+func (c *SimpleLRUCache) Get(key string) (*ebiten.Image, bool) {
+	if val, ok := c.data[key]; ok {
+		// Move key to end (most recently used)
+		c.moveToEnd(key)
+		return val, true
+	}
+	return nil, false
+}
+
+// Set adds or updates an item in the cache
+func (c *SimpleLRUCache) Set(key string, value *ebiten.Image) {
+	if _, ok := c.data[key]; ok {
+		c.data[key] = value
+		c.moveToEnd(key)
+		return
+	}
+
+	if c.size >= c.maxSize {
+		// Evict oldest
+		oldest := c.keys[0]
+		delete(c.data, oldest)
+		c.keys = c.keys[1:]
+		c.size--
+	}
+
+	c.data[key] = value
+	c.keys = append(c.keys, key)
+	c.size++
+}
+
+// moveToEnd moves a key to the end of the keys slice
+func (c *SimpleLRUCache) moveToEnd(key string) {
+	for i, k := range c.keys {
+		if k == key {
+			c.keys = append(c.keys[:i], c.keys[i+1:]...)
+			c.keys = append(c.keys, key)
+			break
+		}
+	}
+}
+
+// Global texture cache with 1000 entry limit
+var textureCache = NewSimpleLRUCache(1000)
 
 // ColorVariation defines different ways blocks can vary in color
 type ColorVariation int
@@ -25,15 +89,15 @@ const (
 
 // BlockColorScheme defines a color scheme for blocks with variations
 type BlockColorScheme struct {
-	BaseColors      []color.RGBA    `yaml:"baseColors"`
-	VariationType   ColorVariation `yaml:"variationType"`
-	VariationRange  float64         `yaml:"variationRange"`
-	PatternColors   []color.RGBA    `yaml:"patternColors"`
-	GradientColors  []color.RGBA    `yaml:"gradientColors"`
-	BiomeColors     map[string][]color.RGBA `yaml:"biomeColors"`
-	AgeColors       []color.RGBA    `yaml:"ageColors"`
-	MoistureColors  []color.RGBA    `yaml:"moistureColors"`
-	TemperatureColors []color.RGBA  `yaml:"temperatureColors"`
+	BaseColors        []color.RGBA            `yaml:"baseColors"`
+	VariationType     ColorVariation          `yaml:"variationType"`
+	VariationRange    float64                 `yaml:"variationRange"`
+	PatternColors     []color.RGBA            `yaml:"patternColors"`
+	GradientColors    []color.RGBA            `yaml:"gradientColors"`
+	BiomeColors       map[string][]color.RGBA `yaml:"biomeColors"`
+	AgeColors         []color.RGBA            `yaml:"ageColors"`
+	MoistureColors    []color.RGBA            `yaml:"moistureColors"`
+	TemperatureColors []color.RGBA            `yaml:"temperatureColors"`
 }
 
 // BlockAppearance manages the visual appearance of blocks
@@ -55,15 +119,15 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 	// Grass with biome variations
 	ba.ColorSchemes["grass"] = &BlockColorScheme{
 		BaseColors: []color.RGBA{
-			{124, 169, 84, 255},  // Base green
-			{134, 179, 94, 255},  // Lighter green
-			{114, 159, 74, 255},  // Darker green
+			{124, 169, 84, 255}, // Base green
+			{134, 179, 94, 255}, // Lighter green
+			{114, 159, 74, 255}, // Darker green
 		},
-		VariationType: VariationBiome,
+		VariationType:  VariationBiome,
 		VariationRange: 0.3,
 		BiomeColors: map[string][]color.RGBA{
 			"forest": {
-				{124, 169, 84, 255},  // Forest green
+				{124, 169, 84, 255}, // Forest green
 				{114, 159, 74, 255},
 				{134, 179, 94, 255},
 			},
@@ -78,7 +142,7 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 				{174, 189, 114, 255},
 			},
 			"taiga": {
-				{104, 149, 64, 255},  // Dark taiga green
+				{104, 149, 64, 255}, // Dark taiga green
 				{94, 139, 54, 255},
 				{114, 159, 74, 255},
 			},
@@ -97,7 +161,7 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 			{138, 138, 138, 255}, // Lighter gray
 			{118, 118, 118, 255}, // Darker gray
 		},
-		VariationType: VariationRandom,
+		VariationType:  VariationRandom,
 		VariationRange: 0.2,
 		PatternColors: []color.RGBA{
 			{148, 148, 148, 255}, // Mineral flecks
@@ -113,7 +177,7 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 			{248, 213, 183, 255}, // Lighter sand
 			{228, 193, 163, 255}, // Darker sand
 		},
-		VariationType: VariationTemperature,
+		VariationType:  VariationTemperature,
 		VariationRange: 0.25,
 		TemperatureColors: []color.RGBA{
 			{228, 193, 163, 255}, // Cool sand (more gray)
@@ -126,16 +190,16 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 	// Wood with tree type variations
 	ba.ColorSchemes["log"] = &BlockColorScheme{
 		BaseColors: []color.RGBA{
-			{139, 69, 19, 255},   // Oak wood
-			{149, 79, 29, 255},   // Lighter oak
-			{129, 59, 9, 255},    // Darker oak
+			{139, 69, 19, 255}, // Oak wood
+			{149, 79, 29, 255}, // Lighter oak
+			{129, 59, 9, 255},  // Darker oak
 		},
-		VariationType: VariationPattern,
+		VariationType:  VariationPattern,
 		VariationRange: 0.15,
 		PatternColors: []color.RGBA{
-			{119, 49, 9, 255},    // Dark grain
-			{159, 89, 39, 255},   // Light grain
-			{139, 69, 19, 255},   // Base wood
+			{119, 49, 9, 255},  // Dark grain
+			{159, 89, 39, 255}, // Light grain
+			{139, 69, 19, 255}, // Base wood
 		},
 	}
 
@@ -144,7 +208,7 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 		BaseColors: []color.RGBA{
 			{222, 222, 222, 255}, // White wool
 		},
-		VariationType: VariationRandom,
+		VariationType:  VariationRandom,
 		VariationRange: 0.1,
 		PatternColors: []color.RGBA{
 			{255, 255, 255, 255}, // Pure white
@@ -169,53 +233,53 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 	// Leaves with seasonal variations
 	ba.ColorSchemes["leaves"] = &BlockColorScheme{
 		BaseColors: []color.RGBA{
-			{34, 139, 34, 200},   // Spring green
-			{44, 149, 44, 200},   // Lighter spring
-			{24, 129, 24, 200},   // Darker spring
+			{34, 139, 34, 200}, // Spring green
+			{44, 149, 44, 200}, // Lighter spring
+			{24, 129, 24, 200}, // Darker spring
 		},
-		VariationType: VariationAge,
+		VariationType:  VariationAge,
 		VariationRange: 0.4,
 		AgeColors: []color.RGBA{
-			{34, 139, 34, 200},   // Fresh leaves
-			{44, 149, 44, 200},   // Mature leaves
-			{54, 159, 54, 200},   // Full grown
-			{64, 139, 24, 200},   // Early autumn
-			{104, 139, 24, 200},  // Mid autumn
-			{144, 89, 24, 200},   // Late autumn
-			{134, 69, 19, 200},   // Dry leaves
+			{34, 139, 34, 200},  // Fresh leaves
+			{44, 149, 44, 200},  // Mature leaves
+			{54, 159, 54, 200},  // Full grown
+			{64, 139, 24, 200},  // Early autumn
+			{104, 139, 24, 200}, // Mid autumn
+			{144, 89, 24, 200},  // Late autumn
+			{134, 69, 19, 200},  // Dry leaves
 		},
 	}
 
 	// Water with depth variations
 	ba.ColorSchemes["water"] = &BlockColorScheme{
 		BaseColors: []color.RGBA{
-			{64, 164, 223, 180},  // Base water
-			{74, 174, 233, 180},  // Lighter water
-			{54, 154, 213, 180},  // Darker water
+			{64, 164, 223, 180}, // Base water
+			{74, 174, 233, 180}, // Lighter water
+			{54, 154, 213, 180}, // Darker water
 		},
-		VariationType: VariationGradient,
+		VariationType:  VariationGradient,
 		VariationRange: 0.3,
 		GradientColors: []color.RGBA{
-			{44, 144, 203, 200},  // Deep water (darker, more opaque)
-			{64, 164, 223, 180},  // Medium water
-			{84, 184, 243, 160},  // Shallow water (lighter, more transparent)
+			{44, 144, 203, 200}, // Deep water (darker, more opaque)
+			{64, 164, 223, 180}, // Medium water
+			{84, 184, 243, 160}, // Shallow water (lighter, more transparent)
 		},
 	}
 
 	// Dirt with moisture variations
 	ba.ColorSchemes["dirt"] = &BlockColorScheme{
 		BaseColors: []color.RGBA{
-			{139, 90, 43, 255},   // Base dirt
-			{149, 100, 53, 255},  // Lighter dirt
-			{129, 80, 33, 255},   // Darker dirt
+			{139, 90, 43, 255},  // Base dirt
+			{149, 100, 53, 255}, // Lighter dirt
+			{129, 80, 33, 255},  // Darker dirt
 		},
-		VariationType: VariationMoisture,
+		VariationType:  VariationMoisture,
 		VariationRange: 0.25,
 		MoistureColors: []color.RGBA{
-			{109, 60, 13, 255},   // Wet dirt (darker)
-			{139, 90, 43, 255},   // Normal dirt
-			{159, 110, 63, 255},  // Dry dirt (lighter, more brown)
-			{179, 130, 83, 255},  // Very dry dirt (very light brown)
+			{109, 60, 13, 255},  // Wet dirt (darker)
+			{139, 90, 43, 255},  // Normal dirt
+			{159, 110, 63, 255}, // Dry dirt (lighter, more brown)
+			{179, 130, 83, 255}, // Very dry dirt (very light brown)
 		},
 	}
 
@@ -226,7 +290,7 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 			{185, 233, 255, 200}, // Lighter ice
 			{165, 213, 255, 200}, // Darker ice
 		},
-		VariationType: VariationRandom,
+		VariationType:  VariationRandom,
 		VariationRange: 0.15,
 		PatternColors: []color.RGBA{
 			{195, 243, 255, 180}, // Clear patches
@@ -241,7 +305,7 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 			{146, 150, 151, 255}, // Lighter gravel
 			{126, 130, 131, 255}, // Darker gravel
 		},
-		VariationType: VariationPattern,
+		VariationType:  VariationPattern,
 		VariationRange: 0.3,
 		PatternColors: []color.RGBA{
 			{128, 128, 128, 255}, // Stone flecks
@@ -257,7 +321,7 @@ func (ba *BlockAppearance) InitializeColorSchemes() {
 			{248, 213, 183, 255}, // Lighter sandstone
 			{228, 193, 163, 255}, // Darker sandstone
 		},
-		VariationType: VariationGradient,
+		VariationType:  VariationGradient,
 		VariationRange: 0.2,
 		GradientColors: []color.RGBA{
 			{218, 183, 153, 255}, // Bottom layer (darker)
@@ -280,7 +344,7 @@ func (ba *BlockAppearance) GetBlockColor(blockType string, x, y int, biome strin
 
 	baseColor := ba.selectBaseColor(scheme, x, y, biome, depth)
 	variedColor := ba.applyVariation(scheme, baseColor, x, y, biome, depth)
-	
+
 	return variedColor
 }
 
@@ -329,7 +393,7 @@ func (ba *BlockAppearance) selectBaseColor(scheme *BlockColorScheme, x, y int, b
 			return scheme.BaseColors[index]
 		}
 	}
-	
+
 	// Fallback to first base color
 	if len(scheme.BaseColors) > 0 {
 		return scheme.BaseColors[0]
@@ -354,16 +418,16 @@ func (ba *BlockAppearance) applyVariation(scheme *BlockColorScheme, baseColor co
 // applyRandomVariation applies random color variation
 func (ba *BlockAppearance) applyRandomVariation(baseColor color.RGBA, range_ float64) color.RGBA {
 	variation := (ba.randSource.Float64() - 0.5) * 2.0 * range_
-	
+
 	newR := float64(baseColor.R) + variation*255
 	newG := float64(baseColor.G) + variation*255
 	newB := float64(baseColor.B) + variation*255
-	
+
 	// Clamp to valid range
 	newR = math.Max(0, math.Min(255, newR))
 	newG = math.Max(0, math.Min(255, newG))
 	newB = math.Max(0, math.Min(255, newB))
-	
+
 	return color.RGBA{
 		R: uint8(newR),
 		G: uint8(newG),
@@ -377,14 +441,14 @@ func (ba *BlockAppearance) applyPatternVariation(baseColor color.RGBA, scheme *B
 	if len(scheme.PatternColors) == 0 {
 		return baseColor
 	}
-	
+
 	// Create a simple pattern based on position
 	patternIndex := ((x / 16) + (y / 16)) % len(scheme.PatternColors)
 	patternColor := scheme.PatternColors[patternIndex]
-	
+
 	// Blend base color with pattern color
 	blendFactor := 0.3
-	
+
 	return color.RGBA{
 		R: uint8(float64(baseColor.R)*(1.0-blendFactor) + float64(patternColor.R)*blendFactor),
 		G: uint8(float64(baseColor.G)*(1.0-blendFactor) + float64(patternColor.G)*blendFactor),
@@ -398,19 +462,19 @@ func (ba *BlockAppearance) applyGradientVariation(baseColor color.RGBA, scheme *
 	if len(scheme.GradientColors) < 2 {
 		return baseColor
 	}
-	
+
 	// Find the two gradient colors to blend between
 	depthIndex := int(depth * float64(len(scheme.GradientColors)-1))
 	if depthIndex >= len(scheme.GradientColors)-1 {
 		return scheme.GradientColors[len(scheme.GradientColors)-1]
 	}
-	
+
 	color1 := scheme.GradientColors[depthIndex]
 	color2 := scheme.GradientColors[depthIndex+1]
-	
+
 	// Calculate blend factor
 	blendFactor := (depth * float64(len(scheme.GradientColors)-1)) - float64(depthIndex)
-	
+
 	return color.RGBA{
 		R: uint8(float64(color1.R)*(1.0-blendFactor) + float64(color2.R)*blendFactor),
 		G: uint8(float64(color1.G)*(1.0-blendFactor) + float64(color2.G)*blendFactor),
@@ -420,19 +484,35 @@ func (ba *BlockAppearance) applyGradientVariation(baseColor color.RGBA, scheme *
 }
 
 // GenerateBlockTexture generates a texture for a block with color variations
+// Uses texture caching for performance
 func (ba *BlockAppearance) GenerateBlockTexture(blockType string, x, y int, biome string, depth float64) *ebiten.Image {
+	// Create cache key based on block properties
+	// Use a simplified key for performance - only cache unique variations
+	variation := 0
+	if ba.randSource != nil {
+		variation = ba.randSource.Intn(4) // 4 variation levels
+	}
+
+	cacheKey := fmt.Sprintf("%s_%s_%d", blockType, biome, variation)
+
+	// Try to get from cache first
+	if tex, ok := textureCache.Get(cacheKey); ok {
+		return tex
+	}
+
 	const textureSize = 64
 	img := ebiten.NewImage(textureSize, textureSize)
-	
+
 	baseColor := ba.GetBlockColor(blockType, x, y, biome, depth)
-	
+
 	scheme, exists := ba.ColorSchemes[blockType]
 	if !exists {
 		// Simple solid color texture
 		img.Fill(baseColor)
+		textureCache.Set(cacheKey, img)
 		return img
 	}
-	
+
 	// Generate texture based on variation type
 	switch scheme.VariationType {
 	case VariationPattern:
@@ -442,14 +522,16 @@ func (ba *BlockAppearance) GenerateBlockTexture(blockType string, x, y int, biom
 	default:
 		ba.generateSolidTexture(img, baseColor)
 	}
-	
+
+	// Cache the generated texture
+	textureCache.Set(cacheKey, img)
 	return img
 }
 
 // generateSolidTexture generates a solid color texture with slight variation
 func (ba *BlockAppearance) generateSolidTexture(img *ebiten.Image, baseColor color.RGBA) {
 	img.Fill(baseColor)
-	
+
 	// Add some noise for texture
 	const size = 64
 	for x := 0; x < size; x++ {
@@ -458,12 +540,12 @@ func (ba *BlockAppearance) generateSolidTexture(img *ebiten.Image, baseColor col
 			newR := float64(baseColor.R) + noise*255
 			newG := float64(baseColor.G) + noise*255
 			newB := float64(baseColor.B) + noise*255
-			
+
 			// Clamp to valid range
 			newR = math.Max(0, math.Min(255, newR))
 			newG = math.Max(0, math.Min(255, newG))
 			newB = math.Max(0, math.Min(255, newB))
-			
+
 			pixelColor := color.RGBA{
 				R: uint8(newR),
 				G: uint8(newG),
@@ -478,10 +560,10 @@ func (ba *BlockAppearance) generateSolidTexture(img *ebiten.Image, baseColor col
 // generatePatternTexture generates a patterned texture
 func (ba *BlockAppearance) generatePatternTexture(img *ebiten.Image, scheme *BlockColorScheme, baseColor color.RGBA, blockX, blockY int) {
 	const size = 64
-	
+
 	// Fill with base color
 	img.Fill(baseColor)
-	
+
 	// Apply pattern
 	if len(scheme.PatternColors) > 0 {
 		for x := 0; x < size; x += 8 {
@@ -489,7 +571,7 @@ func (ba *BlockAppearance) generatePatternTexture(img *ebiten.Image, scheme *Blo
 				// Create pattern based on position
 				patternIndex := ((blockX + x/8) + (blockY + y/8)) % len(scheme.PatternColors)
 				patternColor := scheme.PatternColors[patternIndex]
-				
+
 				// Draw pattern block
 				for px := x; px < min(x+8, size); px++ {
 					for py := y; py < min(y+8, size); py++ {
@@ -506,17 +588,17 @@ func (ba *BlockAppearance) generatePatternTexture(img *ebiten.Image, scheme *Blo
 // generateGradientTexture generates a gradient texture
 func (ba *BlockAppearance) generateGradientTexture(img *ebiten.Image, scheme *BlockColorScheme, baseColor color.RGBA, depth float64) {
 	const size = 64
-	
+
 	if len(scheme.GradientColors) < 2 {
 		img.Fill(baseColor)
 		return
 	}
-	
+
 	// Create vertical gradient
 	for y := 0; y < size; y++ {
 		gradientDepth := float64(y) / float64(size)
 		color := ba.applyGradientVariation(baseColor, scheme, gradientDepth)
-		
+
 		for x := 0; x < size; x++ {
 			img.Set(x, y, color)
 		}
