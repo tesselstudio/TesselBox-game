@@ -461,6 +461,24 @@ func (cs *CraftingSystem) loadDefaultRecipes() error {
 			RequiredTool:    items.IRON_PICKAXE,
 			RequiredStation: STATION_ANVIL,
 		},
+		// Dimension portal recipe
+		{
+			ID:          "randomland_portal",
+			Name:        "Randomland Portal",
+			Description: "A mystical portal to the chaotic Randomland dimension",
+			Inputs: []RecipeInput{
+				{ItemType: items.IRON_INGOT, Quantity: 1},
+				{ItemType: items.GOLD_INGOT, Quantity: 1},
+				{ItemType: items.DIAMOND, Quantity: 1},
+				{ItemType: items.ANVIL, Quantity: 1}, // Using ANVIL as door substitute
+			},
+			Outputs: []RecipeOutput{
+				{ItemType: items.RANDOMLAND_PORTAL, Quantity: 1},
+			},
+			CraftingTime:    10.0,
+			RequiredTool:    items.IRON_PICKAXE,
+			RequiredStation: STATION_ANVIL,
+		},
 	}
 
 	// Load default recipes

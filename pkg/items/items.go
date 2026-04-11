@@ -68,6 +68,7 @@ const (
 	DIAMOND_LEGGINGS
 	DIAMOND_BOOTS
 	ANVIL
+	RANDOMLAND_PORTAL
 )
 
 // ItemProperties defines the properties of an item type
@@ -171,6 +172,7 @@ var ItemTypeMap = map[string]ItemType{
 	"diamond_leggings":   DIAMOND_LEGGINGS,
 	"diamond_boots":      DIAMOND_BOOTS,
 	"anvil":              ANVIL,
+	"randomland_portal":  RANDOMLAND_PORTAL,
 }
 
 var ItemDefinitions = map[ItemType]*ItemProperties{
@@ -480,6 +482,17 @@ var ItemDefinitions = map[ItemType]*ItemProperties{
 		IsTool:      false,
 		IsPlaceable: true,
 		BlockType:   "anvil",
+	},
+	RANDOMLAND_PORTAL: {
+		ID:          RANDOMLAND_PORTAL,
+		Name:        "Randomland Portal",
+		IconColor:   color.RGBA{147, 0, 211, 255}, // Purple
+		Description: "A mystical portal to the chaotic Randomland dimension",
+		StackSize:   1,
+		Durability:  -1,
+		IsTool:      false,
+		IsPlaceable: true,
+		BlockType:   "randomland_portal",
 	},
 	WOODEN_PICKAXE: {
 		ID:          WOODEN_PICKAXE,

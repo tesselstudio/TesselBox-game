@@ -94,6 +94,7 @@ const (
 	MOSSY_COBBLESTONE
 	STONE_BRICKS
 	CHISELED_STONE
+	RANDOMLAND_PORTAL
 )
 
 // BlockProperties defines the properties of a block type
@@ -1059,6 +1060,19 @@ func loadDefaultBlocks() {
 				{80, 80, 80, 255},    // Wet: dark gray mossy cobblestone
 			},
 			HumidityPatterns: []string{"rough", "weathered", "mossy"},
+		},
+		"randomland_portal": {
+			ID:                   RANDOMLAND_PORTAL,
+			Name:                 "Randomland Portal",
+			Color:                color.RGBA{147, 0, 211, 255}, // Purple
+			Hardness:             -1,                           // Unbreakable
+			Transparent:          true,
+			Solid:                true,
+			Collectible:          true,
+			Flammable:            false,
+			LightLevel:           15, // Full brightness
+			Gravity:              false,
+			HasHumidityVariation: false,
 		},
 	}
 

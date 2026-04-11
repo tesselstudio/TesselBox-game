@@ -23,6 +23,7 @@ import (
 	"tesselbox/pkg/combat"
 	"tesselbox/pkg/crafting"
 	"tesselbox/pkg/debug"
+	"tesselbox/pkg/dimension"
 	"tesselbox/pkg/enemies"
 	"tesselbox/pkg/equipment"
 	"tesselbox/pkg/gametime"
@@ -294,6 +295,9 @@ type Game struct {
 	// Layer system (surface=0, middle=1, back=2)
 	currentLayer int
 	totalLayers  int
+
+	// Dimension system
+	dimensionManager *dimension.Manager
 }
 
 // NewGame creates a new game with default world
@@ -594,6 +598,14 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	g.totalLayers = 3
 	log.Printf("Layer system initialized: surface=0, middle=1, back=2")
 
+	// Initialize dimension system
+	storageDir := filepath.Join(getTesselboxDir(), "saves", worldName)
+	g.dimensionManager = dimension.NewManager(g.world, storageDir)
+	if err := g.dimensionManager.Load(); err != nil {
+		log.Printf("No saved dimension state found, starting fresh: %v", err)
+	}
+	log.Printf("Dimension system initialized")
+
 	log.Printf("Survival systems initialized: Equipment slots filled, wings equipped, HUD ready")
 
 	// Start in game mode (no menu)
@@ -801,6 +813,14 @@ func (g *Game) Update() error {
 			}
 			return false
 		})
+
+		// Update dimension system (zombie updates in randomland)
+		if g.dimensionManager != nil {
+			g.dimensionManager.Update(g.player, deltaTime)
+		}
+
+		// Check for portal teleportation
+		g.handlePortalTeleportation()
 
 		// Update camera to follow player
 		centerX, centerY = g.player.GetCenter()
@@ -2301,10 +2321,43 @@ func (g *Game) drawUI(screen *ebiten.Image) {
 		placementInstructions := "Right Click to place, Left Click to break"
 		ebitenutil.DebugPrintAt(screen, placementInstructions, 10, ScreenHeight-60)
 	}
+
+	// Draw portal interaction prompt
+	g.drawPortalPrompt(screen)
+}
+
+// drawPortalPrompt shows prompt when near a portal
+func (g *Game) drawPortalPrompt(screen *ebiten.Image) {
+	if g.dimensionManager == nil {
+		return
+	}
+
+	var promptText string
+	if g.dimensionManager.IsInRandomland() {
+		// In Randomland - check if near return portal
+		if g.dimensionManager.CheckReturnPortalProximity(g.player) {
+			promptText = "Press E to return to Overworld"
+		}
+	} else {
+		// In overworld - check if standing on portal
+		px, py := g.player.GetCenter()
+		hex := g.world.GetHexagonAt(px, py)
+		if hex != nil && hex.BlockType == blocks.RANDOMLAND_PORTAL {
+			promptText = "Press E to enter Randomland"
+		}
+	}
+
+	if promptText != "" {
+		// Draw at center of screen
+		x := ScreenWidth/2 - 80
+		y := ScreenHeight/2 + 50
+		ebitenutil.DebugPrintAt(screen, promptText, x, y)
+	}
 }
 
 // drawDebugInfo draws debug information
 func (g *Game) drawDebugInfo(screen *ebiten.Image) {
+	// ... (rest of the code remains the same)
 	px, py := g.player.GetCenter()
 	vx, vy := g.player.GetVelocity()
 
@@ -2319,9 +2372,15 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	layerNames := []string{"surface", "middle", "back"}
 	layerInfo := fmt.Sprintf("Layer: %s (%d/%d)", layerNames[g.currentLayer], g.currentLayer, g.totalLayers-1)
 
-	info := fmt.Sprintf("Pos: (%.1f, %.1f)\nVel: (%.1f, %.1f)\nFPS: %.1f\nOnGround: %v\nDelta: %.4f\n%s\n%s\n%s\n%s",
+	// Dimension info
+	dimensionInfo := "Dimension: Overworld"
+	if g.dimensionManager != nil && g.dimensionManager.IsInRandomland() {
+		dimensionInfo = "Dimension: Randomland"
+	}
+
+	info := fmt.Sprintf("Pos: (%.1f, %.1f)\nVel: (%.1f, %.1f)\nFPS: %.1f\nOnGround: %v\nDelta: %.4f\n%s\n%s\n%s\n%s\n%s",
 		px, py, vx, vy, ebiten.ActualFPS(), g.player.IsOnGround(), time.Since(g.lastTime).Seconds(),
-		timeInfo, lightInfo, weatherInfo, layerInfo)
+		timeInfo, lightInfo, weatherInfo, layerInfo, dimensionInfo)
 
 	ebitenutil.DebugPrint(screen, info)
 }
@@ -2602,9 +2661,24 @@ func (g *Game) drawPlayer(screen *ebiten.Image) {
 	}
 }
 
-// drawZombies draws all active zombies
+// drawZombies draws all active zombies (overworld and randomland)
 func (g *Game) drawZombies(screen *ebiten.Image) {
-	for _, zombie := range g.zombieSpawner.Zombies {
+	// Collect zombies from both spawners
+	var allZombies []*enemies.Zombie
+
+	// Add overworld zombies
+	if g.zombieSpawner != nil {
+		allZombies = append(allZombies, g.zombieSpawner.Zombies...)
+	}
+
+	// Add Randomland zombies if in that dimension
+	if g.dimensionManager != nil && g.dimensionManager.IsInRandomland() {
+		if g.dimensionManager.RandomlandDim != nil && g.dimensionManager.RandomlandDim.ZombieSpawner != nil {
+			allZombies = append(allZombies, g.dimensionManager.RandomlandDim.ZombieSpawner.Zombies...)
+		}
+	}
+
+	for _, zombie := range allZombies {
 		if !zombie.IsAlive {
 			continue
 		}
@@ -4027,6 +4101,51 @@ func deleteWorldCLI() {
 	}
 
 	fmt.Printf("World '%s' deleted successfully!\n", worldName)
+}
+
+// handlePortalTeleportation checks for and handles portal teleportation
+func (g *Game) handlePortalTeleportation() {
+	if g.dimensionManager == nil {
+		return
+	}
+
+	// Check if in Randomland and near return portal
+	if g.dimensionManager.IsInRandomland() {
+		if g.dimensionManager.CheckReturnPortalProximity(g.player) {
+			// Show prompt for return
+			// For now, auto-teleport when near return portal for testing
+			// TODO: Add prompt UI and require E key press
+			if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+				// Save randomland state before leaving
+				if err := g.dimensionManager.Save(); err != nil {
+					log.Printf("Failed to save dimension state: %v", err)
+				}
+				// Teleport back to overworld
+				g.dimensionManager.TeleportToOverworld(g.player)
+				// Update world reference
+				g.world = g.dimensionManager.GetCurrentWorld()
+				log.Printf("Returned to overworld from Randomland")
+			}
+		}
+		return
+	}
+
+	// In overworld - check if standing on portal block
+	px, py := g.player.GetCenter()
+	hex := g.world.GetHexagonAt(px, py)
+	if hex != nil && hex.BlockType == blocks.RANDOMLAND_PORTAL {
+		// Check for activation key (E)
+		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+			// Teleport to Randomland
+			if err := g.dimensionManager.TeleportToRandomland(g.player); err != nil {
+				log.Printf("Failed to teleport to Randomland: %v", err)
+				return
+			}
+			// Update world reference to randomland
+			g.world = g.dimensionManager.GetCurrentWorld()
+			log.Printf("Teleported to Randomland!")
+		}
+	}
 }
 
 // cleanupAudio cleans up audio resources when shutting down
