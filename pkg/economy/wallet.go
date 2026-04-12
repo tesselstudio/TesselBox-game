@@ -22,6 +22,7 @@ const (
 	TransactionJob      TransactionType = "job"
 	TransactionMining   TransactionType = "mining"
 	TransactionCombat   TransactionType = "combat"
+	TransactionRefund   TransactionType = "refund"
 )
 
 // Transaction represents a single monetary transaction
