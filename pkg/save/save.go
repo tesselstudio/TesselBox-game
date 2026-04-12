@@ -43,10 +43,11 @@ type SaveData struct {
 	HotbarSlots    []InventorySlotData `json:"hotbar_slots"`
 
 	// World state
-	CameraX   float64 `json:"camera_x"`
-	CameraY   float64 `json:"camera_y"`
-	WorldTime float64 `json:"world_time"` // Day/night cycle time
-	Weather   string  `json:"weather"`    // Current weather
+	CameraX          float64 `json:"camera_x"`
+	CameraY          float64 `json:"camera_y"`
+	WorldTime        float64 `json:"world_time"`        // Day/night cycle time
+	Weather          string  `json:"weather"`           // Current weather
+	CurrentDimension string  `json:"current_dimension"` // "overworld" or "randomland"
 
 	// Game state
 	InMenu       bool `json:"in_menu"`
@@ -115,7 +116,8 @@ type BodyPartHealthData struct {
 // ZombieData stores zombie state
 type ZombieData struct {
 	ID        string  `json:"id"`
-	X, Y      float64 `json:"x,omitempty;y,omitempty"`
+	X         float64 `json:"x,omitempty"`
+	Y         float64 `json:"y,omitempty"`
 	Health    float64 `json:"health"`
 	MaxHealth float64 `json:"max_health"`
 	Type      int     `json:"type"`
@@ -184,8 +186,9 @@ func (sm *SaveManager) SaveGame(gameState *GameState) error {
 		CameraY: gameState.CameraY,
 
 		// World state
-		WorldTime: gameState.WorldTime,
-		Weather:   gameState.Weather,
+		WorldTime:        gameState.WorldTime,
+		Weather:          gameState.Weather,
+		CurrentDimension: gameState.CurrentDimension,
 
 		// Game state
 		InMenu:       gameState.InMenu,
@@ -449,6 +452,19 @@ func (sm *SaveManager) ApplySaveData(saveData *SaveData, gameState *GameState) e
 	// Apply world state
 	gameState.WorldTime = saveData.WorldTime
 	gameState.Weather = saveData.Weather
+	gameState.CurrentDimension = saveData.CurrentDimension
+
+	// Validate dimension consistency: if saved in randomland but randomland not generated,
+	// force back to overworld to prevent void fall
+	if gameState.CurrentDimension == "randomland" {
+		// Check if dimension state file exists
+		dimStatePath := filepath.Join(sm.SaveDir, "dimensions", "dimension_state.json")
+		if _, err := os.Stat(dimStatePath); os.IsNotExist(err) {
+			// Dimension state doesn't exist, reset to overworld
+			fmt.Println("Warning: Saved in Randomland but no dimension data found. Resetting to overworld.")
+			gameState.CurrentDimension = "overworld"
+		}
+	}
 
 	// Apply game state
 	gameState.InMenu = saveData.InMenu
@@ -698,12 +714,13 @@ type GameState struct {
 	InCrafting bool
 
 	// Enhanced game state
-	CreativeMode    bool
-	GameMode        string  // "creative" or "survival"
-	WorldTime       float64 // Day/night cycle time
-	Weather         string  // Current weather
-	PlayerHealth    float64
-	PlayerMaxHealth float64
+	CreativeMode     bool
+	GameMode         string  // "creative" or "survival"
+	WorldTime        float64 // Day/night cycle time
+	Weather          string  // Current weather
+	CurrentDimension string  // "overworld" or "randomland"
+	PlayerHealth     float64
+	PlayerMaxHealth  float64
 
 	// Crafting state
 	CraftingStation string

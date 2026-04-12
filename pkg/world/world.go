@@ -684,6 +684,28 @@ func (w *World) UnloadDistantChunks(playerX, playerY float64) {
 	}
 }
 
+// UnloadAllChunks unloads all chunks from memory (used when leaving a dimension)
+func (w *World) UnloadAllChunks() {
+	// Save and unload all chunks
+	for key, chunk := range w.Chunks {
+		// Save modified chunks before unloading
+		if chunk.Modified {
+			err := w.Storage.SaveChunk(chunk)
+			if err != nil {
+				fmt.Printf("Warning: Failed to save chunk %d,%d before unloading: %v\n", key[0], key[1], err)
+			}
+		}
+
+		// Remove all hexagons from this chunk from the spatial hash
+		for _, hex := range chunk.Hexagons {
+			w.removeHexagonFromSpatialHash(hex)
+		}
+
+		// Remove chunk from memory
+		delete(w.Chunks, key)
+	}
+}
+
 // GetNearbyOrganisms returns organisms within a radius of the given position
 func (w *World) GetNearbyOrganisms(x, y, radius float64) []*organisms.Organism {
 	nearby := []*organisms.Organism{}

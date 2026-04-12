@@ -289,6 +289,9 @@ type Game struct {
 	deathScreen *ui.DeathScreen
 	isDead      bool
 
+	// Loading screen for dimension generation
+	loadingScreen *ui.LoadingScreen
+
 	// Enemy systems
 	zombieSpawner *enemies.ZombieSpawner
 
@@ -589,6 +592,9 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	g.deathScreen.OnRespawn = func() {
 		g.respawnPlayer()
 	}
+
+	// Create loading screen for dimension generation
+	g.loadingScreen = ui.NewLoadingScreen(ScreenWidth, ScreenHeight)
 	g.deathScreen.OnMainMenu = func() {
 		g.returnToMainMenu()
 	}
@@ -774,7 +780,10 @@ func (g *Game) Update() error {
 		zombieSpawnFunc := func(x, y float64) (float64, float64) {
 			return g.world.FindSpawnPosition(x, y)
 		}
-		g.zombieSpawner.Update(deltaTime, g.player, ambientLight, zombieCollisionFunc, zombieSpawnFunc)
+		// Only update overworld zombies when in overworld (not in Randomland)
+		if g.dimensionManager == nil || !g.dimensionManager.IsInRandomland() {
+			g.zombieSpawner.Update(deltaTime, g.player, ambientLight, zombieCollisionFunc, zombieSpawnFunc)
+		}
 
 		// Update weather system
 		g.weatherSystem.Update(deltaTime, ScreenWidth, ScreenHeight)
@@ -1582,6 +1591,13 @@ func (g *Game) handleBlockPlacement() {
 		blockTypeToPlace = props.BlockType
 	}
 
+	// Prevent placing portal blocks in Randomland (they're only for overworld)
+	if blockTypeToPlace == "randomland_portal" && g.dimensionManager != nil && g.dimensionManager.IsInRandomland() {
+		// Show message to player
+		log.Println("Cannot place Randomland Portal in Randomland")
+		return
+	}
+
 	// Convert mouse position to world coordinates
 	mouseWorldX := float64(g.mouseX) + g.cameraX
 	mouseWorldY := float64(g.mouseY) + g.cameraY
@@ -1894,14 +1910,26 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 		// Draw profiler overlay (if enabled)
 		g.profiler.Draw(screen)
+
+		// Draw loading screen on top of everything (when active)
+		if g.loadingScreen != nil && g.loadingScreen.IsVisible {
+			g.loadingScreen.Draw(screen)
+		}
 	}
 }
 
 // drawGameScene draws the game world and player with layer support
 func (g *Game) drawGameScene(screen *ebiten.Image) {
 	// Draw background with day/night cycle sky color
-	skyR, skyG, skyB := g.dayNightCycle.GetSkyColor()
-	skyColor := g.colorToRGB(int(skyR*255), int(skyG*255), int(skyB*255))
+	var skyColor color.Color
+	if g.dimensionManager != nil && g.dimensionManager.IsInRandomland() {
+		// Randomland has a dark purple atmosphere
+		skyColor = color.RGBA{30, 10, 40, 255} // Dark purple background
+	} else {
+		// Normal overworld day/night cycle
+		skyR, skyG, skyB := g.dayNightCycle.GetSkyColor()
+		skyColor = g.colorToRGB(int(skyR*255), int(skyG*255), int(skyB*255))
+	}
 	screen.Fill(skyColor)
 
 	// Get player position
@@ -3097,12 +3125,19 @@ func (g *Game) getItemFromBlockType(blockType blocks.BlockType) items.ItemType {
 
 // createSaveState creates a save state from the current game state
 func (g *Game) createSaveState() *save.GameState {
+	// Determine current dimension
+	currentDimension := "overworld"
+	if g.dimensionManager != nil && g.dimensionManager.IsInRandomland() {
+		currentDimension = "randomland"
+	}
+
 	return &save.GameState{
-		World:     g.world,
-		Player:    g.player,
-		Inventory: g.inventory,
-		CameraX:   g.cameraX,
-		CameraY:   g.cameraY,
+		World:            g.world,
+		Player:           g.player,
+		Inventory:        g.inventory,
+		CameraX:          g.cameraX,
+		CameraY:          g.cameraY,
+		CurrentDimension: currentDimension,
 		// Crafting state
 		CraftingStation: g.CurrentCraftingStation,
 		UnlockedRecipes: g.getUnlockedRecipesAsSlice(),
@@ -3151,6 +3186,14 @@ func (g *Game) SaveGame() error {
 		if err := g.chestManager.SaveChests(); err != nil {
 			log.Printf("Failed to save chests: %v", err)
 			return err
+		}
+	}
+
+	// Save dimension state (Randomland)
+	if g.dimensionManager != nil {
+		if err := g.dimensionManager.Save(); err != nil {
+			log.Printf("Failed to save dimension state: %v", err)
+			// Don't fail the whole save if dimension save fails
 		}
 	}
 
@@ -4120,6 +4163,13 @@ func (g *Game) handlePortalTeleportation() {
 				if err := g.dimensionManager.Save(); err != nil {
 					log.Printf("Failed to save dimension state: %v", err)
 				}
+				// Play return portal sound and flash
+				if g.audioManager != nil {
+					g.audioManager.PlaySound(string(audio.SFXPortalTravel))
+				}
+				if g.screenFlash != nil {
+					g.screenFlash.Trigger(color.RGBA{147, 0, 211, 100}, 300*time.Millisecond) // Purple flash
+				}
 				// Teleport back to overworld
 				g.dimensionManager.TeleportToOverworld(g.player)
 				// Update world reference
@@ -4136,11 +4186,47 @@ func (g *Game) handlePortalTeleportation() {
 	if hex != nil && hex.BlockType == blocks.RANDOMLAND_PORTAL {
 		// Check for activation key (E)
 		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+			// Show loading screen for generation
+			needsGeneration := g.dimensionManager.RandomlandDim == nil
+			if needsGeneration && g.loadingScreen != nil {
+				g.loadingScreen.Show("Entering Randomland...")
+			}
+
+			// Progress callback that updates loading screen
+			progressCallback := func(progress float64, message string) {
+				if g.loadingScreen != nil {
+					g.loadingScreen.SetProgress(progress)
+					g.loadingScreen.SetMessage(message)
+				}
+			}
+
+			// Play portal activation sound
+			if g.audioManager != nil {
+				g.audioManager.PlaySound(string(audio.SFXPortalActivate))
+			}
+
 			// Teleport to Randomland
-			if err := g.dimensionManager.TeleportToRandomland(g.player); err != nil {
+			if err := g.dimensionManager.TeleportToRandomland(g.player, progressCallback); err != nil {
 				log.Printf("Failed to teleport to Randomland: %v", err)
+				if g.loadingScreen != nil {
+					g.loadingScreen.Hide()
+				}
 				return
 			}
+
+			// Play travel sound and trigger screen flash
+			if g.audioManager != nil {
+				g.audioManager.PlaySound(string(audio.SFXPortalTravel))
+			}
+			if g.screenFlash != nil {
+				g.screenFlash.Trigger(color.RGBA{147, 0, 211, 100}, 300*time.Millisecond) // Purple flash
+			}
+
+			// Hide loading screen
+			if g.loadingScreen != nil {
+				g.loadingScreen.Hide()
+			}
+
 			// Update world reference to randomland
 			g.world = g.dimensionManager.GetCurrentWorld()
 			log.Printf("Teleported to Randomland!")

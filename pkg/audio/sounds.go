@@ -45,9 +45,15 @@ const (
 	SFXMenuSelect   SoundEffect = "menu_select"
 
 	// Ambient sounds
-	SFXWind      SoundEffect = "wind"
-	SFXRain      SoundEffect = "rain"
-	SFXThunder   SoundEffect = "thunder"
+	SFXWind    SoundEffect = "wind"
+	SFXRain    SoundEffect = "rain"
+	SFXThunder SoundEffect = "thunder"
+
+	// Portal and dimension sounds
+	SFXPortalActivate SoundEffect = "portal_activate"
+	SFXPortalTravel   SoundEffect = "portal_travel"
+	SFXPortalAmbient  SoundEffect = "portal_ambient"
+
 	SFXBirds     SoundEffect = "birds"
 	SFXWaterFlow SoundEffect = "water_flow"
 	SFXFire      SoundEffect = "fire"
