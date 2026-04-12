@@ -53,15 +53,21 @@ type RandomlandDimension struct {
 }
 
 // NewRandomlandDimension creates a new Randomland dimension
-func NewRandomlandDimension() *RandomlandDimension {
+func NewRandomlandDimension(worldName string) *RandomlandDimension {
+	// Use a unique world name to avoid conflicts with player worlds
+	dimWorldName := worldName + "__randomland_dim"
+	spawner := enemies.NewZombieSpawner(nil) // No day/night cycle in randomland
+	// Tune spawn rate for Randomland (2x faster spawning, higher cap)
+	spawner.SpawnCooldown = 1500 * time.Millisecond // 1.5s instead of 3s
+	spawner.MaxZombies = 25                         // Higher than overworld default of 15
 	return &RandomlandDimension{
-		World:         world.NewWorld("randomland"),
+		World:         world.NewWorld(dimWorldName),
 		Type:          Randomland,
 		Name:          "Randomland",
 		Generated:     false,
 		ReturnPortalX: ReturnPortalX,
 		ReturnPortalY: ReturnPortalY,
-		ZombieSpawner: enemies.NewZombieSpawner(nil), // No day/night cycle in randomland
+		ZombieSpawner: spawner,
 		LastVisitTime: time.Now(),
 	}
 }
@@ -86,34 +92,84 @@ func (r *RandomlandDimension) IsGenerated() bool {
 	return r.Generated
 }
 
-// Generate generates the randomland terrain if not already generated
-func (r *RandomlandDimension) Generate() {
-	if r.Generated {
+// HasReturnPortal checks if the return portal still exists at its position
+func (r *RandomlandDimension) HasReturnPortal() bool {
+	hex := r.World.GetHexagonAt(r.ReturnPortalX, r.ReturnPortalY)
+	if hex == nil {
+		return false
+	}
+	return hex.BlockType == blocks.RANDOMLAND_PORTAL
+}
+
+// EnsureReturnPortal recreates the return portal if it was destroyed
+func (r *RandomlandDimension) EnsureReturnPortal() {
+	if r.HasReturnPortal() {
 		return
 	}
+
+	fmt.Println("WARNING: Return portal was destroyed! Regenerating...")
+	r.createReturnPortal()
+}
+
+// Generate generates the randomland terrain if not already generated
+// Returns error if generation fails (with panic recovery)
+// progressCallback is optional and receives 0.0-1.0 progress updates
+func (r *RandomlandDimension) Generate(progressCallback func(float64, string)) (err error) {
+	if r.Generated {
+		return nil
+	}
+
+	// Panic recovery for graceful error handling
+	defer func() {
+		if rec := recover(); rec != nil {
+			err = fmt.Errorf("panic during Randomland generation: %v", rec)
+			fmt.Printf("ERROR: %v\n", err)
+			r.Generated = false
+		}
+	}()
 
 	fmt.Println("Generating Randomland dimension...")
 
 	// Set a fixed seed for Randomland (different from overworld)
 	r.World.SetSeed(123456789)
 
-	// Generate bedrock ceiling (top layer)
+	// Generate bedrock ceiling (top layer) - 20%
+	if progressCallback != nil {
+		progressCallback(0.1, "Generating bedrock ceiling...")
+	}
 	r.generateBedrockLayer(0, BedrockThickness)
 
-	// Generate bedrock floor (bottom layer)
+	// Generate bedrock floor (bottom layer) - 20%
+	if progressCallback != nil {
+		progressCallback(0.2, "Generating bedrock floor...")
+	}
 	r.generateBedrockLayer(RandomlandHeight-BedrockThickness, RandomlandHeight)
 
-	// Generate random blocks in the middle
+	// Generate random blocks in the middle - 50%
+	if progressCallback != nil {
+		progressCallback(0.3, "Generating randomized terrain...")
+	}
 	r.generateRandomBlocks()
 
-	// Create return portal at center
+	// Create return portal at center - 80%
+	if progressCallback != nil {
+		progressCallback(0.8, "Placing return portal...")
+	}
 	r.createReturnPortal()
 
-	// Spawn zombies in open spaces
+	// Spawn zombies in open spaces - 100%
+	if progressCallback != nil {
+		progressCallback(0.9, "Spawning inhabitants...")
+	}
 	r.spawnZombies()
+
+	if progressCallback != nil {
+		progressCallback(1.0, "Generation complete!")
+	}
 
 	r.Generated = true
 	fmt.Println("Randomland generation complete!")
+	return nil
 }
 
 // generateBedrockLayer generates a solid layer of bedrock
@@ -237,8 +293,7 @@ func (r *RandomlandDimension) createReturnPortal() {
 	}
 
 	// Place the return portal block
-	// Use obsidian as base with special properties
-	r.World.AddHexagonAt(portalX, portalY, blocks.OBSIDIAN)
+	r.World.AddHexagonAt(portalX, portalY, blocks.RANDOMLAND_PORTAL)
 
 	fmt.Printf("Return portal created at (%.1f, %.1f)\n", portalX, portalY)
 }
@@ -251,8 +306,8 @@ func (r *RandomlandDimension) spawnZombies() {
 
 	for i := 0; i < spawnAttempts && spawned < maxZombies; i++ {
 		// Random position within the cavern
-		x := RandomlandMinY + rand.Float64()*(RandomlandMaxY-RandomlandMinY)
-		y := BedrockThickness + rand.Float64()*(RandomlandHeight-2*BedrockThickness)
+		x := rand.Float64() * RandomlandWidth
+		y := RandomlandMinY + rand.Float64()*(RandomlandMaxY-RandomlandMinY)
 
 		// Check if position is valid (not in solid blocks, has ground below)
 		hex := r.World.GetHexagonAt(x, y)

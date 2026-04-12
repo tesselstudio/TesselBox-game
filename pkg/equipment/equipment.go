@@ -266,7 +266,7 @@ func MaterialProperties(material ArmorMaterial) (name string, col color.RGBA, ti
 // CreateArmor creates a new armor piece with material-based stats
 func CreateArmor(name string, slot EquipmentSlot, material ArmorMaterial, armorType ArmorType) *EquipmentItem {
 	item := &EquipmentItem{
-		ID:               fmt.Sprintf("%s_%s_%d", name, slot, material),
+		ID:               fmt.Sprintf("%s_%d_%d", name, slot, material),
 		Name:             name,
 		Slot:             slot,
 		Material:         material,
