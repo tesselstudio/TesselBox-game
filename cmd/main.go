@@ -27,6 +27,7 @@ import (
 	"tesselbox/pkg/enemies"
 	"tesselbox/pkg/equipment"
 	"tesselbox/pkg/gametime"
+	"tesselbox/pkg/gui"
 	"tesselbox/pkg/health"
 	"tesselbox/pkg/hexagon"
 	"tesselbox/pkg/input"
@@ -4019,6 +4020,103 @@ func runTUI() {
 	}
 }
 
+// SceneManager handles transitions between menu and game scenes
+// within a single ebiten.RunGame call (required by Ebiten)
+type SceneManager struct {
+	menuScene    *gui.MenuScene
+	game         *Game
+	currentScene string // "menu" or "game"
+	worldName    string
+	worldSeed    int64
+}
+
+func NewSceneManager() *SceneManager {
+	return &SceneManager{
+		menuScene:    gui.NewMenuScene(),
+		currentScene: "menu",
+	}
+}
+
+func (sm *SceneManager) Update() error {
+	switch sm.currentScene {
+	case "menu":
+		err := sm.menuScene.Update()
+		if err == ebiten.Termination && sm.menuScene.ShouldStartGame() {
+			// Transition to game
+			selection := sm.menuScene.GetWorldSelection()
+			sm.worldName = selection.WorldName
+			sm.worldSeed = selection.Seed
+			sm.currentScene = "game"
+			return sm.initGame()
+		}
+		return err
+	case "game":
+		return sm.game.Update()
+	}
+	return nil
+}
+
+func (sm *SceneManager) Draw(screen *ebiten.Image) {
+	switch sm.currentScene {
+	case "menu":
+		sm.menuScene.Draw(screen)
+	case "game":
+		sm.game.Draw(screen)
+	}
+}
+
+func (sm *SceneManager) Layout(outsideWidth, outsideHeight int) (int, int) {
+	switch sm.currentScene {
+	case "menu":
+		return sm.menuScene.Layout(outsideWidth, outsideHeight)
+	case "game":
+		return sm.game.Layout(outsideWidth, outsideHeight)
+	}
+	return ScreenWidth, ScreenHeight
+}
+
+func (sm *SceneManager) initGame() error {
+	fmt.Printf("🚀 Starting game with world '%s' (seed: %d)...\n", sm.worldName, sm.worldSeed)
+
+	// Load block definitions before any world generation
+	blocks.LoadBlocks()
+
+	// Resize window for game mode
+	ebiten.SetWindowSize(ScreenWidth, ScreenHeight)
+	ebiten.SetWindowTitle("Tesselbox v2.0 - Hexagon Sandbox")
+	ebiten.SetCursorMode(ebiten.CursorModeVisible)
+
+	// Create game with specified world and seed
+	sm.game = NewGameWithWorld(sm.worldName, sm.worldSeed)
+
+	// Start auto-saver
+	sm.game.StartAutoSave()
+
+	return nil
+}
+
+// runGUI provides pixel art GUI using Ebiten
+func runGUI() {
+	// Initialize shared white image BEFORE any RunGame call
+	// Ebiten doesn't allow creating images after RunGame finishes
+	getSharedWhiteImage()
+
+	sceneManager := NewSceneManager()
+
+	// Run the menu at 60 FPS
+	ebiten.SetWindowSize(800, 600)
+	ebiten.SetWindowTitle("TesselBox - Sandbox Game")
+	ebiten.SetWindowResizable(false)
+	ebiten.SetTPS(FPS)
+
+	// Run the main loop - handles both menu and game within single RunGame
+	err := ebiten.RunGame(sceneManager)
+	if err != nil {
+		fmt.Printf("Error running GUI: %v\n", err)
+		os.Exit(1)
+	}
+}
+
 // startGameWithGUI starts the game with Ebiten GUI engine
 func startGameWithGUI(worldName string, worldSeed int64) {
 	fmt.Printf("🚀 Starting game with world '%s' (seed: %d)...\n", worldName, worldSeed)
@@ -4248,7 +4346,6 @@ func main() {
 		fmt.Printf("⚠️ Failed to initialize storage: %v\n", err)
 	}
 
-	// Default to TUI mode
-	fmt.Println("🎮 TESSELBOX - Beautiful Terminal Interface 🎮")
-	runTUI()
+	// Run pixel art GUI
+	runGUI()
 }
