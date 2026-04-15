@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"tesselbox/pkg/config"
 )
 
 // WorldStorage handles persistent storage of world data
@@ -15,13 +17,7 @@ type WorldStorage struct {
 
 // NewWorldStorage creates a new world storage instance
 func NewWorldStorage(worldName string) *WorldStorage {
-	// Get user home directory
-	home, err := os.UserHomeDir()
-	if err != nil {
-		// Fallback to current directory if home dir can't be found
-		home = "."
-	}
-	worldDir := filepath.Join(home, ".tesselbox", "worlds", worldName)
+	worldDir := config.GetWorldsDir() + "/" + worldName
 
 	// Create world directory if it doesn't exist
 	if _, err := os.Stat(worldDir); os.IsNotExist(err) {

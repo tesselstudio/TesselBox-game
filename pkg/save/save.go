@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"tesselbox/pkg/chest"
+	"tesselbox/pkg/config"
 	"tesselbox/pkg/enemies"
 	"tesselbox/pkg/equipment"
 	"tesselbox/pkg/health"
@@ -141,13 +142,7 @@ type SaveManager struct {
 
 // NewSaveManager creates a new save manager
 func NewSaveManager(worldName, playerName string) *SaveManager {
-	// Get user home directory
-	home, err := os.UserHomeDir()
-	if err != nil {
-		// Fallback to current directory if home dir can't be found
-		home = "."
-	}
-	saveDir := filepath.Join(home, ".tesselbox", "saves", worldName)
+	saveDir := config.GetWorldSaveDir(worldName)
 
 	// Create save directory if it doesn't exist
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {

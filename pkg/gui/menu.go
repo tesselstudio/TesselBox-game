@@ -3,13 +3,13 @@ package gui
 import (
 	"fmt"
 	"image/color"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"tesselbox/pkg/config"
 )
 
 // MenuScene represents the main menu screen using pixel art GUI
@@ -685,8 +685,7 @@ func (m *MenuScene) GetWorldSelection() WorldSelection {
 
 // GetTesselboxDir returns the storage directory
 func getTesselboxDir() string {
-	home, _ := filepath.Abs("~")
-	return filepath.Join(home, ".tesselbox")
+	return config.GetTesselboxDir()
 }
 
 // createDefaultSkinPixels creates a default green character skin

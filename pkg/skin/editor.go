@@ -13,6 +13,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"tesselbox/pkg/config"
 )
 
 // SkinEditor represents the skin editing interface
@@ -292,13 +293,7 @@ const (
 
 // NewSkinEditor creates a new skin editor
 func NewSkinEditor() *SkinEditor {
-	// Get user home directory for skin storage
-	home, err := os.UserHomeDir()
-	if err != nil {
-		// Fallback to current directory if home dir can't be found
-		home = "."
-	}
-	skinDir := filepath.Join(home, ".tesselbox", "skins")
+	skinDir := config.GetSkinsDir()
 
 	log.Printf("Creating new skin editor...")
 
