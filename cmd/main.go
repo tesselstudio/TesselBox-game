@@ -225,12 +225,8 @@ type Game struct {
 	leftMouseWasPressed  bool
 	rightMouseWasPressed bool
 
-	// Game state flags
-	inMenu       bool
-	inGame       bool
-	inCrafting   bool
-	inPluginUI   bool
-	inSkinEditor bool
+	// Game state (using StateManager)
+	stateManager *ui.StateManager
 	CreativeMode bool
 
 	// Command system
@@ -606,9 +602,9 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 
 	log.Printf("Survival systems initialized: Equipment slots filled, wings equipped, HUD ready")
 
-	// Start in game mode (no menu)
-	g.inMenu = false
-	g.inGame = true
+	// Start in game mode using StateManager
+	g.stateManager = ui.NewStateManager()
+	g.stateManager.SetState(ui.StateGame)
 
 	return g
 }
@@ -626,60 +622,63 @@ func (g *Game) Update() error {
 	// Update play time statistics
 	g.TotalPlayTime += time.Duration(deltaTime * float64(time.Second))
 
+	// Use StateManager for modal handling
+	state := g.stateManager.GetState()
+
 	// Handle crafting UI
-	if g.inCrafting {
+	if state == ui.StateCrafting {
 		if err := g.craftingUI.Update(); err != nil {
 			return err
 		}
 
 		// Handle escape to close crafting
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-			g.inCrafting = false
+			g.stateManager.SetState(ui.StateGame)
 		}
 		return nil
 	}
 
 	// Handle backpack UI
-	if g.backpackUI.IsOpen() {
+	if state == ui.StateBackpack {
 		if err := g.backpackUI.Update(); err != nil {
 			return err
 		}
 
 		// Handle escape to close backpack
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-			g.backpackUI.Toggle()
+			g.stateManager.SetState(ui.StateGame)
 		}
 		return nil
 	}
 
 	// Handle chest UI
-	if g.chestUI != nil && g.chestUI.IsOpen() {
+	if state == ui.StateChest {
 		if err := g.chestUI.Update(); err != nil {
 			return err
 		}
 
 		// Handle escape to close chest
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-			g.chestUI.Close()
+			g.stateManager.SetState(ui.StateGame)
 		}
 		return nil
 	}
 
 	// Handle plugin UI
-	if g.inPluginUI {
+	if state == ui.StatePluginUI {
 		if err := g.pluginUI.Update(); err != nil {
 			return err
 		}
 
 		// Handle escape to close plugin UI
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-			g.inPluginUI = false
+			g.stateManager.SetState(ui.StateGame)
 		}
 		return nil
 	}
 
 	// Handle skin editor
-	if g.inSkinEditor {
+	if state == ui.StateSkinEditor {
 		if err := g.skinEditor.Update(); err != nil {
 			log.Printf("Skin editor update error: %v", err)
 		}
@@ -690,15 +689,14 @@ func (g *Game) Update() error {
 			if err := g.skinEditor.SaveSkin(); err != nil {
 				log.Printf("Failed to save skin on exit: %v", err)
 			}
-			g.inSkinEditor = false
-			g.inGame = true
+			g.stateManager.SetState(ui.StateGame)
 			g.playUISound("close")
 		}
 		return nil
 	}
 
 	// Handle death screen
-	if g.deathScreen != nil && g.deathScreen.IsActive() {
+	if state == ui.StateDeathScreen {
 		if err := g.deathScreen.Update(); err != nil {
 			return err
 		}
@@ -707,7 +705,7 @@ func (g *Game) Update() error {
 	}
 
 	// Handle game state
-	if g.inGame {
+	if state == ui.StateGame {
 		g.handleGameInput()
 
 		// Update player with delta time (framerate-independent)
@@ -898,7 +896,7 @@ func (g *Game) handleGameInput() {
 	// Open crafting menu
 	if g.inputManager.IsActionJustPressed("crafting") {
 		g.playUISound("open")
-		g.inCrafting = true
+		g.stateManager.SetState(ui.StateCrafting)
 		g.craftingUI.Toggle()
 	}
 
@@ -906,18 +904,22 @@ func (g *Game) handleGameInput() {
 	if g.inputManager.IsActionJustPressed("inventory") {
 		g.playUISound("open")
 		g.backpackUI.Toggle()
+		if g.backpackUI.IsOpen() {
+			g.stateManager.SetState(ui.StateBackpack)
+		} else {
+			g.stateManager.SetState(ui.StateGame)
+		}
 	}
 
 	// Open plugin manager (P key)
 	if inpututil.IsKeyJustPressed(ebiten.KeyP) {
-		g.inPluginUI = true
-		g.inGame = false
+		g.stateManager.SetState(ui.StatePluginUI)
 		g.playUISound("open")
 	}
 
 	// Open skin editor (S key) - in creative mode
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) && g.CreativeMode && !g.inSkinEditor {
-		g.inSkinEditor = true
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) && g.CreativeMode && state != ui.StateSkinEditor {
+		g.stateManager.SetState(ui.StateSkinEditor)
 		g.playUISound("open")
 	}
 
@@ -1348,7 +1350,7 @@ func (g *Game) interactWithStation() {
 
 		// Found a station, set it and open UI
 		g.craftingUI.SetStation(station)
-		g.inCrafting = true
+		g.stateManager.SetState(ui.StateCrafting)
 		g.craftingUI.Toggle()
 		return // Only interact with the first found station
 	}
@@ -1356,7 +1358,7 @@ func (g *Game) interactWithStation() {
 	// No station found, open general crafting
 	g.craftingUI.SetStation(crafting.STATION_NONE)
 	g.CurrentCraftingStation = "" // Reset to no station
-	g.inCrafting = true
+	g.stateManager.SetState(ui.StateCrafting)
 	g.craftingUI.Toggle()
 }
 
@@ -1841,7 +1843,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Panic recovery for rendering - prevents crash from bad frame
 	defer g.recoveryHandler.Recover()
 
-	if g.inCrafting {
+	state := g.stateManager.GetState()
+
+	if state == ui.StateCrafting {
 		// Draw game in background
 		g.drawGameScene(screen)
 		// Draw crafting UI overlay
@@ -1849,7 +1853,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	if g.backpackUI.IsOpen() {
+	if state == ui.StateBackpack {
 		// Draw game in background
 		g.drawGameScene(screen)
 		// Draw backpack UI overlay
@@ -1857,7 +1861,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	if g.chestUI != nil && g.chestUI.IsOpen() {
+	if state == ui.StateChest {
 		// Draw game in background
 		g.drawGameScene(screen)
 		// Draw chest UI overlay
@@ -1865,7 +1869,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	if g.inPluginUI {
+	if state == ui.StatePluginUI {
 		// Draw game in background
 		g.drawGameScene(screen)
 		// Draw plugin UI overlay
@@ -1873,13 +1877,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	if g.inSkinEditor {
+	if state == ui.StateSkinEditor {
 		// Draw skin editor (full screen)
 		g.skinEditor.Draw(screen)
 		return
 	}
 
-	if g.inGame {
+	if state == ui.StateGame {
 		g.drawGameScene(screen)
 		g.drawUI(screen)
 		g.drawDebugInfo(screen)
