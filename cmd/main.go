@@ -21,6 +21,7 @@ import (
 	"tesselbox/pkg/blocks"
 	"tesselbox/pkg/chest"
 	"tesselbox/pkg/combat"
+	"tesselbox/pkg/config"
 	"tesselbox/pkg/crafting"
 	"tesselbox/pkg/debug"
 	"tesselbox/pkg/dimension"
@@ -59,24 +60,14 @@ func getTesselboxDir() string {
 // initTesselboxStorage creates the .tesselbox directory structure on startup
 // This ensures all subdirectories exist when running on a new device
 func initTesselboxStorage() error {
-	tesselboxDir := getTesselboxDir()
-
-	// Create all necessary subdirectories
-	dirs := []string{
-		tesselboxDir,                           // ~/.tesselbox
-		filepath.Join(tesselboxDir, "worlds"),  // ~/.tesselbox/worlds
-		filepath.Join(tesselboxDir, "saves"),   // ~/.tesselbox/saves
-		filepath.Join(tesselboxDir, "skins"),   // ~/.tesselbox/skins
-		filepath.Join(tesselboxDir, "plugins"), // ~/.tesselbox/plugins
+	if err := config.EnsureDirectories(); err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
 	}
-
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", dir, err)
-		}
+	pluginsDir := filepath.Join(config.GetTesselboxDir(), "plugins")
+	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create plugins directory: %w", err)
 	}
-
-	log.Printf("Tesselbox storage initialized: %s", tesselboxDir)
+	log.Printf("Tesselbox storage initialized: %s", config.GetTesselboxDir())
 	return nil
 }
 
@@ -422,7 +413,7 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	g.soundLibrary = audio.NewSoundLibrary(g.audioManager)
 
 	// Initialize panic recovery handler
-	g.recoveryHandler = debug.NewRecoveryHandler(getTesselboxDir(), func(info debug.PanicInfo) {
+	g.recoveryHandler = debug.NewRecoveryHandler(config.GetTesselboxDir(), func(info debug.PanicInfo) {
 		log.Printf("Recovered from panic: %s", info.Message)
 		// Attempt emergency save
 		g.recoveryHandler.TryEmergencySave(func() error {
@@ -606,7 +597,7 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	log.Printf("Layer system initialized: surface=0, middle=1, back=2")
 
 	// Initialize dimension system
-	storageDir := filepath.Join(getTesselboxDir(), "saves", worldName)
+	storageDir := config.GetWorldSaveDir(worldName)
 	g.dimensionManager = dimension.NewManager(g.world, storageDir)
 	if err := g.dimensionManager.Load(); err != nil {
 		log.Printf("No saved dimension state found, starting fresh: %v", err)
@@ -3535,7 +3526,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					delete(m.worldSeeds, worldToDelete)
 
 					// Try to delete from disk
-					worldDir := filepath.Join(getTesselboxDir(), "worlds", worldToDelete)
+					worldDir := filepath.Join(config.GetWorldsDir(), worldToDelete)
 					os.RemoveAll(worldDir)
 
 					// Reset cursor if needed
@@ -4179,8 +4170,7 @@ func listWorldsCLI() {
 	fmt.Println("Available worlds:")
 
 	// Check tesselbox directory
-	tesselboxDir := getTesselboxDir()
-	worldDir := filepath.Join(tesselboxDir, "worlds")
+	worldDir := config.GetWorldsDir()
 	if _, err := os.Stat(worldDir); os.IsNotExist(err) {
 		fmt.Println("No worlds found")
 		return
@@ -4214,8 +4204,7 @@ func createWorldCLI() {
 	fmt.Printf("Creating world: %s\n", worldName)
 
 	// Create world directory
-	tesselboxDir := getTesselboxDir()
-	worldDir := filepath.Join(tesselboxDir, "worlds", worldName)
+	worldDir := filepath.Join(config.GetWorldsDir(), worldName)
 	if err := os.MkdirAll(worldDir, 0755); err != nil {
 		fmt.Printf("Error creating world: %v\n", err)
 		return
@@ -4234,8 +4223,7 @@ func deleteWorldCLI() {
 	fmt.Printf("Deleting world: %s\n", worldName)
 
 	// Delete world directory
-	tesselboxDir := getTesselboxDir()
-	worldDir := filepath.Join(tesselboxDir, "worlds", worldName)
+	worldDir := filepath.Join(config.GetWorldsDir(), worldName)
 	if err := os.RemoveAll(worldDir); err != nil {
 		fmt.Printf("Error deleting world: %v\n", err)
 		return

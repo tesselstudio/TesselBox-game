@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"gopkg.in/yaml.v3"
+	"tesselbox/pkg/config"
 )
 
 // Settings holds all game configuration
@@ -72,8 +73,7 @@ type Manager struct {
 // NewManager creates a settings manager with the given config directory
 func NewManager(configDir string) *Manager {
 	if configDir == "" {
-		home, _ := os.UserHomeDir()
-		configDir = filepath.Join(home, ".tesselbox")
+		configDir = config.GetTesselboxDir()
 	}
 
 	return &Manager{

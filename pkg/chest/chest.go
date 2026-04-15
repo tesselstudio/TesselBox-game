@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"tesselbox/pkg/config"
 	"tesselbox/pkg/items"
 )
 
@@ -32,11 +33,7 @@ type ChestManager struct {
 // NewChestManager creates a new chest manager
 func NewChestManager(worldName string) *ChestManager {
 	// Get user home directory
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "."
-	}
-	filePath := filepath.Join(home, ".tesselbox", "saves", worldName, "chests.json")
+	filePath := config.GetChestFile(worldName)
 
 	return &ChestManager{
 		chests:   make(map[string]*ChestInventory),
