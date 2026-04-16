@@ -11,7 +11,7 @@ import (
 )
 
 // Settings holds all game configuration
-// Auto-saved to ~/.tesselbox/settings.yaml
+// Auto-saved to system storage settings.yaml
 type Settings struct {
 	// Audio settings
 	Volume float64 `yaml:"volume"`
