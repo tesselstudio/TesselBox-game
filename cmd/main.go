@@ -192,8 +192,10 @@ type Game struct {
 	weatherSystem *weather.WeatherSystem
 
 	// Audio system
-	audioManager *audio.AudioManager
-	soundLibrary *audio.SoundLibrary
+	audioManager      *audio.AudioManager
+	soundLibrary      *audio.SoundLibrary
+	currentMusicTrack string
+	musicEnabled      bool
 
 	// Debug/Panic recovery
 	recoveryHandler *debug.RecoveryHandler
@@ -434,6 +436,10 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 
 	// Initialize sound library
 	g.soundLibrary.InitializeDefaultSounds()
+
+	// Initialize background music
+	g.musicEnabled = true
+	g.currentMusicTrack = ""
 
 	// Validate audio system
 	loadedSounds := g.audioManager.GetLoadedSounds()
@@ -775,6 +781,9 @@ func (g *Game) Update() error {
 
 		// Update audio system (clean up finished sounds)
 		g.audioManager.Update()
+
+		// Handle background music
+		g.updateBackgroundMusic()
 
 		// Handle footstep sounds
 		g.handleFootstepAudio()
@@ -3259,6 +3268,61 @@ func (g *Game) playCraftingSound(action string) {
 // playMusic plays background music based on context
 func (g *Game) playMusic(context string) {
 	g.soundLibrary.PlayMusic(context)
+}
+
+// updateBackgroundMusic checks and restarts music if it stopped
+func (g *Game) updateBackgroundMusic() {
+	if !g.musicEnabled {
+		return
+	}
+
+	// Check if music is still playing
+	playingSounds := g.audioManager.GetPlayingSounds()
+	musicPlaying := false
+	for _, sound := range playingSounds {
+		if sound == g.currentMusicTrack {
+			musicPlaying = true
+			break
+		}
+	}
+
+	// If music stopped, restart it
+	if !musicPlaying {
+		// Determine context
+		context := "gameplay"
+		if g.player.Y < 0 {
+			context = "gameplay" // Will select underground music
+		}
+		if g.CreativeMode {
+			context = "creative"
+		}
+
+		// Get the track for this context
+		var track string
+		switch context {
+		case "creative":
+			track = string(audio.MusicCreative)
+		case "menu":
+			track = string(audio.MusicMenu)
+		default:
+			if g.player.Y < -500 {
+				track = string(audio.MusicUnderground)
+			} else if g.dayNightCycle != nil {
+				timeOfDay := g.dayNightCycle.GetCurrentTimeOfDay()
+				if timeOfDay == gametime.Dusk || timeOfDay == gametime.Night || timeOfDay == gametime.Midnight {
+					track = string(audio.MusicNight)
+				} else {
+					track = string(audio.MusicGameplay)
+				}
+			} else {
+				track = string(audio.MusicGameplay)
+			}
+		}
+
+		// Play the music
+		g.currentMusicTrack = track
+		g.audioManager.PlaySound(track)
+	}
 }
 
 // updateAudioContext updates the audio context based on game state
