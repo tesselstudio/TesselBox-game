@@ -11,6 +11,22 @@ import (
 	"tesselbox/pkg/player"
 )
 
+const (
+	// Zombie uses same physics as player
+	ZombieSpeed  = 300.0 // Same as player
+	ZombieJump   = -8.0  // Same as player jump force
+	Friction     = 0.85
+	TerminalVelX = 300.0
+	TerminalVelY = 1200.0
+
+	// Same dimensions as player
+	ZombieWidth  = 50.0
+	ZombieHeight = 50.0
+
+	// Attack with weapon-like behavior (like player)
+	AttackRange = 60.0
+)
+
 // ZombieType represents different zombie variants
 type ZombieType int
 
@@ -21,7 +37,7 @@ const (
 	ZombieTank
 )
 
-// Zombie represents a hostile undead enemy
+// Zombie represents a hostile undead enemy - looks and moves like player but green
 type Zombie struct {
 	ID     string
 	Type   ZombieType
@@ -30,14 +46,14 @@ type Zombie struct {
 	Width  float64
 	Height float64
 
-	// Combat stats
+	// Combat stats - player-like
 	Health         float64
 	MaxHealth      float64
 	Damage         float64
 	Speed          float64
 	AttackRange    float64
-	AttackCooldown time.Duration
 	LastAttack     time.Time
+	AttackCooldown time.Duration
 
 	// AI state
 	Target    *player.Player
@@ -46,11 +62,18 @@ type Zombie struct {
 	IsBurning bool
 	IsAlive   bool
 
+	// Movement state like player
+	OnGround    bool
+	Jumping     bool
+	MovingLeft  bool
+	MovingRight bool
+
 	// Light sensitivity
 	LightDamageRate float64 // Damage per second when in light
 
-	// Physics state (same as player)
-	OnGround bool // For gravity/collision
+	// Animation
+	IsAttacking bool
+	AttackTime  time.Time
 }
 
 // ZombieState represents AI states
@@ -206,16 +229,15 @@ func (zs *ZombieSpawner) spawnZombieEverywhere(playerX, playerY float64, worldSp
 	return nil // Could not find valid spawn
 }
 
-// NewZombie creates a new zombie - decaying version of player
+// NewZombie creates a new zombie - green version of player
 func NewZombie(id int, ztype ZombieType, x, y float64) *Zombie {
-	// Zombies are same size as player - 50x50 cubes
 	zombie := &Zombie{
 		ID:              fmt.Sprintf("zombie_%d", id),
 		Type:            ztype,
 		X:               x,
 		Y:               y,
-		Width:           50, // Same as player
-		Height:          50, // Same as player (square cube)
+		Width:           ZombieWidth,  // Same as player
+		Height:          ZombieHeight, // Same as player
 		VX:              0,
 		VY:              0,
 		SpawnTime:       time.Now(),
@@ -223,52 +245,63 @@ func NewZombie(id int, ztype ZombieType, x, y float64) *Zombie {
 		LightDamageRate: 10.0,
 		State:           ZombieIdle,
 		OnGround:        false,
+		MovingLeft:      false,
+		MovingRight:     false,
+		Jumping:         false,
+		IsAttacking:     false,
 	}
 
-	// Set stats based on type - slower than player, same size
+	// Set stats based on type - player-like speeds
 	switch ztype {
 	case ZombieNormal:
 		zombie.MaxHealth = 20
 		zombie.Health = 20
 		zombie.Damage = 5
-		zombie.Speed = 60 // Slower than player (300)
-		zombie.AttackRange = 50
-		zombie.AttackCooldown = 1 * time.Second
+		zombie.Speed = ZombieSpeed // Same as player
+		zombie.AttackRange = AttackRange
+		zombie.AttackCooldown = 800 * time.Millisecond
 	case ZombieFast:
 		zombie.MaxHealth = 15
 		zombie.Health = 15
 		zombie.Damage = 3
-		zombie.Speed = 120 // Still slower than player
-		zombie.AttackRange = 50
-		zombie.AttackCooldown = 800 * time.Millisecond
+		zombie.Speed = ZombieSpeed * 1.2 // Slightly faster
+		zombie.AttackRange = AttackRange
+		zombie.AttackCooldown = 500 * time.Millisecond
 	case ZombieStrong:
 		zombie.MaxHealth = 30
 		zombie.Health = 30
 		zombie.Damage = 10
-		zombie.Speed = 40
-		zombie.AttackRange = 60
-		zombie.AttackCooldown = 1200 * time.Millisecond
+		zombie.Speed = ZombieSpeed * 0.8 // Slower but stronger
+		zombie.AttackRange = AttackRange * 1.2
+		zombie.AttackCooldown = 1000 * time.Millisecond
 	case ZombieTank:
 		zombie.MaxHealth = 50
 		zombie.Health = 50
 		zombie.Damage = 6
-		zombie.Speed = 30
-		zombie.AttackRange = 55
+		zombie.Speed = ZombieSpeed * 0.6 // Slow but tanky
+		zombie.AttackRange = AttackRange
 		zombie.AttackCooldown = 1500 * time.Millisecond
 	}
 
 	return zombie
 }
 
-// Update updates the zombie AI and state
+// Update updates the zombie AI with player-like physics
 func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight float64, damageCallback DamageCallback) {
 	if !z.IsAlive {
 		return
 	}
 
+	// Clamp delta time to prevent physics issues
+	if deltaTime > 0.1 {
+		deltaTime = 0.1
+	}
+	if deltaTime < 0.001 {
+		deltaTime = 0.001
+	}
+
 	// Check if zombie is in light - zombies die in light
 	if ambientLight > 0.4 {
-		// Take damage from light
 		damage := z.LightDamageRate * deltaTime
 		z.Health -= damage
 		z.IsBurning = true
@@ -288,65 +321,52 @@ func (z *Zombie) Update(deltaTime float64, player *player.Player, ambientLight f
 	// Calculate distance to player
 	dist := distance(z.X, z.Y, player.X, player.Y)
 
-	// Apply gravity (same as player) - zombies fall
-	const Gravity = 2.0
-	const Friction = 0.85
-	const TerminalVelY = 1200.0
-
-	z.VY += Gravity * deltaTime * 60.0
-	if z.VY > TerminalVelY {
-		z.VY = TerminalVelY
-	}
-
-	// AI behavior - hex grid aligned movement (no diagonal/angled movement)
+	// AI behavior - like player controlling with keyboard
 	switch z.State {
 	case ZombieIdle:
+		z.MovingLeft = false
+		z.MovingRight = false
 		if dist < 500 { // Detection range
 			z.State = ZombieChasing
 			z.Target = player
 		}
 
 	case ZombieChasing:
+		z.MovingLeft = false
+		z.MovingRight = false
 		if dist > 600 {
 			z.State = ZombieIdle
 			z.Target = nil
 		} else if dist < z.AttackRange {
 			z.State = ZombieAttacking
 		} else {
-			// Move towards player on hex grid - only left/right (no angled movement)
-			z.moveTowardsPlayerHex(player.X, deltaTime)
+			// Move towards player - player-like control
+			z.moveTowardsPlayer(player, dist, deltaTime)
 		}
 
 	case ZombieAttacking:
 		if dist > z.AttackRange*1.2 {
 			z.State = ZombieChasing
 		} else {
-			// Attack player
+			// Attack like player with weapon
 			if time.Since(z.LastAttack) > z.AttackCooldown {
 				z.attack(player, damageCallback)
 			}
 		}
+		z.MovingLeft = false
+		z.MovingRight = false
 
 	case ZombieBurning:
-		// Still try to attack player while burning
-		if dist < z.AttackRange && time.Since(z.LastAttack) > z.AttackCooldown {
-			z.attack(player, damageCallback)
-		}
-		// Panic movement - but still hex-aligned
-		z.VX += (rand.Float64() - 0.5) * z.Speed * 2 * deltaTime
+		// Panic but still move towards player
+		z.moveTowardsPlayer(player, dist, deltaTime)
 	}
+
+	// Apply player-like physics
+	z.applyPlayerPhysics(deltaTime)
 
 	// Apply velocity
 	z.X += z.VX * deltaTime
 	z.Y += z.VY * deltaTime
-
-	// Apply friction
-	z.VX *= Friction
-
-	// Stop very small movements
-	if z.VX > -0.1 && z.VX < 0.1 {
-		z.VX = 0
-	}
 }
 
 // UpdateWithCollision updates zombie position with collision detection
@@ -408,33 +428,73 @@ func (z *Zombie) UpdateWithCollision(deltaTime float64, checkCollision func(floa
 	}
 }
 
-// moveTowardsPlayerHex moves zombie towards player on hex grid (only horizontal)
-// Zombies move left/right like players, falling with gravity, no diagonal/angled movement
-func (z *Zombie) moveTowardsPlayerHex(playerX float64, deltaTime float64) {
-	dx := playerX - z.X
+// moveTowardsPlayer moves towards player with player-like controls
+func (z *Zombie) moveTowardsPlayer(player *player.Player, dist float64, deltaTime float64) {
+	dx := player.X - z.X
 
-	// Only move horizontally on hex grid - no angled movement
-	if math.Abs(dx) > 5 { // Small threshold to prevent jitter
-		// Accelerate towards player
+	// Player-like movement - left/right
+	if math.Abs(dx) > 5 {
 		if dx > 0 {
-			z.VX += z.Speed * deltaTime * 10 // Move right
+			z.MovingRight = true
+			z.MovingLeft = false
+			z.VX += z.Speed * deltaTime * 10
 		} else {
-			z.VX -= z.Speed * deltaTime * 10 // Move left
+			z.MovingLeft = true
+			z.MovingRight = false
+			z.VX -= z.Speed * deltaTime * 10
 		}
 
 		// Clamp velocity
-		const TerminalVelX = 300.0
 		if z.VX > TerminalVelX {
 			z.VX = TerminalVelX
 		} else if z.VX < -TerminalVelX {
 			z.VX = -TerminalVelX
 		}
+	} else {
+		z.MovingLeft = false
+		z.MovingRight = false
+	}
+
+	// Jump if player is above and can jump
+	dy := player.Y - z.Y
+	if dy < -30 && z.OnGround && !z.Jumping {
+		z.VY = ZombieJump
+		z.Jumping = true
+		z.OnGround = false
 	}
 }
 
-// attack performs an attack on the player
+// applyPlayerPhysics applies player-like physics to zombie
+func (z *Zombie) applyPlayerPhysics(deltaTime float64) {
+	// Apply acceleration from movement state
+	if z.MovingLeft {
+		z.VX -= z.Speed * deltaTime * 10
+	} else if z.MovingRight {
+		z.VX += z.Speed * deltaTime * 10
+	} else {
+		// Apply friction for smooth stopping
+		z.VX *= Friction
+	}
+
+	// Apply gravity
+	z.VY += 2.0 * deltaTime * 60.0
+	if z.VY > TerminalVelY {
+		z.VY = TerminalVelY
+	}
+
+	// Stop very small movements to prevent jitter
+	if !z.MovingLeft && !z.MovingRight && z.VX > -0.1 && z.VX < 0.1 {
+		z.VX = 0
+	}
+}
+
+// attack performs a player-like weapon attack on the player
 func (z *Zombie) attack(player *player.Player, callback DamageCallback) {
 	z.LastAttack = time.Now()
+	z.IsAttacking = true
+	z.AttackTime = time.Now()
+
+	// Deal damage to player (like player hitting with weapon)
 	player.TakeDamage(z.Damage)
 	if callback != nil {
 		callback(z.Damage, z.X, z.Y)

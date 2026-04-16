@@ -32,7 +32,7 @@ type ChestManager struct {
 
 // NewChestManager creates a new chest manager
 func NewChestManager(worldName string) *ChestManager {
-	// Get user home directory
+	// Get chest file path from config
 	filePath := config.GetChestFile(worldName)
 
 	return &ChestManager{

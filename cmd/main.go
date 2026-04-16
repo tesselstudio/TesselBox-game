@@ -47,17 +47,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
-// getTesselboxDir returns the user's home directory .tesselbox folder
+// getTesselboxDir returns the storage directory
 func getTesselboxDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		// Fallback to current directory if home dir can't be found
-		return ".tesselbox"
-	}
-	return filepath.Join(home, ".tesselbox")
+	return config.GetTesselboxDir()
 }
 
-// initTesselboxStorage creates the .tesselbox directory structure on startup
+// initTesselboxStorage creates the storage directory structure on startup
 // This ensures all subdirectories exist when running on a new device
 func initTesselboxStorage() error {
 	if err := config.EnsureDirectories(); err != nil {
@@ -584,7 +579,7 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	// Create loading screen for dimension generation
 	g.loadingScreen = ui.NewLoadingScreen(ScreenWidth, ScreenHeight)
 	g.deathScreen.OnMainMenu = func() {
-		g.returnToMainMenu()
+		g.stateManager.SetState(ui.StateMenu)
 	}
 
 	// Initialize layer system (surface=0, middle=1, back=2)
@@ -918,7 +913,7 @@ func (g *Game) handleGameInput() {
 	}
 
 	// Open skin editor (S key) - in creative mode
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) && g.CreativeMode && state != ui.StateSkinEditor {
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) && g.CreativeMode && g.stateManager.GetState() != ui.StateSkinEditor {
 		g.stateManager.SetState(ui.StateSkinEditor)
 		g.playUISound("open")
 	}
@@ -2715,42 +2710,38 @@ func (g *Game) drawZombies(screen *ebiten.Image) {
 			continue
 		}
 
-		// Calculate decaying-green color based on zombie type and burning state
+		// Green version of player (like player but green skin)
 		var bodyColor, headColor, armColor, legColor color.RGBA
 		if zombie.IsBurning {
-			// Burning zombies are orange/red
+			// Burning - orange like fire
 			bodyColor = color.RGBA{255, 100, 50, 255}
 			headColor = color.RGBA{255, 120, 60, 255}
 			armColor = color.RGBA{255, 100, 50, 255}
 			legColor = color.RGBA{200, 80, 40, 255}
 		} else {
-			// Decaying-green version of player colors
+			// Green version of player (like player but green skin)
+			bodyColor = color.RGBA{75, 118, 60, 255}   // Green shirt
+			headColor = color.RGBA{120, 200, 100, 255} // Green skin
+			armColor = color.RGBA{75, 118, 60, 255}    // Green arms
+			legColor = color.RGBA{50, 80, 40, 255}     // Green pants
+
+			// Different shades for zombie variants
 			switch zombie.Type {
-			case enemies.ZombieNormal:
-				bodyColor = color.RGBA{60, 120, 60, 255}  // Decaying green body
-				headColor = color.RGBA{100, 180, 80, 255} // Lighter green head
-				armColor = color.RGBA{60, 120, 60, 255}   // Same as body
-				legColor = color.RGBA{40, 80, 40, 255}    // Darker green pants
 			case enemies.ZombieFast:
-				bodyColor = color.RGBA{80, 140, 60, 255}  // Lighter decaying green
-				headColor = color.RGBA{120, 200, 80, 255} // Brighter green head
-				armColor = color.RGBA{80, 140, 60, 255}   // Same as body
-				legColor = color.RGBA{50, 100, 40, 255}   // Darker green
+				bodyColor = color.RGBA{100, 160, 80, 255}  // Lighter green
+				headColor = color.RGBA{150, 220, 120, 255} // Brighter green skin
+				armColor = color.RGBA{100, 160, 80, 255}
+				legColor = color.RGBA{70, 110, 50, 255}
 			case enemies.ZombieStrong:
-				bodyColor = color.RGBA{50, 100, 50, 255} // Darker decaying green
-				headColor = color.RGBA{80, 140, 70, 255} // Muted green head
-				armColor = color.RGBA{50, 100, 50, 255}  // Same as body
-				legColor = color.RGBA{30, 60, 30, 255}   // Very dark green
+				bodyColor = color.RGBA{60, 100, 50, 255}  // Darker green
+				headColor = color.RGBA{100, 160, 80, 255} // Darker green skin
+				armColor = color.RGBA{60, 100, 50, 255}
+				legColor = color.RGBA{40, 70, 35, 255}
 			case enemies.ZombieTank:
-				bodyColor = color.RGBA{40, 80, 40, 255}  // Very dark decaying green
-				headColor = color.RGBA{60, 100, 50, 255} // Dark muted green head
-				armColor = color.RGBA{40, 80, 40, 255}   // Same as body
-				legColor = color.RGBA{25, 50, 25, 255}   // Darkest green
-			default:
-				bodyColor = color.RGBA{60, 120, 60, 255}
-				headColor = color.RGBA{100, 180, 80, 255}
-				armColor = color.RGBA{60, 120, 60, 255}
-				legColor = color.RGBA{40, 80, 40, 255}
+				bodyColor = color.RGBA{50, 80, 40, 255}  // Very dark green
+				headColor = color.RGBA{80, 130, 60, 255} // Dark green skin
+				armColor = color.RGBA{50, 80, 40, 255}
+				legColor = color.RGBA{30, 50, 25, 255}
 			}
 		}
 
@@ -2930,41 +2921,19 @@ func (g *Game) respawnPlayer() {
 	}
 
 	// Clear death state
-	g.isDead = false
-
-	// In hardcore mode, we might want to drop inventory or reset progress
-	// For now, just respawn with current inventory
-
-	log.Printf("Player respawned at (%.0f, %.0f)", g.player.X, g.player.Y)
-}
-
-// returnToMainMenu returns the player to the main menu
-func (g *Game) returnToMainMenu() {
-	// Save game before returning to menu
-	if err := g.SaveGame(); err != nil {
-		log.Printf("Failed to save game before returning to menu: %v", err)
-	}
-
-	// Reset game state
-	g.inGame = false
-	g.inMenu = true
-	g.isDead = false
-
-	// Stop auto-save
-	g.StopAutoSave()
-
-	log.Printf("Returning to main menu")
+	g.stateManager.SetState(ui.StateGame)
 }
 
 // checkPlayerDeath checks if player has died and triggers death screen
 func (g *Game) checkPlayerDeath() {
-	if g.isDead {
+	state := g.stateManager.GetState()
+	if state == ui.StateDeathScreen {
 		return
 	}
 
 	// Check if player health is 0
 	if g.player.Health <= 0 || (g.healthSystem != nil && g.healthSystem.OverallHealth <= 0) {
-		g.isDead = true
+		g.stateManager.SetState(ui.StateDeathScreen)
 
 		// Determine cause of death
 		cause := "Unknown"
@@ -4150,8 +4119,7 @@ func startGameCLI() {
 
 	// Create game instance without GUI
 	game := NewGame()
-	game.inMenu = false
-	game.inGame = true
+	game.stateManager.SetState(ui.StateGame)
 
 	// Simple game loop
 	for {
@@ -4333,7 +4301,7 @@ func (g *Game) cleanupAudio() {
 
 // Main function
 func main() {
-	// Initialize storage directory on startup (creates ~/.tesselbox if needed)
+	// Initialize storage directory on startup (creates system storage if needed)
 	if err := initTesselboxStorage(); err != nil {
 		fmt.Printf("⚠️ Failed to initialize storage: %v\n", err)
 	}

@@ -5,13 +5,10 @@ import (
 	"path/filepath"
 )
 
-// GetTesselboxDir returns the user's .tesselbox directory
+// GetTesselboxDir returns the system's tesselbox storage directory
 func GetTesselboxDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
-	return filepath.Join(home, ".tesselbox")
+	// For system-wide storage as requested by the user
+	return "/var/lib/tesselbox"
 }
 
 // GetSavesDir returns the saves directory

@@ -67,6 +67,7 @@ logs/
 .continue/
 .claude.json
 .claude.json.backup
+.kilo/
 
 # Development tools
 .gitconfig
