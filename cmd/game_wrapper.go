@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image/color"
 	"log"
 	"time"
 
@@ -45,10 +46,11 @@ func (gw *GameWrapper) Update() error {
 
 // Draw implements ebiten.Game
 func (gw *GameWrapper) Draw(screen *ebiten.Image) {
-	// TODO: Implement drawing logic using gw.manager fields
-	// For now, this is a placeholder
-	// The actual drawing logic from the original Game.Draw() should be moved here
-	// and adapted to use gw.manager instead of g
+	// Note: GameManager is a logic-only manager without rendering
+	// The main game uses the Game struct in main.go which has full rendering
+	// This wrapper is for compatibility with the lifecycle system
+	// For now, clear screen with a message
+	screen.Fill(color.RGBA{0, 0, 0, 255})
 }
 
 // Layout implements ebiten.Game

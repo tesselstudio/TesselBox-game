@@ -225,8 +225,8 @@ func (gw *GameWrapper) Draw(screen *ebiten.Image) {
 		gw.manager.Profiler.Draw(screen)
 
 	case ui.StateMenu:
-		// Draw menu
-		// TODO: Implement menu drawing
+		// Draw menu (not implemented in this example)
+		// The main game uses MenuScene from pkg/gui/menu.go
 	}
 }
 */

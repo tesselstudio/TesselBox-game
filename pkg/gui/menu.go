@@ -606,9 +606,10 @@ func (m *MenuScene) Update() error {
 
 // handleTextInput processes text input for form fields
 func (m *MenuScene) handleTextInput(current string, maxLen int) string {
-	// Note: Ebiten v2 requires enabling soft keyboard for text input
-	// For now, this is a placeholder - full implementation requires
-	// setting up the input text buffer properly
+	// Note: Ebiten v2 requires enabling the input text buffer with ebiten.SetScreenRunnable(false)
+	// and proper IME setup for full text input support. This is a simplified version.
+	// For now, this is a placeholder - full implementation requires setting up
+	// the input text buffer properly and handling IME events.
 	return current
 }
 

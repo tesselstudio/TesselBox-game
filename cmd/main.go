@@ -439,6 +439,8 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 		// Load placeholder sounds if real audio files are missing
 		if err := loader.LoadPlaceholderSounds(); err != nil {
 			log.Printf("Warning: Failed to load placeholder sounds: %v", err)
+			// Continue without audio - game should still work
+			log.Printf("Game will continue without audio")
 		} else {
 			log.Printf("Loaded placeholder audio sounds")
 		}
@@ -2413,6 +2415,9 @@ func (g *Game) drawUI(screen *ebiten.Image) {
 		ebitenutil.DebugPrintAt(screen, tooltipText, g.mouseX+10, g.mouseY-20)
 	}
 
+	// Draw mining progress bar
+	g.drawMiningProgress(screen)
+
 	// Draw selected block info (Creative Mode)
 	if g.CreativeMode {
 		selectedBlockText := fmt.Sprintf("Selected: %s", strings.Title(g.selectedBlock))
@@ -3591,7 +3596,7 @@ func initialModel() model {
 		plugins: []PluginInfo{
 			{Name: "Minimap", Version: "1.0", Enabled: true, Description: "Shows a minimap"},
 			{Name: "Auto-Save", Version: "2.1", Enabled: true, Description: "Auto-saves every 5 minutes"},
-			{Name: "Debug Tools", Version: "0.5", Enabled: false, Description: "Developer debugging tools"},
+			{Name: "Debug Tools", Version: "0.5", Enabled: true, Description: "Developer debugging tools"},
 		},
 		selectedPlugin: 0,
 	}
