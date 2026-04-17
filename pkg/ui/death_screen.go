@@ -12,19 +12,19 @@ import (
 
 // DeathScreen represents the death screen UI
 type DeathScreen struct {
-	Active      bool
-	DeathTime   time.Time
+	Active       bool
+	DeathTime    time.Time
 	CauseOfDeath string
 	ScreenWidth  int
 	ScreenHeight int
 
 	// Button states
-	RespawnHovered   bool
-	MainMenuHovered  bool
+	RespawnHovered  bool
+	MainMenuHovered bool
 
 	// Callbacks
-	OnRespawn   func()
-	OnMainMenu  func()
+	OnRespawn  func()
+	OnMainMenu func()
 }
 
 // NewDeathScreen creates a new death screen
@@ -112,6 +112,10 @@ func (ds *DeathScreen) Draw(screen *ebiten.Image) {
 		causeText := "Cause: " + ds.CauseOfDeath
 		ebitenutil.DebugPrintAt(screen, causeText, ds.ScreenWidth/2-60, int(titleY+40))
 	}
+
+	// Draw inventory loss warning
+	warningText := "Warning: You may lose items on death"
+	ebitenutil.DebugPrintAt(screen, warningText, ds.ScreenWidth/2-90, int(titleY+70))
 
 	// Draw buttons
 	buttonWidth := 200.0

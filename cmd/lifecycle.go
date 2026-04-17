@@ -2,16 +2,9 @@ package main
 
 import (
 	"log"
-
-	"tesselbox/pkg/config"
 	"tesselbox/pkg/game"
 
 	"github.com/hajimehoshi/ebiten/v2"
-)
-
-const (
-	ScreenWidth  = 800
-	ScreenHeight = 600
 )
 
 // GameLifecycle manages the game startup and shutdown

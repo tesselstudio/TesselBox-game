@@ -35,15 +35,21 @@ go run cmd/main.go
 | W/A/S/D | Move |
 | Space | Jump |
 | Shift | Sprint |
-| F | Toggle fly (creative) |
+| F | Toggle fly (if wings equipped) |
 | LMB | Mine / Attack |
 | RMB | Place block |
 | B | Block library (creative) |
 | C | Crafting menu |
-| I | Inventory |
-| Q | Throw item |
+| E | Inventory |
+| Q | Drop item |
+| R | Interact with crafting station |
+| I | Go to deeper layer (middle → back) |
+| K | Go to surface layer (back → middle → surface) |
+| H | Toggle controls help display |
 | ESC | Menu / Close |
 | F5 | Quick save |
+| F6 | Backup save |
+| F7 | Save info (shows stats in console) |
 | F9 | Quick load |
 
 ## Development

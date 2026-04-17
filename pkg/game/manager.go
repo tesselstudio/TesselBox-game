@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image/color"
 	"log"
 	"time"
 
@@ -30,10 +31,10 @@ import (
 // GameManager coordinates all game subsystems
 type GameManager struct {
 	// Core systems
-	World          *world.World
-	Player         *player.Player
-	Inventory      *items.Inventory
-	StateManager   *ui.StateManager
+	World        *world.World
+	Player       *player.Player
+	Inventory    *items.Inventory
+	StateManager *ui.StateManager
 
 	// Crafting
 	CraftingSystem *crafting.CraftingSystem
@@ -151,26 +152,26 @@ func NewGameManager(worldName string, worldSeed int64, creativeMode bool) *GameM
 	log.Printf("Initializing GameManager for world '%s'...", worldName)
 
 	gm := &GameManager{
-		World:                  world.NewWorld(worldName),
-		Player:                 player.NewPlayer(400, 300),
-		Inventory:              items.NewInventory(32),
-		StateManager:           ui.NewStateManager(),
-		SelectedBlock:          "dirt",
-		CreativeMode:           creativeMode,
-		LastTime:               time.Now(),
-		LastFootstepTime:       time.Now(),
-		FootstepCooldown:       400 * time.Millisecond,
-		PlayStartTime:          time.Now(),
-		UnlockedRecipes:        make(map[string]bool),
-		CurrentLayer:           0,
-		DroppedItems:           make([]*DroppedItem, 0),
-		VertexPool:             make([][]ebiten.Vertex, 10),
-		IndicesPool:            make([][]uint16, 10),
+		World:            world.NewWorld(worldName),
+		Player:           player.NewPlayer(400, 300),
+		Inventory:        items.NewInventory(32),
+		StateManager:     ui.NewStateManager(),
+		SelectedBlock:    "dirt",
+		CreativeMode:     creativeMode,
+		LastTime:         time.Now(),
+		LastFootstepTime: time.Now(),
+		FootstepCooldown: 400 * time.Millisecond,
+		PlayStartTime:    time.Now(),
+		UnlockedRecipes:  make(map[string]bool),
+		CurrentLayer:     0,
+		DroppedItems:     make([]*DroppedItem, 0),
+		VertexPool:       make([][]ebiten.Vertex, 10),
+		IndicesPool:      make([][]uint16, 10),
 	}
 
 	// Initialize white image for rendering
 	gm.WhiteImage = ebiten.NewImage(1, 1)
-	gm.WhiteImage.Fill([4]uint8{255, 255, 255, 255})
+	gm.WhiteImage.Fill(color.RGBA{R: 255, G: 255, B: 255, A: 255})
 
 	// Initialize object pools
 	for i := range gm.VertexPool {
@@ -251,16 +252,16 @@ func NewGameManager(worldName string, worldSeed int64, creativeMode bool) *GameM
 	gm.BackpackUI = ui.NewBackpackUI(800, 600, gm.Inventory, gm.EquipmentSet, gm.HealthSystem)
 
 	// Initialize chest system
-	gm.ChestManager = chest.NewChestManager()
+	gm.ChestManager = chest.NewChestManager(worldName)
 
 	// Initialize combat
 	gm.WeaponSystem = combat.NewWeaponSystem()
 
 	// Initialize UI effects
-	gm.DamageIndicators = ui.NewDamageIndicatorManager()
+	gm.DamageIndicators = ui.NewDamageIndicatorManager(800, 600)
 	gm.ScreenFlash = ui.NewScreenFlash()
 	gm.DirectionalHitInd = ui.NewDirectionalHitManager()
-	gm.DeathScreen = ui.NewDeathScreen()
+	gm.DeathScreen = ui.NewDeathScreen(800, 600)
 
 	// Initialize enemy systems
 	gm.ZombieSpawner = enemies.NewZombieSpawner(gm.DayNightCycle)

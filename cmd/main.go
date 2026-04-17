@@ -286,6 +286,12 @@ type Game struct {
 
 	// Dimension system
 	dimensionManager *dimension.Manager
+
+	// Notification system for user feedback
+	notificationManager *ui.NotificationManager
+
+	// Controls display state
+	showControls bool
 }
 
 // NewGame creates a new game with default world
@@ -360,6 +366,9 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	g.craftingSystem = crafting.NewCraftingSystem()
 	if err := g.craftingSystem.LoadRecipesFromAssets(); err != nil {
 		log.Printf("Warning: Failed to load crafting recipes: %v", err)
+		if g.notificationManager != nil {
+			g.notificationManager.AddWarning("Failed to load crafting recipes")
+		}
 	}
 	g.craftingSystem.OnItemCrafted = func(recipeID string) {
 		g.ItemsCrafted++
@@ -422,8 +431,9 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 	loader := audio.NewAudioLoader(g.audioManager)
 	if err := loader.LoadAllAudio(); err != nil {
 		log.Printf("Warning: Failed to load audio files: %v", err)
-		// Clean up any partially loaded resources before loading placeholders
-		g.audioManager.Cleanup()
+		if g.notificationManager != nil {
+			g.notificationManager.AddWarning("Failed to load audio files - sound may not work")
+		}
 		// Load placeholder sounds if real audio files are missing
 		if err := loader.LoadPlaceholderSounds(); err != nil {
 			log.Printf("Warning: Failed to load placeholder sounds: %v", err)
@@ -603,6 +613,9 @@ func NewGameWithWorld(worldName string, worldSeed int64) *Game {
 
 	log.Printf("Survival systems initialized: Equipment slots filled, wings equipped, HUD ready")
 
+	// Initialize notification system
+	g.notificationManager = ui.NewNotificationManager(ScreenWidth, ScreenHeight)
+
 	// Start in game mode using StateManager
 	g.stateManager = ui.NewStateManager()
 	g.stateManager.SetState(ui.StateGame)
@@ -734,6 +747,11 @@ func (g *Game) Update() error {
 		}
 		if g.directionalHitInd != nil {
 			g.directionalHitInd.Update()
+		}
+
+		// Update notifications
+		if g.notificationManager != nil {
+			g.notificationManager.Update()
 		}
 
 		// Generate chunks around player first to ensure terrain exists for collision
@@ -925,6 +943,11 @@ func (g *Game) handleGameInput() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyS) && g.CreativeMode && g.stateManager.GetState() != ui.StateSkinEditor {
 		g.stateManager.SetState(ui.StateSkinEditor)
 		g.playUISound("open")
+	}
+
+	// Toggle controls display (H key)
+	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
+		g.showControls = !g.showControls
 	}
 
 	// Interact with crafting stations
@@ -1915,6 +1938,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if g.loadingScreen != nil && g.loadingScreen.IsVisible {
 			g.loadingScreen.Draw(screen)
 		}
+
+		// Draw notifications on top of everything
+		if g.notificationManager != nil {
+			g.notificationManager.Draw(screen)
+		}
+
+		// Draw controls display if enabled
+		if g.showControls {
+			g.drawControlsDisplay(screen)
+		}
 	}
 }
 
@@ -2334,7 +2367,15 @@ func (g *Game) drawUI(screen *ebiten.Image) {
 
 	// Draw hovered block tooltip
 	if g.hoveredBlockName != "" {
-		ebitenutil.DebugPrintAt(screen, strings.Title(g.hoveredBlockName), g.mouseX+10, g.mouseY-20)
+		blockDef := blocks.BlockDefinitions[g.hoveredBlockName]
+		tooltipText := strings.Title(g.hoveredBlockName)
+		if blockDef != nil {
+			tooltipText += fmt.Sprintf(" (Hardness: %.1f)", blockDef.Hardness)
+			if blockDef.Solid {
+				tooltipText += " [Solid]"
+			}
+		}
+		ebitenutil.DebugPrintAt(screen, tooltipText, g.mouseX+10, g.mouseY-20)
 	}
 
 	// Draw selected block info (Creative Mode)
@@ -2411,6 +2452,57 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 		timeInfo, lightInfo, weatherInfo, layerInfo, dimensionInfo)
 
 	ebitenutil.DebugPrint(screen, info)
+}
+
+// drawControlsDisplay renders the controls help overlay
+func (g *Game) drawControlsDisplay(screen *ebiten.Image) {
+	// Draw semi-transparent background
+	bgColor := color.RGBA{0, 0, 0, 200}
+	ebitenutil.DrawRect(screen, 200, 100, 880, 520, bgColor)
+
+	// Draw border
+	borderColor := color.RGBA{100, 100, 100, 255}
+	ebitenutil.DrawRect(screen, 200, 100, 880, 3, borderColor)
+	ebitenutil.DrawRect(screen, 200, 617, 880, 3, borderColor)
+	ebitenutil.DrawRect(screen, 200, 100, 3, 520, borderColor)
+	ebitenutil.DrawRect(screen, 1077, 100, 3, 520, borderColor)
+
+	// Draw title
+	ebitenutil.DebugPrintAt(screen, "CONTROLS (Press H to close)", 520, 110)
+
+	// Draw controls in columns
+	x := 220
+	y := 150
+	lineHeight := 25
+
+	controls := [][]string{
+		{"W/A/S/D", "Move"},
+		{"Space", "Jump"},
+		{"Shift", "Sprint"},
+		{"F", "Toggle fly (if wings equipped)"},
+		{"LMB", "Mine / Attack"},
+		{"RMB", "Place block"},
+		{"1-9", "Select hotbar slot"},
+		{"Q", "Drop item"},
+		{"E", "Inventory"},
+		{"C", "Crafting menu"},
+		{"R", "Interact with station"},
+		{"I", "Go to deeper layer"},
+		{"K", "Go to surface layer"},
+		{"F5", "Quick save"},
+		{"F9", "Quick load"},
+		{"F6", "Backup save"},
+		{"F7", "Save info"},
+		{"H", "Toggle this help"},
+		{"ESC", "Close menu / Back"},
+	}
+
+	for i, control := range controls {
+		key := control[0]
+		action := control[1]
+		ebitenutil.DebugPrintAt(screen, key+":", x, y+i*lineHeight)
+		ebitenutil.DebugPrintAt(screen, action, x+120, y+i*lineHeight)
+	}
 }
 
 // drawDroppedItems renders all dropped items in the world
@@ -3147,11 +3239,17 @@ func (g *Game) getUnlockedRecipesAsSlice() []string {
 // SaveGame saves the current game state
 func (g *Game) SaveGame() error {
 	if g.saveManager == nil {
+		if g.notificationManager != nil {
+			g.notificationManager.AddError("Save system not initialized")
+		}
 		return fmt.Errorf("save manager not initialized")
 	}
 
 	// Save main game state
 	if err := g.saveManager.SaveGame(g.createSaveState()); err != nil {
+		if g.notificationManager != nil {
+			g.notificationManager.AddError("Failed to save game")
+		}
 		return err
 	}
 
@@ -3159,6 +3257,9 @@ func (g *Game) SaveGame() error {
 	if g.chestManager != nil {
 		if err := g.chestManager.SaveChests(); err != nil {
 			log.Printf("Failed to save chests: %v", err)
+			if g.notificationManager != nil {
+				g.notificationManager.AddWarning("Failed to save chests")
+			}
 			return err
 		}
 	}
@@ -3171,21 +3272,44 @@ func (g *Game) SaveGame() error {
 		}
 	}
 
+	// Show success notification
+	if g.notificationManager != nil {
+		g.notificationManager.AddSuccess("Game saved successfully")
+	}
+
 	return nil
 }
 
 // LoadGame loads a game state
 func (g *Game) LoadGame() error {
 	if g.saveManager == nil {
+		if g.notificationManager != nil {
+			g.notificationManager.AddError("Save system not initialized")
+		}
 		return fmt.Errorf("save manager not initialized")
 	}
 
 	saveData, err := g.saveManager.LoadGame()
 	if err != nil {
+		if g.notificationManager != nil {
+			g.notificationManager.AddError("Failed to load game")
+		}
 		return err
 	}
 
-	return g.saveManager.ApplySaveData(saveData, g.createSaveState())
+	if err := g.saveManager.ApplySaveData(saveData, g.createSaveState()); err != nil {
+		if g.notificationManager != nil {
+			g.notificationManager.AddError("Failed to apply save data")
+		}
+		return err
+	}
+
+	// Show success notification
+	if g.notificationManager != nil {
+		g.notificationManager.AddSuccess("Game loaded successfully")
+	}
+
+	return nil
 }
 
 // StartAutoSave starts the auto-saver
@@ -3319,9 +3443,14 @@ func (g *Game) updateBackgroundMusic() {
 			}
 		}
 
-		// Play the music
-		g.currentMusicTrack = track
-		g.audioManager.PlaySound(track)
+		// Play the music (only if the track exists)
+		if g.audioManager.HasSound(track) {
+			g.currentMusicTrack = track
+			g.audioManager.PlaySound(track)
+		} else {
+			// Track doesn't exist, don't set currentMusicTrack to avoid repeated checks
+			g.currentMusicTrack = ""
+		}
 	}
 }
 

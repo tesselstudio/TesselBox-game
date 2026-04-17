@@ -34,30 +34,26 @@ func drawWorld(screen *ebiten.Image, gm *game.GameManager) {
 
 	// Draw hexagons/blocks
 	if gm.World != nil {
-		// Get visible chunks based on camera position
-		chunks := gm.World.GetChunksInRange(cameraX, cameraY)
+		// Ensure chunks are generated around camera position
+		gm.World.GetChunksInRange(cameraX, cameraY)
 
-		for _, chunk := range chunks {
-			if chunk == nil {
+		// Get visible hexagons for rendering
+		hexagons := gm.World.GetNearbyHexagons(cameraX, cameraY, 1000)
+
+		for _, hex := range hexagons {
+			if hex == nil {
 				continue
 			}
 
-			// Draw each hexagon in the chunk
-			for _, hex := range chunk.Hexagons {
-				if hex == nil {
-					continue
-				}
+			// Calculate screen position
+			screenX := hex.X - cameraX
+			screenY := hex.Y - cameraY
 
-				// Calculate screen position
-				screenX := hex.X - cameraX
-				screenY := hex.Y - cameraY
-
-				// Only draw if on screen
-				if screenX > -100 && screenX < float64(ScreenWidth)+100 &&
-					screenY > -100 && screenY < float64(ScreenHeight)+100 {
-					// Draw hexagon (implementation depends on your rendering system)
-					drawHexagon(screen, screenX, screenY, hex, gm)
-				}
+			// Only draw if on screen
+			if screenX > -100 && screenX < float64(ScreenWidth)+100 &&
+				screenY > -100 && screenY < float64(ScreenHeight)+100 {
+				// Draw hexagon (implementation depends on your rendering system)
+				drawHexagon(screen, screenX, screenY, hex, gm)
 			}
 		}
 	}

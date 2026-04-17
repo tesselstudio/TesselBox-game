@@ -6,10 +6,12 @@ import (
 	"strconv"
 	"time"
 
+	"tesselbox/pkg/config"
+
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"tesselbox/pkg/config"
 )
 
 // MenuScene represents the main menu screen using pixel art GUI
@@ -57,6 +59,12 @@ type MenuScene struct {
 
 	// Selected world data to pass to game
 	SelectedWorldData WorldSelection
+
+	// Confirmation dialog state
+	confirmDialog     bool
+	confirmAction     func()
+	confirmMessage    string
+	confirmWorldIndex int
 }
 
 // PluginInfo holds plugin information for the plugin manager
@@ -472,26 +480,32 @@ func (m *MenuScene) createWorld() {
 	m.setupMainMenu()
 }
 
-// deleteWorld removes a world from the list
+// deleteWorld shows confirmation dialog before deleting a world
 func (m *MenuScene) deleteWorld(index int) {
 	if index < 0 || index >= len(m.worlds) {
 		return
 	}
 
-	worldToDelete := m.worlds[index]
+	// Show confirmation dialog
+	m.confirmDialog = true
+	m.confirmWorldIndex = index
+	m.confirmMessage = fmt.Sprintf("Delete world '%s' and all saved data?", m.worlds[index])
+	m.confirmAction = func() {
+		worldToDelete := m.worlds[index]
 
-	// Remove from worlds slice
-	m.worlds = append(m.worlds[:index], m.worlds[index+1:]...)
+		// Remove from worlds slice
+		m.worlds = append(m.worlds[:index], m.worlds[index+1:]...)
 
-	// Remove from seeds map
-	delete(m.worldSeeds, worldToDelete)
+		// Remove from seeds map
+		delete(m.worldSeeds, worldToDelete)
 
-	// Reset cursor
-	if m.cursor >= len(m.worlds) {
-		m.cursor = 0
+		// Reset cursor
+		if m.cursor >= len(m.worlds) {
+			m.cursor = 0
+		}
+
+		m.setupMainMenu()
 	}
-
-	m.setupMainMenu()
 }
 
 // Layout implements ebiten.Game interface
@@ -501,6 +515,29 @@ func (m *MenuScene) Layout(outsideWidth, outsideHeight int) (screenWidth, screen
 
 // Update handles input and updates the menu state
 func (m *MenuScene) Update() error {
+	// Handle confirmation dialog
+	if m.confirmDialog {
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			m.confirmDialog = false
+			m.confirmAction = nil
+			return nil
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyY) {
+			if m.confirmAction != nil {
+				m.confirmAction()
+			}
+			m.confirmDialog = false
+			m.confirmAction = nil
+			return nil
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyN) {
+			m.confirmDialog = false
+			m.confirmAction = nil
+			return nil
+		}
+		return nil
+	}
+
 	// Handle quit
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		if m.currentScreen == "main" {
@@ -569,7 +606,9 @@ func (m *MenuScene) Update() error {
 
 // handleTextInput processes text input for form fields
 func (m *MenuScene) handleTextInput(current string, maxLen int) string {
-	// This is a simplified version - in production, use ebiten's input handling
+	// Note: Ebiten v2 requires enabling soft keyboard for text input
+	// For now, this is a placeholder - full implementation requires
+	// setting up the input text buffer properly
 	return current
 }
 
@@ -606,6 +645,11 @@ func (m *MenuScene) Draw(screen *ebiten.Image) {
 
 	// Draw help text
 	m.drawHelpText(screen)
+
+	// Draw confirmation dialog on top of everything
+	if m.confirmDialog {
+		m.drawConfirmDialog(screen)
+	}
 }
 
 // drawCreateWorldForm draws the world creation form
@@ -666,6 +710,36 @@ func (m *MenuScene) drawHelpText(screen *ebiten.Image) {
 	}
 
 	m.fontManager.DrawTextCentered(screen, helpText, 400, 550, ColorTextDim, "small")
+}
+
+// drawConfirmDialog draws the confirmation dialog overlay
+func (m *MenuScene) drawConfirmDialog(screen *ebiten.Image) {
+	// Draw semi-transparent overlay
+	overlayColor := color.RGBA{0, 0, 0, 180}
+	ebitenutil.DrawRect(screen, 0, 0, 800, 600, overlayColor)
+
+	// Draw dialog box
+	dialogWidth := 400.0
+	dialogHeight := 150.0
+	dialogX := (800 - dialogWidth) / 2
+	dialogY := (600 - dialogHeight) / 2
+
+	dialogColor := color.RGBA{40, 40, 50, 255}
+	ebitenutil.DrawRect(screen, dialogX, dialogY, dialogWidth, dialogHeight, dialogColor)
+
+	// Draw border
+	borderColor := ColorBorder
+	ebitenutil.DrawRect(screen, dialogX, dialogY, dialogWidth, 3, borderColor)
+	ebitenutil.DrawRect(screen, dialogX, dialogY+dialogHeight-3, dialogWidth, 3, borderColor)
+	ebitenutil.DrawRect(screen, dialogX, dialogY, 3, dialogHeight, borderColor)
+	ebitenutil.DrawRect(screen, dialogX+dialogWidth-3, dialogY, 3, dialogHeight, borderColor)
+
+	// Draw message
+	m.fontManager.DrawTextCentered(screen, "CONFIRMATION", 400, dialogY+20, ColorPrimary, "normal")
+	m.fontManager.DrawTextCentered(screen, m.confirmMessage, 400, dialogY+50, ColorText, "normal")
+
+	// Draw options
+	m.fontManager.DrawTextCentered(screen, "[Y] Yes  [N] No  [ESC] Cancel", 400, dialogY+90, ColorTextDim, "small")
 }
 
 // ShouldExit returns true if the menu should close

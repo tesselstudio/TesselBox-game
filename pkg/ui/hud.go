@@ -96,6 +96,9 @@ func (h *HUD) Draw(screen *ebiten.Image) {
 
 	// Draw body part health diagram
 	h.drawBodyPartHealth(screen)
+
+	// Draw HUD legend
+	h.drawLegend(screen, 10, float64(h.ScreenHeight)-25)
 }
 
 // drawHealthBar draws the segmented health bar
@@ -376,4 +379,10 @@ func (h *HUD) Update(screenWidth, screenHeight int) {
 		h.ScreenHeight = screenHeight
 		h.calculateLayout()
 	}
+}
+
+// drawLegend draws the HUD legend explaining abbreviations
+func (h *HUD) drawLegend(screen *ebiten.Image, x, y float64) {
+	legendText := "HU: Hunger  TH: Thirst  ST: Stamina"
+	ebitenutil.DebugPrintAt(screen, legendText, int(x), int(y))
 }
