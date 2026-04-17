@@ -45,12 +45,16 @@ go run cmd/main.go
 | R | Interact with crafting station |
 | I | Go to deeper layer (middle → back) |
 | K | Go to surface layer (back → middle → surface) |
+| M | Toggle music |
+| P | Open plugin manager |
 | H | Toggle controls help display |
 | ESC | Menu / Close |
 | F5 | Quick save |
 | F6 | Backup save |
 | F7 | Save info (shows stats in console) |
 | F9 | Quick load |
+| F11 | Toggle profiler (debug) |
+| F12 | Toggle debug info display |
 
 ## Development
 

@@ -291,7 +291,9 @@ type Game struct {
 	notificationManager *ui.NotificationManager
 
 	// Controls display state
-	showControls bool
+	showControls  bool
+	showDebugInfo bool
+	showProfiler  bool
 }
 
 // NewGame creates a new game with default world
@@ -948,6 +950,35 @@ func (g *Game) handleGameInput() {
 	// Toggle controls display (H key)
 	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
 		g.showControls = !g.showControls
+	}
+
+	// Toggle debug info display (F12 key)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+		g.showDebugInfo = !g.showDebugInfo
+	}
+
+	// Toggle music mute (M key)
+	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
+		g.musicEnabled = !g.musicEnabled
+		if g.notificationManager != nil {
+			if g.musicEnabled {
+				g.notificationManager.AddInfo("Music enabled")
+			} else {
+				g.notificationManager.AddInfo("Music muted")
+			}
+		}
+	}
+
+	// Toggle profiler (F11 key)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
+		g.showProfiler = !g.showProfiler
+		if g.notificationManager != nil {
+			if g.showProfiler {
+				g.notificationManager.AddInfo("Profiler enabled")
+			} else {
+				g.notificationManager.AddInfo("Profiler disabled")
+			}
+		}
 	}
 
 	// Interact with crafting stations
@@ -1913,7 +1944,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if state == ui.StateGame {
 		g.drawGameScene(screen)
 		g.drawUI(screen)
-		g.drawDebugInfo(screen)
+		if g.showDebugInfo {
+			g.drawDebugInfo(screen)
+		}
 
 		// Draw damage indicators (on top of everything)
 		if g.damageIndicators != nil {
@@ -1932,7 +1965,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 
 		// Draw profiler overlay (if enabled)
-		g.profiler.Draw(screen)
+		if g.showProfiler {
+			g.profiler.Draw(screen)
+		}
 
 		// Draw loading screen on top of everything (when active)
 		if g.loadingScreen != nil && g.loadingScreen.IsVisible {
@@ -2489,10 +2524,13 @@ func (g *Game) drawControlsDisplay(screen *ebiten.Image) {
 		{"R", "Interact with station"},
 		{"I", "Go to deeper layer"},
 		{"K", "Go to surface layer"},
+		{"M", "Toggle music"},
 		{"F5", "Quick save"},
-		{"F9", "Quick load"},
 		{"F6", "Backup save"},
 		{"F7", "Save info"},
+		{"F9", "Quick load"},
+		{"F11", "Toggle profiler"},
+		{"F12", "Toggle debug info"},
 		{"H", "Toggle this help"},
 		{"ESC", "Close menu / Back"},
 	}
